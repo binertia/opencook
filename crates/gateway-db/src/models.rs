@@ -54,3 +54,43 @@ pub struct ApiKey {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
+
+/// Quota definition for an organization or API key.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct Quota {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub api_key_id: Option<Uuid>,
+    pub name: String,
+    pub description: Option<String>,
+    pub metric: String,      // 'requests' | 'tokens' | 'cost_usd'
+    pub period: String,      // 'minute' | 'hour' | 'day' | 'month' | 'total'
+    pub limit_value: rust_decimal::Decimal,
+    pub warning_threshold: rust_decimal::Decimal,
+    pub applies_to: String,  // 'all' | 'api_key' | 'model' | 'provider'
+    pub scope_filter: serde_json::Value,
+    pub action: String,      // 'block' | 'warn' | 'throttle'
+    pub status: String,      // 'active' | 'inactive'
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// Quota usage record for a specific period.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct QuotaUsage {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub quota_id: Uuid,
+    pub api_key_id: Option<Uuid>,
+    pub period_start: DateTime<Utc>,
+    pub period_end: DateTime<Utc>,
+    pub current_value: rust_decimal::Decimal,
+    pub limit_value: rust_decimal::Decimal,
+    pub metric: String,
+    pub exceeded_at: Option<DateTime<Utc>>,
+    pub warned_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
