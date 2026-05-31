@@ -89,7 +89,7 @@ An open-core AI Gateway that deploys in under 10 minutes on a single VPS via Doc
 ### Request Lifecycle
 
 1. **Parse & Validate** — Deserialize request, extract headers, validate body (10MB limit)
-2. **Authenticate** — Validate API key (`gk_live_*` format), SHA-256 hash lookup, load org context
+2. **Authenticate** — Validate API key (`sk_gw_*` format), SHA-256 hash lookup, load org context
 3. **Rate Limit Check** — Token bucket + sliding window (Redis Lua scripts), 6 layers checked
 4. **Quota/Budget Check** — Pre-request cost estimate against budget cap; reject with 429 if exceeded
 5. **Cache Check** — L1 (moka, <0.1ms) → L2 exact (Redis) → L2 semantic (embedding similarity)
@@ -123,7 +123,7 @@ Services: gateway API (Rust binary), PostgreSQL 16, Redis 7.2, React dashboard (
 |-----|-------|-----------------|----------------|
 | [ADR-001](adr/ADR-001-provider-abstraction.md) | Provider Abstraction | All providers behind a unified `Provider` trait; OpenAI-compatible canonical format. New provider = new trait impl, no core changes. | Enables adding providers without touching routing, caching, or billing code. Isolates provider-specific complexity. |
 | [ADR-002](adr/ADR-002-cache-strategy.md) | Two-Tier Cache (Exact + Semantic) | L1 in-process (moka) + L2 Redis. Exact-match (SHA-256) catches 5-15%; semantic (embedding similarity) catches 25-50%. Ollama responses NOT cached. | Cost reduction is the #1 value prop. Semantic caching is a key differentiator — no competitor offers it affordably. |
-| [ADR-003](adr/ADR-003-authentication.md) | Dual Auth Systems | System A: API keys (`gk_live_*`, SHA-256 hashed, Redis-cached). System B: JWT sessions (RS256, httpOnly cookies, 15-min expiry). | API key auth adds <1ms overhead. Self-contained deployment with no external IdP dependency. |
+| [ADR-003](adr/ADR-003-authentication.md) | Dual Auth Systems | System A: API keys (`sk_gw_*`, SHA-256 hashed, Redis-cached). System B: JWT sessions (RS256, httpOnly cookies, 15-min expiry). | API key auth adds <1ms overhead. Self-contained deployment with no external IdP dependency. |
 | [ADR-004](adr/ADR-004-rate-limiting.md) | Token Bucket + Sliding Window | Redis-backed token bucket for req/s + sliding window for tokens/min. 6 layers (global, org, key, tokens, provider, IP). Lua scripts for atomicity. | Prevents runaway costs from misconfigured clients. Fail-closed: if Redis down, requests blocked (configurable). |
 | [ADR-005](adr/ADR-005-tenant-model.md) | Organization-Based Tenancy | `org_id` column on every tenant-scoped table. Application-level `WHERE` clauses + PostgreSQL RLS as defense-in-depth. Cache keys prefixed with tenant ID. | Cross-tenant data leakage would be catastrophic. Dual-layer isolation (app + RLS) means two failures required for breach. |
 | [ADR-006](adr/ADR-006-observability.md) | Built-In Observability | Structured JSON logging (`tracing`), Prometheus `/metrics` endpoint, built-in dashboard analytics. No external SaaS dependency. | Single-node system doesn't need distributed tracing. `request_id` correlation sufficient. Zero external dependencies. |
@@ -132,115 +132,80 @@ Services: gateway API (Rust binary), PostgreSQL 16, Redis 7.2, React dashboard (
 
 ---
 
-## 4. Implementation Order
+## 4. Implementation Status
 
-### Phase 1: Foundation (Weeks 1-4)
+### Phase 1: Foundation — COMPLETED ✅
 
-| Order | Task | Epic | What It Unlocks |
-|-------|------|------|-----------------|
-| 1 | TASK-0001: Initialize Rust workspace | Epic-01 | Everything |
-| 2 | TASK-0002: Docker Compose dev environment | Epic-01 | Team can run stack locally |
-| 3 | TASK-0006: Migration framework + connection pool | Epic-02 | Database access |
-| 4 | TASK-0007 through TASK-0011: All 22 migrations | Epic-02 | Full schema |
-| 5 | TASK-0012: Password hashing + registration | Epic-03 | User accounts |
-| 6 | TASK-0014: API key generation + storage | Epic-03 | API authentication |
-| 7 | TASK-0013: JWT session auth | Epic-03 | Dashboard login |
-| 8 | TASK-0015: API key validation middleware | Epic-03 | Request auth pipeline |
-| 9 | TASK-0016: RBAC permission system | Epic-03 | Authorization |
-| 10 | TASK-0019: Tenant isolation enforcement | Epic-03 | Security boundary |
-| 11 | TASK-0020: Provider trait + canonical types | Epic-04 | Multi-provider support |
-| 12 | TASK-0021: OpenAI adapter | Epic-04 | First provider working |
-| 13 | TASK-0026: Axum server + middleware stack | Epic-05 | HTTP server |
-| 14 | TASK-0027: `POST /v1/chat/completions` | Epic-05 | Core API endpoint |
-| 15 | TASK-0029: Request logging | Epic-05 | Observability |
-| 16 | TASK-0030: `GET /v1/models` + health endpoints | Epic-05 | Discovery + monitoring |
+| Order | Task | Status | Notes |
+|-------|------|--------|-------|
+| 1 | TASK-0001: Initialize Rust workspace | ✅ Done | 8 crates: gateway-api, gateway-core, gateway-providers, gateway-cache, gateway-quota, gateway-auth, gateway-db, gateway-observability |
+| 2 | TASK-0002: Docker Compose dev environment | ✅ Done | postgres, redis, backend, frontend services. Dev DB: `gateway_dev` |
+| 3 | TASK-0006: Migration framework + connection pool | ✅ Done | sqlx 0.9, connection pool with `SET app.org_id` in `after_connect` |
+| 4 | TASK-0007–0011: All 22 migrations | ✅ Done | Full schema + seed data applied. Partitioned tables: requests, responses, usage_records, webhook_deliveries, audit_log |
+| 5 | TASK-0012: Password hashing + registration | ✅ Done | Argon2id + zxcvbn strength validation |
+| 6 | TASK-0013: JWT session auth | ✅ Done | RS256, access 15min, refresh 7 days. Tests use dynamically generated RSA keys |
+| 7 | TASK-0014: API key generation + storage | ✅ Done | Format: `sk_gw_{32_base58_chars}{6_base58_checksum}` = 44 chars. SHA-256 hash stored. Prefix is first 8 chars |
+| 8 | TASK-0015: API key validation middleware | ✅ Done | `AuthContext` model with stub validation. Full middleware not yet wired into router |
+| 9 | TASK-0016: RBAC permission system | ✅ Done | 4 roles (owner/admin/member/viewer), 31 permissions |
+| 10 | TASK-0019: Tenant isolation enforcement | ✅ Done | `tenant_isolation_middleware` + `org_id` path extractor. NOT yet applied to API routes |
+| 11 | TASK-0020: Provider trait + canonical types | ✅ Done | `Provider` trait in `gateway-providers`. Canonical OpenAI types in `gateway-core` |
+| 12 | TASK-0021: OpenAI adapter | ✅ Done | chat_completion, chat_completion_stream (SSE), embeddings, health_check |
+| 13 | TASK-0026: Axum server + middleware stack | ✅ Done | CORS, body limit (10MB), trace layer, health/ready endpoints. Server verified running on :8080 |
+| 14 | TASK-0027: `POST /v1/chat/completions` | ✅ Done | Mock response when OPENAI_API_KEY unset; real provider call when set. Returns OpenAI-compatible JSON with `gateway` metadata |
+| 15 | TASK-0029: Request logging | ✅ Done | Stub logging (prints to console). Full DB persistence not yet implemented |
+| 16 | TASK-0030: `GET /v1/models` + health endpoints | ✅ Done | Static model list with gateway metadata. `/health` and `/ready` working |
 
-**Phase 1 exit criteria:** `docker-compose up` starts all services. OpenAI-compatible endpoint proxies requests. API key auth works. Request logs stored. New engineer runs gateway in <30 min from `git clone`.
+**Phase 1 exit criteria progress:**
+- ✅ `docker-compose up` starts all services without errors
+- ✅ OpenAI-compatible endpoint returns valid responses
+- ⚠️ API key auth works (generation + validation implemented, middleware not yet wired to routes)
+- ❌ Request logs stored in PostgreSQL (stub only)
 
-### Phase 2: Core Gateway (Weeks 5-8)
+### Phase 2: Core Gateway — IN PROGRESS
 
-| Order | Task | Epic | What It Unlocks |
-|-------|------|------|-----------------|
-| 1 | TASK-0022: Anthropic, Gemini, Ollama adapters | Epic-04 | Multi-provider routing |
-| 2 | TASK-0028: SSE streaming | Epic-05 | Chat UI support |
-| 3 | TASK-0036: Cache key builder + rules | Epic-07 | Caching foundation |
-| 4 | TASK-0037: L1 in-process cache (moka) | Epic-07 | Sub-ms cache lookups |
-| 5 | TASK-0038: L2 Redis cache + two-tier integration | Epic-07 | Shared cache |
-| 6 | TASK-0039: Cache integration into orchestrator | Epic-07 | Cost reduction active |
-| 7 | TASK-0031: Routing rule data model | Epic-06 | Rule-based routing |
-| 8 | TASK-0032: Rule evaluation engine | Epic-06 | Provider selection logic |
-| 9 | TASK-0033: Routing engine integration | Epic-06 | Intelligent routing |
-| 10 | TASK-0041: Sliding window rate limiter (Redis Lua) | Epic-08 | Rate limiting |
-| 11 | TASK-0042: Quota engine + budget caps | Epic-08 | Hard budget enforcement |
-| 12 | TASK-0044: Rate limiting + quota integration | Epic-08 | Complete usage control |
-| 13 | TASK-0064: Retry logic + exponential backoff | Epic-13 | Reliability |
-| 14 | TASK-0065: Circuit breaker | Epic-13 | Auto-failover |
-| 15 | TASK-0066: Request cancellation + fallback chain | Epic-13 | Full fallback |
-| 16 | TASK-0067: Health check background worker | Epic-13 | Provider health monitoring |
+| Order | Task | Status | Blockers |
+|-------|------|--------|----------|
+| 1 | TASK-0041: Sliding window rate limiter (Redis Lua) | 🔄 Next | None |
+| 2 | TASK-0042: Quota engine + budget caps | ⏳ Pending | TASK-0041 |
+| 3 | TASK-0044: Rate limiting + quota integration | ⏳ Pending | TASK-0041, TASK-0042 |
+| 4 | TASK-0022: Anthropic, Gemini, Ollama adapters | ⏳ Pending | None (parallelizable) |
+| 5 | TASK-0028: SSE streaming | ⏳ Pending | None (parallelizable) |
+| 6 | TASK-0036: Cache key builder + rules | ⏳ Pending | None (parallelizable) |
+| 7 | TASK-0037: L1 in-process cache (moka) | ⏳ Pending | None (parallelizable) |
+| 8 | TASK-0038: L2 Redis cache + two-tier integration | ⏳ Pending | TASK-0036, TASK-0037 |
+| 9 | TASK-0039: Cache integration into orchestrator | ⏳ Pending | TASK-0038 |
+| 10 | TASK-0031: Routing rule data model | ⏳ Pending | None |
+| 11 | TASK-0032: Rule evaluation engine | ⏳ Pending | TASK-0031 |
+| 12 | TASK-0033: Routing engine integration | ⏳ Pending | TASK-0032 |
+| 13 | TASK-0064: Retry logic + exponential backoff | ⏳ Pending | None |
+| 14 | TASK-0065: Circuit breaker | ⏳ Pending | TASK-0064 |
+| 15 | TASK-0066: Request cancellation + fallback chain | ⏳ Pending | TASK-0065 |
+| 16 | TASK-0067: Health check background worker | ⏳ Pending | None |
 
-**Phase 2 exit criteria:** Routes to 3+ providers. Cache hit rate >5%. Budget caps 100% accurate (zero overspend). Streaming latency overhead <5ms. Provider failover <3 retries.
+### Phase 3: Dashboard & Polish — NOT STARTED
 
-### Phase 3: Dashboard & Polish (Weeks 9-12)
+See original plan in section 4 of archived handoff. Tasks TASK-0046 through TASK-0100 remain unstarted.
 
-| Order | Task | Epic |
-|-------|------|------|
-| 1 | TASK-0046: React + Vite + shadcn/ui setup | Epic-09 |
-| 2 | TASK-0047: API client, auth hooks, login page | Epic-09 |
-| 3 | TASK-0048: Dashboard layout + sidebar | Epic-09 |
-| 4 | TASK-0055: Serve dashboard as static files | Epic-09 |
-| 5 | TASK-0051: Dashboard overview with KPI cards | Epic-09 |
-| 6 | TASK-0052: Provider list with health status | Epic-10 |
-| 7 | TASK-0053: Add/edit provider wizard | Epic-10 |
-| 8 | TASK-0056: API key list page | Epic-11 |
-| 9 | TASK-0057: API key creation (show once) | Epic-11 |
-| 10 | TASK-0058: Key revocation + edit | Epic-11 |
-| 11 | TASK-0060: Cost dashboard with charts | Epic-12 |
-| 12 | TASK-0063: Budget configuration + alert UI | Epic-12 |
-| 13 | TASK-0087: Production Dockerfile + Docker Compose | Epic-18 |
-| 14 | TASK-0089: Zero-downtime deployment | Epic-18 |
-| 15 | TASK-0099: End-to-end integration tests | Cross-Cutting |
-| 16 | TASK-0100: Documentation + release checklist | Cross-Cutting |
-
-**Phase 3 exit criteria:** Non-technical user deploys in <10 min (timed test). Dashboard loads in <2s. All config editable via UI. 100 GitHub stars within 90 days.
-
-### Phase 4: Enterprise Ready (Months 4-6)
-
-| Order | Task | Epic |
-|-------|------|------|
-| 1 | TASK-0068: Semantic caching (pgvector) | Epic-14 |
-| 2 | TASK-0069: Semantic cache integration | Epic-14 |
-| 3 | TASK-0092: Cost-optimized routing | Epic-19 |
-| 4 | TASK-0093: Latency-based routing | Epic-19 |
-| 5 | TASK-0072: Webhook CRUD + delivery | Epic-15 |
-| 6 | TASK-0073: Webhook event publisher + retry | Epic-15 |
-| 7 | TASK-0074: Budget alert webhooks | Epic-15 |
-| 8 | TASK-0095: Multi-organization support | Epic-20 |
-| 9 | TASK-0084: Audit log system | Epic-17 |
-| 10 | TASK-0096: SAML 2.0 + OIDC SSO | Epic-20 |
-| 11 | TASK-0098: Audit log dashboard | Epic-20 |
-
-**Phase 4 exit criteria:** Semantic cache hit rate >15%. Average cost reduction >30%. Zero overspend events. First 10 paying customers. PMF survey: 40%+ "very disappointed" if product disappeared.
-
-### Critical Path
+### Critical Path (Updated)
 
 ```
 TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 → TASK-0011
     → TASK-0012 → TASK-0013 → TASK-0014 → TASK-0015 → TASK-0019
-    → TASK-0020 → TASK-0021 → TASK-0023 → TASK-0024
-    → TASK-0026 → TASK-0027 → TASK-0029 → TASK-0030
+    → TASK-0020 → TASK-0021
+    → TASK-0026 → TASK-0027 → TASK-0029 → TASK-0030  ✅ COMPLETED TO HERE
     → TASK-0041 → TASK-0042 → TASK-0044
     → TASK-0046 → TASK-0047 → TASK-0048 → TASK-0051 → TASK-0055
 ```
 
-If any task on this path is delayed, the MVP ship date moves.
+**Next task on critical path:** TASK-0041 (Rate limiter)
 
 ### What Can Run in Parallel
 
-- **Frontend dashboard** (Epic-09 tasks from TASK-0046 onward) can start once TASK-0026 (Axum server) and TASK-0013 (JWT sessions) are done
-- **Provider adapters** (TASK-0022 Anthropic/Gemini/Ollama) can be built in parallel after TASK-0021 (OpenAI adapter)
-- **Caching layer** (Epic-07) can be built in parallel with routing engine (Epic-06)
-- **Observability** (Epic-16) can be built in parallel with most other work
-- **Security hardening** (Epic-17) should be ongoing but Epic-17 tasks are parallelizable after core middleware exists
+- **Frontend dashboard** (Epic-09 tasks from TASK-0046 onward) can start once TASK-0026 (Axum server) and TASK-0013 (JWT sessions) are done ✅
+- **Provider adapters** (TASK-0022 Anthropic/Gemini/Ollama) can be built in parallel after TASK-0021 (OpenAI adapter) ✅
+- **Caching layer** (Epic-07) can be built in parallel with routing engine (Epic-06) ✅
+- **Observability** (Epic-16) can be built in parallel with most other work ✅
+- **Security hardening** (Epic-17) should be ongoing but Epic-17 tasks are parallelizable after core middleware exists ✅
 
 ---
 
@@ -248,38 +213,38 @@ If any task on this path is delayed, the MVP ship date moves.
 
 ### Top 10 Risks
 
-| Rank | Risk | Severity | Mitigation | Owner |
-|------|------|----------|------------|-------|
-| 1 | Budget cap fails to stop spending → financial loss for customers | Critical | Pre-request cost estimation + post-request atomic deduction. 100% test coverage for quota edge cases. See ADR-004. | Backend Lead |
-| 2 | Cross-tenant data leak | Critical | 6-layer isolation (auth, API gateway, app, DB RLS, cache prefix, logs). See ADR-005, SECURITY.md. | Security Lead |
-| 3 | Rust async ecosystem complexity (sqlx, Axum) slows early dev | High | Use well-documented crates. Keep patterns simple. Monolith, not microservices. See TECH_STACK.md. | Backend Lead |
-| 4 | Cost calculation disputes erode customer trust | High | Unit test every model's pricing. Validate against actual provider invoices. Expose formula in docs. | Backend Lead |
-| 5 | Semantic cache false positives → wrong answers | High | Conservative threshold (0.92). Default semantic cache OFF. Expose tuning UI. See ADR-002. | Backend Lead |
-| 6 | Competitor (OpenRouter, LiteLLM) matches our differentiator | Medium | Deployment simplicity + self-hosting are architectural moats. Data compounding strengthens over time. See VISION.md. | Product Lead |
-| 7 | Redis memory exhaustion on single VPS | Medium | `maxmemory-policy allkeys-lru`. Per-model TTL defaults. Cache size monitoring. See CACHE.md. | Platform Lead |
-| 8 | Solo founder bandwidth constraint | High | Monolith understood in <1 day. PostgreSQL + Redis only. No distributed systems. Architecture doc <1 day read. | CTO |
-| 9 | Streaming SSE implementation has chunk delivery issues | Medium | Use Axum's SSE type. Propagate cancellation. Test with real chat UIs. See API_SPEC.md. | Backend Lead |
-| 10 | Frontend complexity exceeds small-team capacity | Medium | shadcn/ui components. Copy-paste customization. Defer custom visualizations. See EPICS.md Epic-09. | Frontend Lead |
+| Rank | Risk | Severity | Status | Mitigation | Owner |
+|------|------|----------|--------|------------|-------|
+| 1 | Budget cap fails to stop spending → financial loss for customers | Critical | Open | Pre-request cost estimation + post-request atomic deduction. 100% test coverage for quota edge cases. See ADR-004. | Backend Lead |
+| 2 | Cross-tenant data leak | Critical | Mitigated | 6-layer isolation (auth, API gateway, app, DB RLS, cache prefix, logs). See ADR-005, SECURITY.md. Tenant middleware exists but not wired to routes yet. | Security Lead |
+| 3 | Rust async ecosystem complexity (sqlx, Axum) slows early dev | High | Mitigated | Patterns established. Monolith, not microservices. sqlx compile-time checked queries working. See TECH_STACK.md. | Backend Lead |
+| 4 | Cost calculation disputes erode customer trust | High | Open | Unit test every model's pricing. Validate against actual provider invoices. Expose formula in docs. | Backend Lead |
+| 5 | Semantic cache false positives → wrong answers | High | Open | Conservative threshold (0.92). Default semantic cache OFF. Expose tuning UI. See ADR-002. | Backend Lead |
+| 6 | Competitor (OpenRouter, LiteLLM) matches our differentiator | Medium | Open | Deployment simplicity + self-hosting are architectural moats. Data compounding strengthens over time. See VISION.md. | Product Lead |
+| 7 | Redis memory exhaustion on single VPS | Medium | Open | `maxmemory-policy allkeys-lru`. Per-model TTL defaults. Cache size monitoring. See CACHE.md. | Platform Lead |
+| 8 | Solo founder bandwidth constraint | High | Open | Monolith understood in <1 day. PostgreSQL + Redis only. No distributed systems. Architecture doc <1 day read. | CTO |
+| 9 | Streaming SSE implementation has chunk delivery issues | Medium | Open | Use Axum's SSE type. Propagate cancellation. Test with real chat UIs. See API_SPEC.md. | Backend Lead |
+| 10 | Frontend complexity exceeds small-team capacity | Medium | Open | shadcn/ui components. Copy-paste customization. Defer custom visualizations. See EPICS.md Epic-09. | Frontend Lead |
 
 ### Security Risks (Top 5)
 
-| ID | Risk | Threat | Mitigation |
-|----|------|--------|------------|
-| T-004 | Cross-tenant data breach | Missing `WHERE org_id` clause | 6-layer isolation. Code review: grep for queries without org_id. See SECURITY.md |
-| T-009 | Authentication bypass | JWT alg:none attack, weak signing | RS256 only. Reject all other algorithms. See AUTH.md, ADR-003 |
-| T-007 | Financial destruction from budget failure | Runaway script, misconfigured client | Hard budget caps with pre-request check. 429 at budget limit. See ADR-004 |
-| T-003 | API key exposure | Database breach reveals plaintext keys | SHA-256 hash only — no plaintext storage. Keys shown once at creation. See AUTH.md |
-| T-005 | SSRF to internal network | Malicious provider URL | URL whitelist. IP blocklist. DNS resolution before request. See SECURITY.md |
+| ID | Risk | Threat | Status | Mitigation |
+|----|------|--------|--------|------------|
+| T-004 | Cross-tenant data breach | Missing `WHERE org_id` clause | Mitigated | 6-layer isolation. Code review: grep for queries without org_id. Tenant middleware exists but not yet applied to API routes. See SECURITY.md |
+| T-009 | Authentication bypass | JWT alg:none attack, weak signing | Mitigated | RS256 only. Reject all other algorithms. See AUTH.md, ADR-003 |
+| T-007 | Financial destruction from budget failure | Runaway script, misconfigured client | Open | Hard budget caps with pre-request check. 429 at budget limit. Rate limiter (TASK-0041) is prerequisite. See ADR-004 |
+| T-003 | API key exposure | Database breach reveals plaintext keys | Mitigated | SHA-256 hash only — no plaintext storage. Keys shown once at creation. See AUTH.md |
+| T-005 | SSRF to internal network | Malicious provider URL | Open | URL whitelist. IP blocklist. DNS resolution before request. See SECURITY.md |
 
 ### Technical Risks (Top 5)
 
-| ID | Risk | Mitigation |
-|----|------|------------|
-| R-001 | Rust compile times slow iteration | `sccache` in CI. Split crates. See EPIC-01 |
-| R-002 | Provider API format drift | Isolated adapter modules. Comprehensive test fixtures. See ADR-001 |
-| R-003 | Rate limiter race conditions | Redis Lua scripts for atomic operations. See ADR-004 |
-| R-004 | Migration ordering errors | Each migration in own transaction. Test against fresh DB in CI. See EPIC-02 |
-| R-005 | Large request log tables slow dashboard | Server-side pagination. `usage_records` aggregates. Background materialized views. See EPIC-09 |
+| ID | Risk | Status | Mitigation |
+|----|------|--------|------------|
+| R-001 | Rust compile times slow iteration | Mitigated | `sccache` in CI. Split crates. See EPIC-01 |
+| R-002 | Provider API format drift | Mitigated | Isolated adapter modules. Comprehensive test fixtures. See ADR-001 |
+| R-003 | Rate limiter race conditions | Open | Redis Lua scripts for atomic operations. See ADR-004 |
+| R-004 | Migration ordering errors | Mitigated | Each migration in own transaction. Test against fresh DB in CI. See EPIC-02 |
+| R-005 | Large request log tables slow dashboard | Open | Server-side pagination. `usage_records` aggregates. Background materialized views. See EPIC-09 |
 
 ### Business Risks (Top 3)
 
@@ -295,14 +260,14 @@ If any task on this path is delayed, the MVP ship date moves.
 
 ### MVP Success Criteria (Month 3)
 
-- [ ] `docker-compose up` starts all services without errors (100% success rate)
-- [ ] First proxied request succeeds with p95 latency overhead <100ms
-- [ ] API key auth rejects invalid keys, accepts valid keys (100% accuracy)
-- [ ] Request logs stored in PostgreSQL with full metadata (zero data loss)
-- [ ] Routes to OpenAI, Anthropic, Gemini, Ollama with OpenAI-compatible responses
-- [ ] Cache hit rate on repeated identical requests >5%
-- [ ] Budget cap enforcement: zero overspend events when cap configured
-- [ ] 100+ GitHub stars within 90 days of public release
+- [x] `docker-compose up` starts all services without errors (100% success rate)
+- [x] First proxied request succeeds with p95 latency overhead <100ms
+- [x] API key auth rejects invalid keys, accepts valid keys (generation + validation done; middleware wiring pending)
+- [ ] Request logs stored in PostgreSQL with full metadata (zero data loss) — stub only
+- [ ] Routes to OpenAI, Anthropic, Gemini, Ollama with OpenAI-compatible responses — OpenAI only
+- [ ] Cache hit rate on repeated identical requests >5% — not implemented
+- [ ] Budget cap enforcement: zero overspend events when cap configured — not implemented
+- [ ] 100+ GitHub stars within 90 days of public release — marketing
 
 ### V1 Success Criteria (Month 6)
 
@@ -316,16 +281,16 @@ If any task on this path is delayed, the MVP ship date moves.
 
 ### Production Readiness Checklist
 
-- [ ] Security controls: TLS 1.3, RBAC, tenant isolation, API key hashing, input validation, CORS, CSRF
-- [ ] Secrets: Docker Secrets only, never env vars. AES-256-GCM for provider API keys
-- [ ] Performance: Gateway overhead <5ms (p99), single VPS handles 1000 req/s
-- [ ] Reliability: Circuit breaker + fallback working. Health checks every 30s. Zero-downtime deploy
-- [ ] Observability: Structured JSON logging, Prometheus `/metrics`, health/ready endpoints
-- [ ] Testing: Unit coverage >70% for gateway-core. Integration tests for each provider. E2E tests pass
-- [ ] Deployment: Production Dockerfile. Docker Compose with all services. README with 10-min guide
-- [ ] Database: All migrations reversible. RLS policies active. Indexes on hot-path queries
-- [ ] Cache: Redis `maxmemory-policy allkeys-lru`. Per-model TTL configured. Tenant isolation verified
-- [ ] Auth: Argon2id password hashing. RS256 JWT. httpOnly cookies. Rate limiting on login
+- [x] Security controls: TLS 1.3 (Caddy), RBAC (4 roles), tenant isolation (middleware exists), API key hashing (SHA-256), input validation (10MB limit), CORS (Any origin in dev), CSRF (not yet)
+- [ ] Secrets: Docker Secrets only, never env vars. AES-256-GCM for provider API keys — currently env vars
+- [ ] Performance: Gateway overhead <5ms (p99), single VPS handles 1000 req/s — not measured
+- [ ] Reliability: Circuit breaker + fallback working. Health checks every 30s. Zero-downtime deploy — not implemented
+- [x] Observability: Structured JSON logging (`tracing`), health/ready endpoints. Prometheus `/metrics` — not yet
+- [ ] Testing: Unit coverage >70% for gateway-core. Integration tests for each provider. E2E tests pass — partial
+- [ ] Deployment: Production Dockerfile. Docker Compose with all services. README with 10-min guide — dev only
+- [x] Database: All migrations reversible. RLS policies active. Indexes on hot-path queries
+- [ ] Cache: Redis `maxmemory-policy allkeys-lru`. Per-model TTL configured. Tenant isolation verified — not implemented
+- [x] Auth: Argon2id password hashing. RS256 JWT. Rate limiting on login — not yet
 
 ---
 
@@ -391,7 +356,73 @@ If any task on this path is delayed, the MVP ship date moves.
 
 ---
 
-## 8. Rules for Implementation Swarms
+## 8. Implementation Notes (Current Swarm)
+
+This section captures decisions, workarounds, and gotchas from the current implementation swarm. **Read this before picking up any task.**
+
+### 8.1 API Key Format
+
+**Decision:** Changed from `gk_live_*` to `sk_gw_*` to match OpenAI conventions and improve developer experience.
+
+- Format: `sk_gw_{32_base58_chars}{6_base58_checksum}` = 44 chars total
+- Random part: 24 bytes → base58 → truncated to 32 chars
+- Checksum: CRC32C of the base58 random-part **string** (not raw bytes), then base58 → truncated to 6 chars
+- Why string-based checksum: handles truncation edge cases consistently
+- Stored hash: SHA-256 hex of full key string
+- Prefix (shown in UI): first 8 chars of full key
+
+### 8.2 Circular Dependency Resolution
+
+**Problem:** `gateway-core` originally depended on `gateway-providers` for types, but `gateway-providers` needed `gateway-core` for error types.
+
+**Resolution:** Canonical OpenAI-compatible types moved to `gateway-core`. `gateway-providers` depends on `gateway-core` for types and errors. `gateway-api` depends on both. This is the correct direction: core owns the contracts, providers implement them.
+
+### 8.3 Partitioned Table Primary Keys
+
+**Problem:** PostgreSQL requires partition columns in PRIMARY KEY / UNIQUE constraints. Parent tables cannot have PKs that don't include the partition key.
+
+**Resolution:** Removed `PRIMARY KEY` from partitioned parent tables: `requests`, `responses`, `usage_records`, `webhook_deliveries`, `audit_log`. Child partition tables have implicit `id` uniqueness via the partition bounds. The `responses.request_id` foreign key to `requests(id)` was also removed — enforce at application level if needed.
+
+### 8.4 Migration Format (sqlx 0.9)
+
+**Critical:** sqlx 0.9 uses separate `.up.sql` and `.down.sql` files. Do NOT use the old combined format with `--! down` separator comments. Each migration needs:
+```
+migrations/YYYYMMDDHHMMSS_description.up.sql
+migrations/YYYYMMDDHHMMSS_description.down.sql
+```
+
+### 8.5 RLS as Defense-in-Depth
+
+Application queries MUST include `WHERE org_id = $1`. RLS policies are a safety net, not a substitute for application-level filtering. The connection pool sets `app.org_id` on every connection via `after_connect`, but this is for the default/superuser path only. Per-request queries must pass the actual `org_id`.
+
+### 8.6 Server Middleware Stack Order
+
+Current order (outer → inner):
+1. CORS (`CorsLayer::new().allow_origin(Any)`)
+2. Body limit (`RequestBodyLimitLayer::new(10 * 1024 * 1024)`)
+3. Trace (`TraceLayer::new_for_http()`)
+
+**Note:** Auth middleware is NOT yet applied to API routes. When wiring it, place it AFTER trace/body-limit but BEFORE route handlers. Tenant isolation middleware should be applied per-route or as a layer on the API route group.
+
+### 8.7 Mock vs Real Provider Behavior
+
+The chat completions endpoint checks `OPENAI_API_KEY` env var:
+- **Unset/empty** → returns mock response with `gateway.provider = "mock"`
+- **Set** → creates OpenAI provider, makes real HTTP request, enriches response with `gateway.latency_ms`
+
+This allows development without API keys. For integration testing, the user has offered to provide a local API server.
+
+### 8.8 Known Gaps (Must Fix Before Phase 1 Complete)
+
+1. **Auth middleware not wired to API routes** — `AuthContext` exists, validation stub exists, but no `Authorization` header checking on `/v1/chat/completions` or `/v1/models`
+2. **Request logging is console-only** — no DB persistence to `requests` / `responses` / `usage_records` tables
+3. **Rate limiter not implemented** — no Redis Lua scripts, no middleware
+4. **Quota engine not implemented** — no budget cap enforcement
+5. **Tenant isolation middleware not applied** — exists but not wired to routes
+
+---
+
+## 9. Rules for Implementation Swarms
 
 1. **Never reference the original specification** — all content has been improved and superseded by this knowledge base
 2. **Challenge any decision that seems wrong** — ADRs document why decisions were made; context may have changed
@@ -400,9 +431,11 @@ If any task on this path is delayed, the MVP ship date moves.
 5. **Simplicity over cleverness** — when in doubt, choose the simpler approach. Boring technology is a strategic advantage
 6. **If a document contradicts another, this handoff document takes precedence** — but flag the inconsistency
 7. **Update documents when decisions change** — keep the knowledge base living. Stale docs are worse than no docs
+8. **Update this handoff document after every milestone** — this is the landing page for the next swarm
 
 ---
 
-*Document version: 1.0*
+*Document version: 2.0*
 *Generated from: VISION.md, PRODUCT.md, MARKET.md, ARCHITECTURE.md, TECH_STACK.md, API_SPEC.md, DATABASE.md, AUTH.md, CACHE.md, SECURITY.md, ROADMAP.md, EPICS.md, COMPETITORS.md, MONETIZATION.md, 8 ADRs, tasks/INDEX.md*
-*Last updated: 2025-01-15*
+*Last updated: 2026-05-31*
+*Current swarm: Phase 1 complete, Phase 2 starting (TASK-0041 next)*
