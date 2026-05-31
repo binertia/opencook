@@ -414,13 +414,21 @@ The chat completions endpoint checks `OPENAI_API_KEY` env var:
 
 This allows development without API keys. For integration testing, the user has offered to provide a local API server.
 
-### 8.8 Known Gaps (Must Fix Before Phase 1 Complete)
+### 8.8 Known Gaps
 
-1. **Auth middleware not wired to API routes** — `AuthContext` exists, validation stub exists, but no `Authorization` header checking on `/v1/chat/completions` or `/v1/models`
-2. **Request logging is console-only** — no DB persistence to `requests` / `responses` / `usage_records` tables
-3. **Rate limiter not implemented** — no Redis Lua scripts, no middleware
-4. **Quota engine not implemented** — no budget cap enforcement
-5. **Tenant isolation middleware not applied** — exists but not wired to routes
+1. ~~Auth middleware not wired to API routes~~ ✅
+2. ~~Request logging is console-only~~ ✅ — now persisted to `requests` table via `RequestRepo`
+3. ~~Rate limiter not implemented~~ ✅
+4. ~~Quota engine not implemented~~ ✅
+5. ~~Tenant isolation middleware not applied~~ ✅
+6. ~~SSE streaming not exposed via HTTP endpoint~~ ✅ — handler branches on `stream: true`, returns SSE with `LoggingStream` wrapper for DB logging
+7. ~~Cache key builder / cacheability rules~~ ✅ — deterministic SHA-256 keys, temperature==0 cacheable, blocks dynamic content
+8. ~~L1 in-process cache (moka)~~ ✅ — 10K entries, 60s TTL, LRU eviction, thread-safe
+9. ~~L2 Redis cache + two-tier integration~~ ✅ — L2 with GET/SETEX/SCAN+DEL, unified TwoTierCache with L1→L2→None lookup and L2→L1 promotion
+10. ~~Cache wired into request handler~~ ✅ — L1→L2 check before provider call, `X-Cache: HIT/MISS` header, streaming bypasses cache
+11. ~~Anthropic adapter~~ ✅ — request/response transform, streaming, health check, factory wired
+12. ~~Gemini adapter~~ ✅ — request/response transform, streaming, health check, factory wired
+13. ~~Ollama adapter~~ ✅ — local model support, 300s timeout, embeddings, `/api/chat` + `/api/tags` health check
 
 ---
 

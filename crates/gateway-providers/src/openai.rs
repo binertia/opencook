@@ -1,7 +1,7 @@
 //! OpenAI provider adapter (pass-through since canonical format matches OpenAI).
 
 use async_trait::async_trait;
-use axum::response::sse::{Event, Sse};
+use axum::response::sse::Event;
 use futures::StreamExt;
 use gateway_core::types::{
     ChatCompletionRequest, ChatCompletionResponse, EmbeddingRequest, EmbeddingResponse,
@@ -96,6 +96,7 @@ impl Provider for OpenAiProvider {
             provider: self.name().to_string(),
             latency_ms: 0, // filled by caller
             cache_hit: Some(false),
+            quota_warning: None,
         });
 
         Ok(body)
@@ -104,7 +105,7 @@ impl Provider for OpenAiProvider {
     async fn chat_completion_stream(
         &self,
         mut request: ChatCompletionRequest,
-    ) -> Result<Sse<ReceiverStream<Result<Event, ProviderError>>>, ProviderError> {
+    ) -> Result<ReceiverStream<Result<Event, ProviderError>>, ProviderError> {
         request.stream = Some(true);
 
         let url = format!("{}/v1/chat/completions", self.config.base_url);
@@ -171,7 +172,7 @@ impl Provider for OpenAiProvider {
             }
         });
 
-        Ok(Sse::new(ReceiverStream::new(rx)))
+        Ok(ReceiverStream::new(rx))
     }
 
     async fn embeddings(

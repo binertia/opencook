@@ -7,7 +7,6 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-gateway-cache = { path = "../gateway-cache" }
 gateway-quota = { path = "../gateway-quota" }
 gateway-auth = { path = "../gateway-auth" }
 gateway-db = { path = "../gateway-db" }
@@ -23,3 +22,7 @@ thiserror = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 async-trait = { workspace = true }
+sqlx = { workspace = true }
+rust_decimal = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }

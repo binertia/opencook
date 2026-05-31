@@ -34,3 +34,5 @@ redis = { workspace = true }
 sqlx = { workspace = true }
 async-trait = { workspace = true }
 http = { workspace = true }
+tokio-stream = { workspace = true }
+futures = { workspace = true }

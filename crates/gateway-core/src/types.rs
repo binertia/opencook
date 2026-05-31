@@ -148,6 +148,8 @@ pub struct GatewayMetadata {
     pub latency_ms: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cache_hit: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quota_warning: Option<String>,
 }
 
 /// A single SSE streaming chunk.

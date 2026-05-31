@@ -30,14 +30,14 @@ pub trait Provider: Send + Sync {
         request: ChatCompletionRequest,
     ) -> Result<ChatCompletionResponse, ProviderError>;
 
-    /// Streaming chat completion (returns SSE stream).
+    /// Streaming chat completion (returns raw SSE event stream).
+    /// The caller wraps this in `axum::response::sse::Sse` and adds any
+    /// per-request logging / transformation.
     async fn chat_completion_stream(
         &self,
         request: ChatCompletionRequest,
     ) -> Result<
-        axum::response::sse::Sse<
-            tokio_stream::wrappers::ReceiverStream<Result<axum::response::sse::Event, ProviderError>>,
-        >,
+        tokio_stream::wrappers::ReceiverStream<Result<axum::response::sse::Event, ProviderError>>,
         ProviderError,
     >;
 
