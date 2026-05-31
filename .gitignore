@@ -1,0 +1,40 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.db-journal
+
+# Test artifacts
+*.profraw
+coverage/
+
+# Node (frontend)
+node_modules/
+dist/
+build/
+
+# Docker volumes
+volumes/
