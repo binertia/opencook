@@ -33,36 +33,36 @@ Master index of all implementation tasks for the AI Gateway project.
 
 | Task | Title | Epic | Priority | Effort | Dependencies | Status |
 |------|-------|------|----------|--------|--------------|--------|
-| TASK-0001 | Initialize Rust Workspace with Root Cargo.toml | Epic-01 | Critical | 0.5d | — | todo |
-| TASK-0002 | Set Up Docker Compose Development Environment | Epic-01 | Critical | 1d | TASK-0001 | todo |
+| TASK-0001 | Initialize Rust Workspace with Root Cargo.toml | Epic-01 | Critical | 0.5d | — | done |
+| TASK-0002 | Set Up Docker Compose Development Environment | Epic-01 | Critical | 1d | TASK-0001 | done |
 | TASK-0003 | Set Up CI/CD Pipeline with GitHub Actions | Epic-01 | Critical | 1d | TASK-0001 | todo |
 | TASK-0004 | Configure Linting, Formatting, and Pre-Commit Hooks | Epic-01 | Critical | 1d | TASK-0001, TASK-0003 | todo |
 | TASK-0005 | Create README.md and GitHub Issue Templates | Epic-01 | High | 0.5d | TASK-0001, TASK-0002 | todo |
-| TASK-0006 | Create Database Migration Framework and Connection Pool | Epic-02 | Critical | 1d | TASK-0001, TASK-0002 | todo |
-| TASK-0007 | Create Organizations and Users Migrations (0001-0003) | Epic-02 | Critical | 1d | TASK-0006 | todo |
-| TASK-0008 | Create API Keys, Provider Configs, and Models Migrations (0004-0006) | Epic-02 | Critical | 1d | TASK-0007 | todo |
-| TASK-0009 | Create Routing Rules, Requests, and Responses Migrations (0007-0009) | Epic-02 | Critical | 1d | TASK-0008 | todo |
-| TASK-0010 | Create Usage, Quota, Webhook, and Audit Migrations (0010-0017) | Epic-02 | Critical | 1.5d | TASK-0009 | todo |
-| TASK-0011 | Create Indexes, Triggers, RLS Policies, and Seed Data (0018-0022) | Epic-02 | Critical | 1.5d | TASK-0010 | todo |
-| TASK-0012 | Implement Password Hashing and User Registration | Epic-03 | Critical | 1d | TASK-0007 | todo |
-| TASK-0013 | Implement JWT Session Authentication | Epic-03 | Critical | 1.5d | TASK-0012, TASK-0011 | todo |
-| TASK-0014 | Implement API Key Generation and Storage | Epic-03 | Critical | 1d | TASK-0008, TASK-0012 | todo |
-| TASK-0015 | Implement API Key Validation Middleware | Epic-03 | Critical | 1.5d | TASK-0014, TASK-0006 | todo |
-| TASK-0016 | Implement RBAC Permission System | Epic-03 | Critical | 1d | TASK-0013, TASK-0015 | todo |
+| TASK-0006 | Create Database Migration Framework and Connection Pool | Epic-02 | Critical | 1d | TASK-0001, TASK-0002 | done |
+| TASK-0007 | Create Organizations and Users Migrations (0001-0003) | Epic-02 | Critical | 1d | TASK-0006 | done |
+| TASK-0008 | Create API Keys, Provider Configs, and Models Migrations (0004-0006) | Epic-02 | Critical | 1d | TASK-0007 | done |
+| TASK-0009 | Create Routing Rules, Requests, and Responses Migrations (0007-0009) | Epic-02 | Critical | 1d | TASK-0008 | done |
+| TASK-0010 | Create Usage, Quota, Webhook, and Audit Migrations (0010-0017) | Epic-02 | Critical | 1.5d | TASK-0009 | done |
+| TASK-0011 | Create Indexes, Triggers, RLS Policies, and Seed Data (0018-0022) | Epic-02 | Critical | 1.5d | TASK-0010 | done |
+| TASK-0012 | Implement Password Hashing and User Registration | Epic-03 | Critical | 1d | TASK-0007 | done |
+| TASK-0013 | Implement JWT Session Authentication | Epic-03 | Critical | 1.5d | TASK-0012, TASK-0011 | done |
+| TASK-0014 | Implement API Key Generation and Storage | Epic-03 | Critical | 1d | TASK-0008, TASK-0012 | done |
+| TASK-0015 | Implement API Key Validation Middleware | Epic-03 | Critical | 1.5d | TASK-0014, TASK-0006 | done |
+| TASK-0016 | Implement RBAC Permission System | Epic-03 | Critical | 1d | TASK-0013, TASK-0015 | done |
 | TASK-0017 | Implement Account Lockout and Password Reset | Epic-03 | High | 1d | TASK-0013, TASK-0012 | todo |
 | TASK-0018 | Implement Key Revocation and Cache Invalidation | Epic-03 | High | 1d | TASK-0015, TASK-0016 | todo |
-| TASK-0019 | Implement Tenant Isolation Enforcement | Epic-03 | Critical | 1d | TASK-0015, TASK-0016, TASK-0006 | todo |
-| TASK-0020 | Define Provider Trait and Canonical Request/Response Types | Epic-04 | Critical | 1d | TASK-0001 | todo |
-| TASK-0021 | Implement OpenAI Provider Adapter | Epic-04 | Critical | 1.5d | TASK-0020, TASK-0008 | todo |
+| TASK-0019 | Implement Tenant Isolation Enforcement | Epic-03 | Critical | 1d | TASK-0015, TASK-0016, TASK-0006 | done |
+| TASK-0020 | Define Provider Trait and Canonical Request/Response Types | Epic-04 | Critical | 1d | TASK-0001 | done |
+| TASK-0021 | Implement OpenAI Provider Adapter | Epic-04 | Critical | 1.5d | TASK-0020, TASK-0008 | done |
 | TASK-0022 | Implement Anthropic, Gemini, and Ollama Adapters | Epic-04 | Critical | 2d | TASK-0021, TASK-0020 | todo |
 | TASK-0023 | Implement Provider Config Encryption and Storage | Epic-04 | Critical | 1d | TASK-0008, TASK-0019 | todo |
 | TASK-0024 | Implement Model Registry with Pricing and Capabilities | Epic-04 | Critical | 1d | TASK-0023, TASK-0006 | todo |
 | TASK-0025 | Implement Provider Health Check Framework | Epic-04 | High | 1d | TASK-0021, TASK-0022, TASK-0006 | todo |
-| TASK-0026 | Set Up Axum HTTP Server with Middleware Stack | Epic-05 | Critical | 1d | TASK-0015, TASK-0013, TASK-0006 | todo |
-| TASK-0027 | Implement POST /v1/chat/completions (Non-Streaming) | Epic-05 | Critical | 1.5d | TASK-0026, TASK-0021, TASK-0024, TASK-0015 | todo |
+| TASK-0026 | Set Up Axum HTTP Server with Middleware Stack | Epic-05 | Critical | 1d | TASK-0015, TASK-0013, TASK-0006 | done |
+| TASK-0027 | Implement POST /v1/chat/completions (Non-Streaming) | Epic-05 | Critical | 1.5d | TASK-0026, TASK-0021, TASK-0024, TASK-0015 | done |
 | TASK-0028 | Implement SSE Streaming for /v1/chat/completions | Epic-05 | Critical | 1.5d | TASK-0027, TASK-0021 | todo |
-| TASK-0029 | Implement Request Logging and Response Metadata | Epic-05 | Critical | 1d | TASK-0027, TASK-0009, TASK-0024 | todo |
-| TASK-0030 | Implement GET /v1/models and Health/Ready Endpoints | Epic-05 | Critical | 1d | TASK-0026, TASK-0024, TASK-0025 | todo |
+| TASK-0029 | Implement Request Logging and Response Metadata | Epic-05 | Critical | 1d | TASK-0027, TASK-0009, TASK-0024 | done |
+| TASK-0030 | Implement GET /v1/models and Health/Ready Endpoints | Epic-05 | Critical | 1d | TASK-0026, TASK-0024, TASK-0025 | done |
 | TASK-0031 | Implement Routing Rule Data Model and Repository | Epic-06 | Critical | 1d | TASK-0009, TASK-0019, TASK-0016 | todo |
 | TASK-0032 | Implement Rule Evaluation Engine | Epic-06 | Critical | 1d | TASK-0031, TASK-0025, TASK-0020 | todo |
 | TASK-0033 | Integrate Routing Engine into Request Orchestrator | Epic-06 | Critical | 1d | TASK-0032, TASK-0027, TASK-0021 | todo |

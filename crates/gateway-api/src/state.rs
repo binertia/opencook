@@ -3,12 +3,14 @@
 use std::sync::Arc;
 
 use gateway_db::pool::create_pool;
+use redis::aio::ConnectionManager;
 use sqlx::PgPool;
 
 /// Shared state available to all request handlers.
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: PgPool,
+    pub redis: ConnectionManager,
     pub config: Arc<AppConfig>,
 }
 
@@ -46,9 +48,18 @@ impl AppState {
     pub async fn from_env() -> anyhow::Result<Self> {
         let config = AppConfig::default();
         let db_pool = create_pool(&config.database_url).await?;
+        let redis = Self::connect_redis(&config.redis_url).await?;
         Ok(Self {
             db_pool,
+            redis,
             config: Arc::new(config),
         })
+    }
+
+    /// Connect to Redis with retry.
+    async fn connect_redis(redis_url: &str) -> anyhow::Result<ConnectionManager> {
+        let client = redis::Client::open(redis_url)?;
+        let conn = ConnectionManager::new(client).await?;
+        Ok(conn)
     }
 }
