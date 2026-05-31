@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use gateway_cache::TwoTierCache;
 use gateway_db::pool::create_pool;
 use redis::aio::ConnectionManager;
 use sqlx::PgPool;
@@ -11,6 +12,7 @@ use sqlx::PgPool;
 pub struct AppState {
     pub db_pool: PgPool,
     pub redis: ConnectionManager,
+    pub cache: TwoTierCache,
     pub config: Arc<AppConfig>,
 }
 
@@ -49,9 +51,11 @@ impl AppState {
         let config = AppConfig::default();
         let db_pool = create_pool(&config.database_url).await?;
         let redis = Self::connect_redis(&config.redis_url).await?;
+        let cache = TwoTierCache::new(redis.clone());
         Ok(Self {
             db_pool,
             redis,
+            cache,
             config: Arc::new(config),
         })
     }

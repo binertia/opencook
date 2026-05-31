@@ -39,7 +39,8 @@
 - Response includes `gateway` metadata field: `{ provider, latency_ms, cache_hit }`
 
 ### Middleware Stack (outer → inner)
-CORS → body limit → trace → quota → rate limit → auth → handler
+CORS → body limit → trace → rate limit → auth → handler
+(Quota check moved into orchestrator — needs request body for cost estimation)
 
 ### Rate Limiting (TASK-0041 ✅)
 - 6 layers: global, org, key requests, key tokens, provider, IP
@@ -53,18 +54,90 @@ CORS → body limit → trace → quota → rate limit → auth → handler
 - Actions: block (403), warn (`X-Quota-Warning` header)
 - Atomic increment via `UPDATE` (get_or_create uses SELECT + INSERT for NULL handling)
 
+### Request Orchestrator (TASK-0044 ✅)
+- `gateway-core/src/orchestrator.rs`: full request lifecycle coordination
+- Pre-request: quota check with cost estimation (`max_tokens × pricing`)
+- Provider call via closure (avoids circular `gateway-core` ↔ `gateway-providers` dependency)
+- Post-request: request record persisted to DB (`requests` table) with actual tokens + cost
+- Post-request: quota usage incremented asynchronously (`tokio::spawn`)
+- Mock fallback when `OPENAI_API_KEY` unset
+- Hardcoded pricing for common models (pending TASK-0024 model registry)
+
+### SSE Streaming (TASK-0028 ✅)
+- `POST /v1/chat/completions` with `stream: true` returns `text/event-stream`
+- Handler branches: `stream: true` → SSE, otherwise → JSON
+- Mock streaming: yields word-by-word chunks + `[DONE]` when no API key
+- Real streaming: forwards provider SSE via `LoggingStream` wrapper
+- `LoggingStream`: wraps `ReceiverStream`, updates `requests` table on completion/disconnect
+- Keep-alive pings every 15s
+
+### Caching — Key Builder & Cacheability (TASK-0036 ✅)
+- `gateway-cache/src/key_builder.rs`: deterministic SHA-256 cache key from normalized request
+- Includes: model, messages (canonical JSON), temperature, max_tokens, top_p, penalties, stop, seed, tools, response_format
+- `gateway-cache/src/cacheable.rs`: cacheability rules
+  - `temperature == 0.0` only
+  - `stream == false` only
+  - Blocks dynamic content: ISO timestamps, UUIDs, template vars (`{current_time}`, `{user_id}`)
+- `CacheKey` struct with `redis_key` (`cache:{org_id}:{model}:{hash}`)
+- `CachedResponse` struct for stored entries
+
+### Caching — L1 In-Process (TASK-0037 ✅)
+- `gateway-cache/src/l1_cache.rs`: `moka::future::Cache` wrapper
+- Default: 10K entries, 60s TTL, LRU eviction
+- Methods: `get`, `insert`, `invalidate`, `invalidate_all`, `stats`
+- Thread-safe via `Arc<AtomicU64>` hit/miss counters
+- 17 unit tests covering insert/get, TTL expiry, LRU eviction, concurrency
+
+### Caching — L2 Redis + Two-Tier (TASK-0038 ✅)
+- `gateway-cache/src/l2_cache.rs`: Redis-backed cache
+  - `get`: Redis GET + JSON deserialize
+  - `insert`: Redis SETEX + JSON serialize
+  - `invalidate`: Redis DEL
+  - `invalidate_pattern`: Redis SCAN + DEL
+  - Errors are non-fatal (logged, request continues)
+- `gateway-cache/src/two_tier.rs`: unified L1 + L2 cache
+  - `get`: L1 → L2 → None (L2 hit promotes to L1 asynchronously)
+  - `insert`: L2 first, then L1
+  - `invalidate`: both tiers
+  - `invalidate_pattern`: L2 SCAN+DEL + L1 invalidate_all
+
+### Caching — Orchestrator Integration (TASK-0039 ✅)
+- Cache check in `gateway-api/src/routes/chat.rs` **before** provider call
+- Cacheable: `temperature == 0.0` and `stream != true`
+- Cache hit: returns cached `ChatCompletionResponse` with `X-Cache: HIT` header
+- Cache hit: logs zero-cost request to DB (`cache_hit=true`)
+- Cache miss: proceeds to orchestrator, stores response in cache after success
+- Streaming requests bypass cache
+- Cache errors are non-fatal (logged, request continues)
+
 ### Observability
 - `tracing` structured logging active
-- Request logging: console-only stub. NOT persisted to DB yet
+- Request logging: persisted to `requests` table via `RequestRepo`
 
 ## Phase 2: Core Gateway — In Progress
 
-### Next Task
-- TASK-0044: Integrate rate limiting + quota into request orchestrator
+### Next Tasks
+- TASK-0022: Anthropic, Gemini, Ollama provider adapters
+- TASK-0031–0033: Routing engine
+- TASK-0045: Quota and Budget Admin API
 
-## Known Gaps (Block Phase 1 Completion)
+### Providers (TASK-0022 ✅)
+- OpenAI adapter ✅ — full implementation with streaming
+- Anthropic adapter ✅ — request/response transform, streaming, health check
+- Gemini adapter ✅ — request/response transform, streaming, health check
+- Ollama adapter ✅ — request/response transform, streaming, embeddings, health check
+
+## Known Gaps
 1. ~~Auth middleware not wired to `/v1/*` routes~~ ✅
-2. Request logging not persisted to DB
+2. ~~Request logging not persisted to DB~~ ✅
 3. ~~Rate limiter not implemented~~ ✅
 4. ~~Quota engine not implemented~~ ✅
 5. ~~Tenant isolation middleware not applied to routes~~ ✅
+6. ~~SSE streaming not yet exposed via HTTP endpoint~~ ✅
+7. ~~Cache key builder / cacheability rules~~ ✅
+8. ~~L1 in-process cache (moka)~~ ✅
+9. ~~L2 Redis cache + two-tier integration~~ ✅
+10. ~~Cache wired into request handler~~ ✅
+11. ~~Anthropic adapter~~ ✅
+12. ~~Gemini adapter~~ ✅
+13. ~~Ollama adapter~~ ✅

@@ -94,3 +94,58 @@ pub struct QuotaUsage {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
+
+/// Request log entry (partitioned by created_at).
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct Request {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub api_key_id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub provider_config_id: Option<Uuid>,
+    pub provider_model_id: Option<Uuid>,
+    pub routing_rule_id: Option<Uuid>,
+
+    pub trace_id: String,
+    pub parent_trace_id: Option<String>,
+
+    pub method: String,
+    pub path: String,
+    pub model_requested: Option<String>,
+    pub model_routed: Option<String>,
+
+    pub request_headers: serde_json::Value,
+    pub request_body: Option<String>,
+    pub request_body_truncated: bool,
+
+    pub requested_at: DateTime<Utc>,
+    pub gateway_received_at: DateTime<Utc>,
+    pub provider_sent_at: Option<DateTime<Utc>>,
+    pub provider_responded_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+
+    pub latency_gateway_ms: Option<i32>,
+    pub latency_provider_ms: Option<i32>,
+    pub latency_total_ms: Option<i32>,
+
+    pub prompt_tokens: i32,
+    pub completion_tokens: i32,
+    pub total_tokens: i32,
+
+    pub input_cost: rust_decimal::Decimal,
+    pub output_cost: rust_decimal::Decimal,
+    pub total_cost: rust_decimal::Decimal,
+
+    pub status: String,
+    pub status_code: Option<i32>,
+    pub error_code: Option<String>,
+    pub error_message: Option<String>,
+    pub metadata: serde_json::Value,
+
+    pub cache_hit: bool,
+    pub cache_key_hash: Option<String>,
+
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}

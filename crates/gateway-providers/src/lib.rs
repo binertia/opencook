@@ -3,6 +3,9 @@
 pub mod error;
 pub mod factory;
 pub mod openai;
+pub mod anthropic;
+pub mod gemini;
+pub mod ollama;
 pub mod traits;
 
 pub use error::ProviderError;

@@ -1,7 +1,10 @@
 //! Provider factory — creates Provider instances from configuration.
 
 use crate::{
+    anthropic::AnthropicProvider,
     error::ProviderError,
+    gemini::GeminiProvider,
+    ollama::OllamaProvider,
     openai::OpenAiProvider,
     traits::Provider,
 };
@@ -31,6 +34,9 @@ pub struct ProviderConfig {
 pub fn create_provider(config: ProviderConfig) -> Result<Box<dyn Provider>, ProviderError> {
     match config.kind {
         ProviderKind::OpenAi => Ok(Box::new(OpenAiProvider::new(config)?)),
+        ProviderKind::Anthropic => Ok(Box::new(AnthropicProvider::new(config)?)),
+        ProviderKind::Gemini => Ok(Box::new(GeminiProvider::new(config)?)),
+        ProviderKind::Ollama => Ok(Box::new(OllamaProvider::new(config)?)),
         _ => Err(ProviderError::Config(format!(
             "Provider {:?} not yet implemented",
             config.kind
