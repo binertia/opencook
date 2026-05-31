@@ -1,0 +1,36 @@
+[package]
+name = "gateway-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "gateway-api"
+path = "src/main.rs"
+
+[dependencies]
+gateway-core = { path = "../gateway-core" }
+gateway-auth = { path = "../gateway-auth" }
+gateway-db = { path = "../gateway-db" }
+gateway-observability = { path = "../gateway-observability" }
+gateway-providers = { path = "../gateway-providers" }
+gateway-cache = { path = "../gateway-cache" }
+gateway-quota = { path = "../gateway-quota" }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+redis = { workspace = true }
+sqlx = { workspace = true }
+async-trait = { workspace = true }
+http = { workspace = true }

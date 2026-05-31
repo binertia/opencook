@@ -1,0 +1,24 @@
+FROM rust:1.80-bookworm
+
+# Install cargo-watch for hot reload
+RUN cargo install cargo-watch --locked
+
+# Install sqlx-cli for migrations
+RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres --locked
+
+WORKDIR /app
+
+# Pre-build dependencies for faster incremental builds
+COPY Cargo.toml rust-toolchain.toml ./
+COPY crates/*/Cargo.toml ./crates/*/
+
+# Create stub main.rs / lib.rs files so cargo can resolve dependencies
+RUN mkdir -p crates/gateway-api/src && echo 'fn main() {}' > crates/gateway-api/src/main.rs
+RUN for crate in gateway-core gateway-providers gateway-cache gateway-quota gateway-auth gateway-db gateway-observability; do \
+    mkdir -p crates/$crate/src && echo '' > crates/$crate/src/lib.rs; \
+    done
+RUN cargo build --bin gateway-api 2>/dev/null || true
+
+EXPOSE 8080
+
+CMD ["cargo", "watch", "-x", "check", "-x", "run", "--bin", "gateway-api"]

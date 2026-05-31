@@ -1,0 +1,4 @@
+
+DROP TABLE IF EXISTS requests CASCADE;
+DROP TYPE IF EXISTS request_status;
+

@@ -1,0 +1,4 @@
+
+DROP TABLE IF EXISTS audit_log CASCADE;
+DROP TYPE IF EXISTS audit_action;
+
