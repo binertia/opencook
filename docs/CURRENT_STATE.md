@@ -22,8 +22,8 @@
 - **JWT**: RS256, access 15min, refresh 7 days. Tests use dynamic RSA keys
 - **API keys**: `sk_gw_{32b58}{6b58_checksum}` = 44 chars. SHA-256 stored. Prefix = first 8 chars
 - **RBAC**: 4 roles (owner/admin/member/viewer), 31 permissions
-- **Tenant isolation**: Middleware exists, `org_id` extractor exists. NOT yet wired to API routes
-- **API key validation**: Stub exists (`AuthContext` model). NOT yet applied as middleware to routes
+- **Tenant isolation**: Middleware wired to API routes
+- **API key validation**: Middleware active on `/v1/*` routes. Validates format, attaches `AuthContext`
 
 ### Providers
 - `Provider` trait in `gateway-providers` with canonical OpenAI types in `gateway-core`
@@ -38,18 +38,33 @@
 - `POST /v1/chat/completions` → mock response if no OPENAI_API_KEY; real provider call if set
 - Response includes `gateway` metadata field: `{ provider, latency_ms, cache_hit }`
 
+### Middleware Stack (outer → inner)
+CORS → body limit → trace → quota → rate limit → auth → handler
+
+### Rate Limiting (TASK-0041 ✅)
+- 6 layers: global, org, key requests, key tokens, provider, IP
+- Redis Lua scripts for atomic check-and-record
+- Fail-open on Redis errors
+- Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+
+### Quota / Budget Caps (TASK-0042 ✅)
+- Quota engine checks pre-request against `quotas` + `quota_usage` tables
+- Supports metrics: requests, tokens, cost_usd; periods: minute, hour, day, month, total
+- Actions: block (403), warn (`X-Quota-Warning` header)
+- Atomic increment via `UPDATE` (get_or_create uses SELECT + INSERT for NULL handling)
+
 ### Observability
 - `tracing` structured logging active
 - Request logging: console-only stub. NOT persisted to DB yet
 
-## Phase 2: Core Gateway — Starting
+## Phase 2: Core Gateway — In Progress
 
 ### Next Task
-- TASK-0041: Rate limiter (Redis Lua, sliding window)
+- TASK-0044: Integrate rate limiting + quota into request orchestrator
 
 ## Known Gaps (Block Phase 1 Completion)
-1. Auth middleware not wired to `/v1/*` routes
+1. ~~Auth middleware not wired to `/v1/*` routes~~ ✅
 2. Request logging not persisted to DB
-3. Rate limiter not implemented
-4. Quota engine not implemented
-5. Tenant isolation middleware not applied to routes
+3. ~~Rate limiter not implemented~~ ✅
+4. ~~Quota engine not implemented~~ ✅
+5. ~~Tenant isolation middleware not applied to routes~~ ✅

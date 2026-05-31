@@ -15,6 +15,7 @@ use tracing::Level;
 
 use crate::{
     middleware::api_key_auth::api_key_auth_middleware,
+    middleware::quota::quota_middleware,
     middleware::rate_limit::rate_limit_middleware,
     routes::{chat, health, models},
     state::AppState,
@@ -41,11 +42,15 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health::health_check))
         .route("/ready", get(health::readiness_check));
 
-    // API routes (auth + rate limiting required)
-    // Middleware order (outer → inner): rate_limit → api_key_auth → handler
+    // API routes (auth + rate limit + quota required)
+    // Middleware order (outer → inner): quota → rate_limit → api_key_auth → handler
     let api_routes = Router::new()
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            quota_middleware,
+        ))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,

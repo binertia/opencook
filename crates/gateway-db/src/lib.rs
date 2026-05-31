@@ -4,11 +4,14 @@ pub mod error;
 pub mod migrations;
 pub mod models;
 pub mod pool;
+pub mod repos;
 pub mod repositories;
 
 pub use error::DbError;
-pub use models::{ApiKey, Organization, User};
+pub use models::{ApiKey, Organization, Quota, QuotaUsage, User};
 pub use pool::{create_pool, verify_rls_context, DEFAULT_ORG_ID};
+pub use repos::quota_repo::QuotaRepo;
+pub use repos::quota_usage_repo::QuotaUsageRepo;
 
 use sqlx::PgPool;
 
