@@ -300,6 +300,8 @@ TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 
 
 | Document | Purpose | When to Read |
 |----------|---------|-------------|
+| `docs/CURRENT_STATE.md` | **Live snapshot** of what's implemented right now. Updated per task. | First thing when picking up work |
+| `docs/DECISIONS.md` | **Append-only log** of architectural decisions made during implementation. | When a design choice seems inconsistent with docs |
 | `docs/VISION.md` | Strategic positioning, 1-year/3-year vision, competitive dynamics | Before making product decisions |
 | `docs/PRODUCT.md` | Feature spec (P0/P1/P2/P3), personas, value props, anti-goals | Before implementing features |
 | `docs/MARKET.md` | TAM/SAM/SOM, buyer personas, market trends, pricing landscape | When evaluating market opportunities |
