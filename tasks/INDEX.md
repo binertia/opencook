@@ -27,7 +27,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | Epic-18: Production Deployment | 5 |
 | Epic-19: Smart Routing | 3 |
 | Epic-20: Team Collaboration & SSO | 4 |
-| Cross-Cutting: Integration & Polish | 2 |
+| Cross-Cutting: Integration & Polish | 4 |
 
 ## Task Registry
 
@@ -54,30 +54,30 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0019 | Implement Tenant Isolation Enforcement | Epic-03 | Critical | 1d | TASK-0015, TASK-0016, TASK-0006 | done |
 | TASK-0020 | Define Provider Trait and Canonical Request/Response Types | Epic-04 | Critical | 1d | TASK-0001 | done |
 | TASK-0021 | Implement OpenAI Provider Adapter | Epic-04 | Critical | 1.5d | TASK-0020, TASK-0008 | done |
-| TASK-0022 | Implement Anthropic, Gemini, and Ollama Adapters | Epic-04 | Critical | 2d | TASK-0021, TASK-0020 | todo |
+| TASK-0022 | Implement Anthropic, Gemini, and Ollama Adapters | Epic-04 | Critical | 2d | TASK-0021, TASK-0020 | done |
 | TASK-0023 | Implement Provider Config Encryption and Storage | Epic-04 | Critical | 1d | TASK-0008, TASK-0019 | todo |
-| TASK-0024 | Implement Model Registry with Pricing and Capabilities | Epic-04 | Critical | 1d | TASK-0023, TASK-0006 | todo |
+| TASK-0024 | Implement Model Registry with Pricing and Capabilities | Epic-04 | Critical | 1d | TASK-0023, TASK-0006 | done |
 | TASK-0025 | Implement Provider Health Check Framework | Epic-04 | High | 1d | TASK-0021, TASK-0022, TASK-0006 | todo |
 | TASK-0026 | Set Up Axum HTTP Server with Middleware Stack | Epic-05 | Critical | 1d | TASK-0015, TASK-0013, TASK-0006 | done |
 | TASK-0027 | Implement POST /v1/chat/completions (Non-Streaming) | Epic-05 | Critical | 1.5d | TASK-0026, TASK-0021, TASK-0024, TASK-0015 | done |
-| TASK-0028 | Implement SSE Streaming for /v1/chat/completions | Epic-05 | Critical | 1.5d | TASK-0027, TASK-0021 | todo |
+| TASK-0028 | Implement SSE Streaming for /v1/chat/completions | Epic-05 | Critical | 1.5d | TASK-0027, TASK-0021 | done |
 | TASK-0029 | Implement Request Logging and Response Metadata | Epic-05 | Critical | 1d | TASK-0027, TASK-0009, TASK-0024 | done |
 | TASK-0030 | Implement GET /v1/models and Health/Ready Endpoints | Epic-05 | Critical | 1d | TASK-0026, TASK-0024, TASK-0025 | done |
-| TASK-0031 | Implement Routing Rule Data Model and Repository | Epic-06 | Critical | 1d | TASK-0009, TASK-0019, TASK-0016 | todo |
-| TASK-0032 | Implement Rule Evaluation Engine | Epic-06 | Critical | 1d | TASK-0031, TASK-0025, TASK-0020 | todo |
-| TASK-0033 | Integrate Routing Engine into Request Orchestrator | Epic-06 | Critical | 1d | TASK-0032, TASK-0027, TASK-0021 | todo |
-| TASK-0034 | Implement Weighted and Conditional Routing Strategies | Epic-06 | High | 1d | TASK-0032, TASK-0033 | todo |
+| TASK-0031 | Implement Routing Rule Data Model and Repository | Epic-06 | Critical | 1d | TASK-0009, TASK-0019, TASK-0016 | done |
+| TASK-0032 | Implement Rule Evaluation Engine | Epic-06 | Critical | 1d | TASK-0031, TASK-0025, TASK-0020 | done |
+| TASK-0033 | Integrate Routing Engine into Request Orchestrator | Epic-06 | Critical | 1d | TASK-0032, TASK-0027, TASK-0021 | done |
+| TASK-0034 | Implement Weighted and Conditional Routing Strategies | Epic-06 | High | 1d | TASK-0032, TASK-0033 | done |
 | TASK-0035 | Implement Routing Admin API and Cache Invalidation | Epic-06 | High | 1d | TASK-0031, TASK-0034, TASK-0016 | todo |
-| TASK-0036 | Implement Cache Key Builder and Cacheability Rules | Epic-07 | Critical | 1d | TASK-0020, TASK-0006 | todo |
-| TASK-0037 | Implement L1 In-Process Cache with moka | Epic-07 | Critical | 1d | TASK-0036, TASK-0001 | todo |
-| TASK-0038 | Implement L2 Redis Cache and Two-Tier Integration | Epic-07 | Critical | 1d | TASK-0037, TASK-0006 | todo |
-| TASK-0039 | Integrate Cache into Request Orchestrator | Epic-07 | Critical | 1d | TASK-0038, TASK-0027, TASK-0036 | todo |
+| TASK-0036 | Implement Cache Key Builder and Cacheability Rules | Epic-07 | Critical | 1d | TASK-0020, TASK-0006 | done |
+| TASK-0037 | Implement L1 In-Process Cache with moka | Epic-07 | Critical | 1d | TASK-0036, TASK-0001 | done |
+| TASK-0038 | Implement L2 Redis Cache and Two-Tier Integration | Epic-07 | Critical | 1d | TASK-0037, TASK-0006 | done |
+| TASK-0039 | Integrate Cache into Request Orchestrator | Epic-07 | Critical | 1d | TASK-0038, TASK-0027, TASK-0036 | done |
 | TASK-0040 | Implement Cache Metrics and Analytics | Epic-07 | Medium | 1d | TASK-0039, TASK-0010 | todo |
-| TASK-0041 | Implement Sliding Window Rate Limiter with Redis Lua | Epic-08 | Critical | 1d | TASK-0006, TASK-0015 | todo |
-| TASK-0042 | Implement Quota Engine and Budget Caps | Epic-08 | Critical | 1d | TASK-0010, TASK-0019 | todo |
-| TASK-0043 | Implement Usage Aggregation Pipeline | Epic-08 | High | 1d | TASK-0010, TASK-0029 | todo |
-| TASK-0044 | Integrate Rate Limiting and Quota into Request Orchestrator | Epic-08 | Critical | 1d | TASK-0041, TASK-0042, TASK-0039 | todo |
-| TASK-0045 | Implement Quota and Budget Admin API | Epic-08 | High | 1d | TASK-0042, TASK-0043, TASK-0016 | todo |
+| TASK-0041 | Implement Sliding Window Rate Limiter with Redis Lua | Epic-08 | Critical | 1d | TASK-0006, TASK-0015 | done |
+| TASK-0042 | Implement Quota Engine and Budget Caps | Epic-08 | Critical | 1d | TASK-0010, TASK-0019 | done |
+| TASK-0043 | Implement Usage Aggregation Pipeline | Epic-08 | High | 1d | TASK-0010, TASK-0029 | done |
+| TASK-0044 | Integrate Rate Limiting and Quota into Request Orchestrator | Epic-08 | Critical | 1d | TASK-0041, TASK-0042, TASK-0039 | done |
+| TASK-0045 | Implement Quota and Budget Admin API | Epic-08 | High | 1d | TASK-0042, TASK-0043, TASK-0016 | done |
 | TASK-0046 | Initialize React Dashboard with Vite, TypeScript, and shadcn/ui | Epic-09 | Critical | 1d | TASK-0001 | todo |
 | TASK-0047 | Implement API Client, Auth Hooks, and Login Page | Epic-09 | Critical | 1d | TASK-0046, TASK-0013 | todo |
 | TASK-0048 | Implement Dashboard Layout with Sidebar Navigation | Epic-09 | Critical | 1d | TASK-0046, TASK-0047 | todo |
@@ -96,10 +96,10 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0061 | Implement Token Usage and Cache Analytics Pages | Epic-12 | Medium | 1d | TASK-0060, TASK-0040 | todo |
 | TASK-0062 | Implement API Key Usage Table with Drill-Down | Epic-12 | Medium | 1d | TASK-0060, TASK-0045 | todo |
 | TASK-0063 | Implement Budget Configuration and Alert UI | Epic-12 | Medium | 1d | TASK-0049, TASK-0060 | todo |
-| TASK-0064 | Implement Retry Logic with Exponential Backoff | Epic-13 | Critical | 1d | TASK-0033, TASK-0021 | todo |
-| TASK-0065 | Implement Circuit Breaker Pattern | Epic-13 | Critical | 1d | TASK-0064, TASK-0032, TASK-0006 | todo |
+| TASK-0064 | Implement Retry Logic with Exponential Backoff | Epic-13 | Critical | 1d | TASK-0033, TASK-0021 | done |
+| TASK-0065 | Implement Circuit Breaker Pattern | Epic-13 | Critical | 1d | TASK-0064, TASK-0032, TASK-0006 | done |
 | TASK-0066 | Implement Request Cancellation and Fallback Chain | Epic-13 | Critical | 1d | TASK-0064, TASK-0065, TASK-0033 | todo |
-| TASK-0067 | Implement Health Check Background Worker | Epic-13 | High | 1d | TASK-0065, TASK-0025, TASK-0006 | todo |
+| TASK-0067 | Implement Health Check Background Worker | Epic-13 | High | 1d | TASK-0065, TASK-0025, TASK-0006 | done |
 | TASK-0068 | Implement Vector Similarity Cache with pgvector | Epic-14 | Medium | 1.5d | TASK-0038, TASK-0021, TASK-0007 | todo |
 | TASK-0069 | Integrate Semantic Cache into Request Orchestrator | Epic-14 | Medium | 1d | TASK-0068, TASK-0039 | todo |
 | TASK-0070 | Implement Semantic Cache Background Maintenance | Epic-14 | Medium | 1d | TASK-0068, TASK-0069 | todo |
@@ -133,6 +133,8 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0098 | Implement Audit Log Dashboard and Admin Actions Log | Epic-20 | Medium | 1d | TASK-0084, TASK-0047, TASK-0048 | todo |
 | TASK-0099 | Implement End-to-End Integration Tests | Cross-Cutting | Critical | 2d | All backend tasks | todo |
 | TASK-0100 | Final Documentation and Release Checklist | Cross-Cutting | High | 1.5d | All tasks | todo |
+| TASK-0101 | Implement Dual-Database Support (PostgreSQL + SQLite) | Cross-Cutting | Critical | 2d | TASK-0006, TASK-0011 | done |
+| TASK-0102 | Implement SOLO Mode Binary (gateway-solo) | Cross-Cutting | High | 2d | TASK-0101, TASK-0027, TASK-0045 | done |
 
 ## Dependency Graph
 
@@ -285,6 +287,8 @@ Epic-20: Team + SSO
 Cross-Cutting
   All Backend Tasks --> TASK-0099 (E2E Tests)
   All Tasks --> TASK-0100 (Documentation + Release)
+  TASK-0006 (Migration Framework) --> TASK-0101 (Dual-Database)
+    --> TASK-0102 (SOLO Mode)
 ```
 
 ## Critical Path
@@ -340,6 +344,8 @@ TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 
 ### Phase 8: Final Polish (Week 18)
 - TASK-0099: E2E Tests
 - TASK-0100: Documentation + Release
+- TASK-0101: Dual-Database Support
+- TASK-0102: SOLO Mode Binary
 
 ## Parallelization Opportunities
 

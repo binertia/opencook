@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// Provider kind discriminator.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProviderKind {
     OpenAi,
     Anthropic,

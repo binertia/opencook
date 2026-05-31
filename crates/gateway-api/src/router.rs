@@ -15,8 +15,10 @@ use tracing::Level;
 
 use crate::{
     middleware::api_key_auth::api_key_auth_middleware,
+    middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
-    routes::{chat, health, models},
+    middleware::timing::TimingLayer,
+    routes::{chat, health, metrics, models, quotas, usage},
     state::AppState,
 };
 
@@ -39,7 +41,8 @@ pub fn build_router(state: AppState) -> Router {
     // Public routes (no auth required)
     let public_routes = Router::new()
         .route("/health", get(health::health_check))
-        .route("/ready", get(health::readiness_check));
+        .route("/ready", get(health::readiness_check))
+        .route("/metrics", get(metrics::metrics_handler));
 
     // API routes (auth + rate limit required)
     // Middleware order (outer → inner): rate_limit → api_key_auth → handler
@@ -47,6 +50,12 @@ pub fn build_router(state: AppState) -> Router {
     let api_routes = Router::new()
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
+        // Quota admin routes
+        .route("/api/v1/organizations/:org_id/quotas", get(quotas::list_quotas).post(quotas::create_quota))
+        .route("/api/v1/organizations/:org_id/quotas/:quota_id", get(quotas::get_quota).put(quotas::update_quota).delete(quotas::delete_quota))
+        // Usage analytics routes
+        .route("/api/v1/organizations/:org_id/usage", get(usage::get_usage))
+        .route("/api/v1/organizations/:org_id/costs", get(usage::get_costs))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,
@@ -58,6 +67,8 @@ pub fn build_router(state: AppState) -> Router {
         .merge(api_routes)
         .layer(trace)
         .layer(body_limit)
+        .layer(TimingLayer)
+        .layer(ErrorHandlerLayer)
         .layer(cors)
         .with_state(state)
 }

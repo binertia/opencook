@@ -25,4 +25,7 @@ async-trait = { workspace = true }
 sqlx = { workspace = true }
 rust_decimal = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 futures = { workspace = true }
+rand = { workspace = true }
+validator = { workspace = true }

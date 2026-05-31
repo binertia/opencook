@@ -1,6 +1,7 @@
 //! Gateway Auth — API key validation, JWT sessions, RBAC, tenant isolation.
 
 pub mod api_key;
+pub mod crypto;
 pub mod error;
 pub mod jwt;
 pub mod models;

@@ -4,20 +4,19 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use axum::response::sse::Event;
-use futures::StreamExt;
-use futures::Stream;
+use futures::{Stream, StreamExt};
+use gateway_db::DbBackend;
 use gateway_db::RequestRepo;
 use rust_decimal::Decimal;
-use sqlx::PgPool;
-use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error};
 use uuid::Uuid;
 
 /// Wraps a provider SSE stream and updates the request log when the stream
 /// ends or the client disconnects.
-pub struct LoggingStream {
-    inner: ReceiverStream<Result<Event, String>>,
-    db_pool: Option<PgPool>,
+pub struct LoggingStream<S> {
+    inner: S,
+    db_pool: Option<DbBackend>,
     request_id: Option<Uuid>,
     org_id: Option<Uuid>,
     completed: bool,
@@ -25,31 +24,10 @@ pub struct LoggingStream {
     estimated_prompt_tokens: u64,
     estimated_completion_tokens: u64,
     model: String,
+    cancel_token: CancellationToken,
 }
 
-impl LoggingStream {
-    pub fn new(
-        inner: ReceiverStream<Result<Event, String>>,
-        db_pool: PgPool,
-        request_id: Uuid,
-        org_id: Uuid,
-        model: String,
-        estimated_prompt_tokens: u64,
-        estimated_completion_tokens: u64,
-    ) -> Self {
-        Self {
-            inner,
-            db_pool: Some(db_pool),
-            request_id: Some(request_id),
-            org_id: Some(org_id),
-            completed: false,
-            start: std::time::Instant::now(),
-            estimated_prompt_tokens,
-            estimated_completion_tokens,
-            model,
-        }
-    }
-
+impl<S> LoggingStream<S> {
     fn finish(&mut self, status: &str, status_code: Option<i32>, error_code: Option<&str>, error_message: Option<&str>) {
         if self.completed {
             return;
@@ -106,10 +84,52 @@ impl LoggingStream {
     }
 }
 
-impl Stream for LoggingStream {
+impl<S> LoggingStream<S>
+where
+    S: Stream<Item = Result<Event, String>> + Send + 'static,
+{
+    pub fn new(
+        inner: S,
+        db_pool: DbBackend,
+        request_id: Uuid,
+        org_id: Uuid,
+        model: String,
+        estimated_prompt_tokens: u64,
+        estimated_completion_tokens: u64,
+    ) -> Self {
+        Self {
+            inner,
+            db_pool: Some(db_pool),
+            request_id: Some(request_id),
+            org_id: Some(org_id),
+            completed: false,
+            start: std::time::Instant::now(),
+            estimated_prompt_tokens,
+            estimated_completion_tokens,
+            model,
+            cancel_token: CancellationToken::new(),
+        }
+    }
+
+    /// Get a clone of the cancellation token to pass to spawned tasks.
+    pub fn cancel_token(&self) -> CancellationToken {
+        self.cancel_token.clone()
+    }
+}
+
+impl<S> Stream for LoggingStream<S>
+where
+    S: Stream<Item = Result<Event, String>> + Unpin,
+{
     type Item = Result<Event, String>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // Check cancellation first
+        if self.cancel_token.is_cancelled() {
+            self.finish("cancelled", Some(499), Some("client_disconnect"), Some("Request cancelled by client disconnect"));
+            return Poll::Ready(None);
+        }
+
         match self.inner.poll_next_unpin(cx) {
             Poll::Ready(None) => {
                 self.finish("success", Some(200), None, None);
@@ -124,9 +144,10 @@ impl Stream for LoggingStream {
     }
 }
 
-impl Drop for LoggingStream {
+impl<S> Drop for LoggingStream<S> {
     fn drop(&mut self) {
         if !self.completed {
+            self.cancel_token.cancel();
             self.finish("error", Some(499), Some("client_disconnect"), Some("Client disconnected before stream completed"));
         }
     }

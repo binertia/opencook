@@ -4,10 +4,9 @@
 //!           Record Usage → Respond
 
 use gateway_auth::AuthContext;
-use gateway_db::{QuotaRepo, QuotaUsageRepo, RequestRepo};
+use gateway_db::{DbBackend, QuotaRepo, QuotaUsageRepo, RequestRepo};
 use gateway_quota::{QuotaEngine, QuotaMetric, QuotaResult, RequestContext};
 use rust_decimal::Decimal;
-use sqlx::PgPool;
 use tracing::{debug, error, info, warn};
 
 use crate::types::{ChatCompletionRequest, ChatCompletionResponse};
@@ -64,7 +63,7 @@ pub type ProviderCall = Box<
 /// 6. Records quota usage (post-request, non-blocking)
 /// 7. Returns enriched response
 pub async fn orchestrate_chat_completion(
-    db_pool: PgPool,
+    db_pool: DbBackend,
     auth: &AuthContext,
     trace_id: &str,
     request: ChatCompletionRequest,

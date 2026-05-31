@@ -17,8 +17,9 @@ pub fn generate_api_key() -> (String, String, String) {
     // Compute checksum on the base58 random part (not raw bytes) so truncation is consistent
     let checksum_raw = crc32c::crc32c(random_part.as_bytes());
     let checksum_b58 = bs58::encode(&checksum_raw.to_le_bytes()).into_string();
-    let checksum_part = &checksum_b58[..6.min(checksum_b58.len())];
-
+    let checksum_slice = &checksum_b58[..6.min(checksum_b58.len())];
+    // Pad with '1' (base58 zero) to ensure exactly 6 chars
+    let checksum_part = format!("{}{}", "1".repeat(6 - checksum_slice.len()), checksum_slice);
     let full_key = format!("sk_gw_{random_part}{checksum_part}");
     let key_hash = sha256_hex(&full_key);
     let key_prefix = full_key.chars().take(8).collect();
@@ -41,7 +42,8 @@ pub fn validate_key_format(key: &str) -> bool {
     // Compute checksum on the base58 random part string (same as generation)
     let checksum_raw = crc32c::crc32c(random_part.as_bytes());
     let checksum_b58 = bs58::encode(&checksum_raw.to_le_bytes()).into_string();
-    let expected_checksum = &checksum_b58[..6.min(checksum_b58.len())];
+    let checksum_slice = &checksum_b58[..6.min(checksum_b58.len())];
+    let expected_checksum = format!("{}{}", "1".repeat(6 - checksum_slice.len()), checksum_slice);
 
     checksum_part == expected_checksum
 }

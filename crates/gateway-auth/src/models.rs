@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use validator::Validate;
 
 /// Authentication context attached to requests after successful validation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,11 +23,15 @@ pub enum AuthType {
 }
 
 /// User registration request.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct RegisterRequest {
+    #[validate(email(message = "Invalid email address"))]
     pub email: String,
+    #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
     pub password: String,
+    #[validate(length(max = 128, message = "Display name must be at most 128 characters"))]
     pub display_name: Option<String>,
+    #[validate(length(min = 1, max = 128, message = "Organization name must be 1-128 characters"))]
     pub organization_name: String,
 }
 
@@ -39,9 +44,11 @@ pub struct RegisterResponse {
 }
 
 /// Login request.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
+    #[validate(email(message = "Invalid email address"))]
     pub email: String,
+    #[validate(length(min = 1, message = "Password is required"))]
     pub password: String,
 }
 
@@ -55,8 +62,9 @@ pub struct LoginResponse {
 }
 
 /// API key creation request.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct ApiKeyCreateRequest {
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: String,
     pub scopes: Option<Vec<String>>,
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,

@@ -4,140 +4,87 @@
 > Update this after every completed task. Keep it under 50 lines.
 > Last updated: 2026-05-31
 
-## Phase 1: Foundation — 16/16 tasks done ✅
+## Phase 1–3: Foundation + Core Gateway + Admin APIs — COMPLETED ✅
 
 ### Workspace & Infrastructure
-- 8 Rust crates: `gateway-api`, `gateway-core`, `gateway-providers`, `gateway-cache`, `gateway-quota`, `gateway-auth`, `gateway-db`, `gateway-observability`
+- 9 Rust crates: `gateway-api`, `gateway-core`, `gateway-providers`, `gateway-cache`, `gateway-quota`, `gateway-auth`, `gateway-db`, `gateway-observability`, **`gateway-solo`**
 - Docker Compose dev env: postgres (5432), redis (6379), backend, frontend
-- Database: `gateway_dev` with all 22 migrations applied
-- sqlx 0.8 (upgraded from 0.7 to fix Rust future-incompatibility warning)
+- Database: PostgreSQL 16 for TEAM mode; **SQLite for SOLO mode** (auto-creates DB file)
+- sqlx 0.8.6 with `libsqlite3-sys/bundled`
 
-### Database
-- Full schema: orgs, users, api_keys, provider_configs, provider_models, routing_rules, requests/responses/usage_records (partitioned), quotas/quota_usage, webhooks, audit_log, sessions
-- RLS policies active. Connection pool sets `app.org_id` via `after_connect`
-- Partitioned tables have no parent-level PK (Postgres requirement)
+### Dual-Database Architecture (NEW)
+- `DbBackend` enum: `Postgres(PgPool)` | `Sqlite(SqlitePool)`
+- `gateway-db/src/types.rs`: `DbDecimal` (wraps `Decimal` for cross-db) + `JsonVec<T>` (wraps `Vec<T>` for cross-db)
+- All repos dispatch via `match &self.pool`: `request_repo`, `routing_repo`, `quota_repo`, `quota_usage_repo`, `usage_repo`, `provider_config_repo`, `model_registry`
+- SQLite schema: `TEXT` for enums/decimals/JSON, `BLOB` for UUIDs, `INTEGER` for booleans
+- Zero `.pg()` calls remain outside `pool.rs`
 
 ### Auth
 - **Passwords**: Argon2id + zxcvbn strength check
-- **JWT**: RS256, access 15min, refresh 7 days. Tests use dynamic RSA keys
-- **API keys**: `sk_gw_{32b58}{6b58_checksum}` = 44 chars. SHA-256 stored. Prefix = first 8 chars
+- **JWT**: RS256, access 15min, refresh 7 days
+- **API keys**: `sk_gw_{32b58}{6b58_checksum}` = 44 chars. SHA-256 stored
 - **RBAC**: 4 roles (owner/admin/member/viewer), 31 permissions
 - **Tenant isolation**: Middleware wired to API routes
-- **API key validation**: Middleware active on `/v1/*` routes. Validates format, attaches `AuthContext`
+- **SOLO mode**: No auth required; uses default org `00000000-0000-0000-0000-000000000000`
 
 ### Providers
-- `Provider` trait in `gateway-providers` with canonical OpenAI types in `gateway-core`
-- OpenAI adapter: chat_completion, chat_completion_stream (SSE), embeddings, health_check
-- Circular dependency resolved: `gateway-providers` → `gateway-core` for types
+- OpenAI, Anthropic, Gemini, Ollama — all implement `Provider` trait
+- Chat completions, streaming (SSE), embeddings, health checks
 
-### API Server
+### API Server (TEAM mode — `gateway-api`)
 - Axum on port 8080 with CORS, body limit (10MB), trace layer
-- `GET /health` → `{"status":"ok"}`
-- `GET /ready` → `{"status":"ready"}` (checks DB)
-- `GET /v1/models` → static model list with gateway metadata
-- `POST /v1/chat/completions` → mock response if no OPENAI_API_KEY; real provider call if set
-- Response includes `gateway` metadata field: `{ provider, latency_ms, cache_hit }`
+- `POST /v1/chat/completions` → mock or real provider call
+- `GET /v1/models` → dynamic DB query with static fallback
+- Admin APIs: quotas CRUD, usage/cost analytics
+- SSE streaming with `LoggingStream` wrapper for DB persistence
+
+### API Server (SOLO mode — `gateway-solo`) (NEW)
+- SQLite-backed, no auth, no Redis dependency
+- `POST /v1/chat/completions`, `GET /v1/models`, `/health`, `/ready`, `/metrics`
+- Quota management: `GET/POST/PUT/DELETE /api/v1/quotas` (user-configurable limits)
+- Usage analytics: `GET /api/v1/usage`, `GET /api/v1/costs`
+- Routing profiles: `privacy-first`, `balanced`, `speed`, `frugal`, `quality`, `offline`
+- Config wizard: `gateway-solo config` → interactive profile selection → writes `gateway-solo.toml`
 
 ### Middleware Stack (outer → inner)
 CORS → body limit → trace → rate limit → auth → handler
-(Quota check moved into orchestrator — needs request body for cost estimation)
 
-### Rate Limiting (TASK-0041 ✅)
+### Rate Limiting
 - 6 layers: global, org, key requests, key tokens, provider, IP
-- Redis Lua scripts for atomic check-and-record
-- Fail-open on Redis errors
-- Headers: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- Redis Lua scripts; fail-open on Redis errors
 
-### Quota / Budget Caps (TASK-0042 ✅)
-- Quota engine checks pre-request against `quotas` + `quota_usage` tables
-- Supports metrics: requests, tokens, cost_usd; periods: minute, hour, day, month, total
-- Actions: block (403), warn (`X-Quota-Warning` header)
-- Atomic increment via `UPDATE` (get_or_create uses SELECT + INSERT for NULL handling)
+### Quota / Budget Caps
+- Pre-request cost estimate against `quotas` + `quota_usage`
+- Metrics: requests, tokens, cost_usd; periods: minute, hour, day, month, total
+- Actions: block (403), warn (header)
 
-### Request Orchestrator (TASK-0044 ✅)
-- `gateway-core/src/orchestrator.rs`: full request lifecycle coordination
-- Pre-request: quota check with cost estimation (`max_tokens × pricing`)
-- Provider call via closure (avoids circular `gateway-core` ↔ `gateway-providers` dependency)
-- Post-request: request record persisted to DB (`requests` table) with actual tokens + cost
-- Post-request: quota usage incremented asynchronously (`tokio::spawn`)
-- Mock fallback when `OPENAI_API_KEY` unset
-- Hardcoded pricing for common models (pending TASK-0024 model registry)
+### Routing Engine
+- `RoutingRepo` CRUD with priority ordering, wildcard model matching
+- Strategies: `single`, `fallback`, `weighted`, `conditional`
+- `provider_kind` in `Target` JSON for direct provider mapping
+- Fallback chain with circuit breaker per provider
 
-### SSE Streaming (TASK-0028 ✅)
-- `POST /v1/chat/completions` with `stream: true` returns `text/event-stream`
-- Handler branches: `stream: true` → SSE, otherwise → JSON
-- Mock streaming: yields word-by-word chunks + `[DONE]` when no API key
-- Real streaming: forwards provider SSE via `LoggingStream` wrapper
-- `LoggingStream`: wraps `ReceiverStream`, updates `requests` table on completion/disconnect
-- Keep-alive pings every 15s
-
-### Caching — Key Builder & Cacheability (TASK-0036 ✅)
-- `gateway-cache/src/key_builder.rs`: deterministic SHA-256 cache key from normalized request
-- Includes: model, messages (canonical JSON), temperature, max_tokens, top_p, penalties, stop, seed, tools, response_format
-- `gateway-cache/src/cacheable.rs`: cacheability rules
-  - `temperature == 0.0` only
-  - `stream == false` only
-  - Blocks dynamic content: ISO timestamps, UUIDs, template vars (`{current_time}`, `{user_id}`)
-- `CacheKey` struct with `redis_key` (`cache:{org_id}:{model}:{hash}`)
-- `CachedResponse` struct for stored entries
-
-### Caching — L1 In-Process (TASK-0037 ✅)
-- `gateway-cache/src/l1_cache.rs`: `moka::future::Cache` wrapper
-- Default: 10K entries, 60s TTL, LRU eviction
-- Methods: `get`, `insert`, `invalidate`, `invalidate_all`, `stats`
-- Thread-safe via `Arc<AtomicU64>` hit/miss counters
-- 17 unit tests covering insert/get, TTL expiry, LRU eviction, concurrency
-
-### Caching — L2 Redis + Two-Tier (TASK-0038 ✅)
-- `gateway-cache/src/l2_cache.rs`: Redis-backed cache
-  - `get`: Redis GET + JSON deserialize
-  - `insert`: Redis SETEX + JSON serialize
-  - `invalidate`: Redis DEL
-  - `invalidate_pattern`: Redis SCAN + DEL
-  - Errors are non-fatal (logged, request continues)
-- `gateway-cache/src/two_tier.rs`: unified L1 + L2 cache
-  - `get`: L1 → L2 → None (L2 hit promotes to L1 asynchronously)
-  - `insert`: L2 first, then L1
-  - `invalidate`: both tiers
-  - `invalidate_pattern`: L2 SCAN+DEL + L1 invalidate_all
-
-### Caching — Orchestrator Integration (TASK-0039 ✅)
-- Cache check in `gateway-api/src/routes/chat.rs` **before** provider call
+### Caching
+- L1: moka (10K entries, 60s TTL)
+- L2: Redis (GET/SETEX/SCAN+DEL)
 - Cacheable: `temperature == 0.0` and `stream != true`
-- Cache hit: returns cached `ChatCompletionResponse` with `X-Cache: HIT` header
-- Cache hit: logs zero-cost request to DB (`cache_hit=true`)
-- Cache miss: proceeds to orchestrator, stores response in cache after success
-- Streaming requests bypass cache
-- Cache errors are non-fatal (logged, request continues)
+- `X-Cache: HIT/MISS` header
+
+### Circuit Breaker + Retry
+- 3-state breaker per provider (Closed/Open/HalfOpen)
+- Retry: exponential backoff + jitter (max 2 retries)
+- Health worker polls providers every 30s
 
 ### Observability
-- `tracing` structured logging active
-- Request logging: persisted to `requests` table via `RequestRepo`
+- `tracing` structured JSON logging
+- Prometheus `/metrics` endpoint
+- Request logs persisted to `requests` table
 
-## Phase 2: Core Gateway — In Progress
+## Phase 4: Dashboard & Polish — NOT STARTED
 
-### Next Tasks
-- TASK-0022: Anthropic, Gemini, Ollama provider adapters
-- TASK-0031–0033: Routing engine
-- TASK-0045: Quota and Budget Admin API
-
-### Providers (TASK-0022 ✅)
-- OpenAI adapter ✅ — full implementation with streaming
-- Anthropic adapter ✅ — request/response transform, streaming, health check
-- Gemini adapter ✅ — request/response transform, streaming, health check
-- Ollama adapter ✅ — request/response transform, streaming, embeddings, health check
+Tasks TASK-0046 through TASK-0100 remain unstarted.
 
 ## Known Gaps
-1. ~~Auth middleware not wired to `/v1/*` routes~~ ✅
-2. ~~Request logging not persisted to DB~~ ✅
-3. ~~Rate limiter not implemented~~ ✅
-4. ~~Quota engine not implemented~~ ✅
-5. ~~Tenant isolation middleware not applied to routes~~ ✅
-6. ~~SSE streaming not yet exposed via HTTP endpoint~~ ✅
-7. ~~Cache key builder / cacheability rules~~ ✅
-8. ~~L1 in-process cache (moka)~~ ✅
-9. ~~L2 Redis cache + two-tier integration~~ ✅
-10. ~~Cache wired into request handler~~ ✅
-11. ~~Anthropic adapter~~ ✅
-12. ~~Gemini adapter~~ ✅
-13. ~~Ollama adapter~~ ✅
+1. Provider Config Encryption (TASK-0023) — AES-256-GCM for `api_key_enc`; currently env vars
+2. Request Cancellation (TASK-0066) — Abort in-flight on client disconnect
+3. Frontend dashboard (TASK-0046+) — React admin SPA

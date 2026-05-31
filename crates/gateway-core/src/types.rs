@@ -1,6 +1,7 @@
 //! Canonical OpenAI-compatible request/response types.
 
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 /// A chat message.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,17 +42,23 @@ pub struct FunctionCall {
 }
 
 /// Chat completion request (canonical / OpenAI-compatible).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct ChatCompletionRequest {
+    #[validate(length(min = 1, max = 128, message = "model must be 1-128 characters"))]
     pub model: String,
+    #[validate(length(min = 1, max = 4096, message = "messages must contain 1-4096 items"))]
     pub messages: Vec<Message>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub frequency_penalty: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = 1, max = 2_000_000, message = "max_tokens must be 1-2,000,000"))]
     pub max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = 1, max = 128, message = "n must be 1-128"))]
     pub n: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = -2.0, max = 2.0, message = "frequency_penalty must be -2.0 to 2.0"))]
+    pub frequency_penalty: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = -2.0, max = 2.0, message = "presence_penalty must be -2.0 to 2.0"))]
     pub presence_penalty: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_format: Option<ResponseFormat>,
@@ -62,14 +69,17 @@ pub struct ChatCompletionRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = 0.0, max = 2.0, message = "temperature must be 0.0 to 2.0"))]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = 0.0, max = 1.0, message = "top_p must be 0.0 to 1.0"))]
     pub top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<ToolDefinition>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<ToolChoice>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(max = 256, message = "user must be at most 256 characters"))]
     pub user: Option<String>,
 }
 
@@ -179,15 +189,18 @@ pub struct MessageDelta {
 }
 
 /// Embedding request.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct EmbeddingRequest {
+    #[validate(length(min = 1, max = 128, message = "model must be 1-128 characters"))]
     pub model: String,
     pub input: EmbeddingInput,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub encoding_format: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(range(min = 1, max = 32_768, message = "dimensions must be 1-32768"))]
     pub dimensions: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[validate(length(max = 256, message = "user must be at most 256 characters"))]
     pub user: Option<String>,
 }
 

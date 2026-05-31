@@ -19,6 +19,12 @@ pub enum DbError {
 
     #[error("Connection error: {0}")]
     Connection(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Unsupported operation: {0}")]
+    Unsupported(String),
 }
 
 impl DbError {

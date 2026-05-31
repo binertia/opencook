@@ -1,5 +1,7 @@
 //! Gateway Observability — Structured JSON logging, Prometheus metrics, request tracing.
 
+pub mod metrics;
+
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Initialize the global tracing subscriber with JSON formatting in production

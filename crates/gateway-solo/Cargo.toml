@@ -1,0 +1,44 @@
+[package]
+name = "gateway-solo"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "gateway-solo"
+path = "src/main.rs"
+
+[dependencies]
+gateway-core = { path = "../gateway-core" }
+gateway-db = { path = "../gateway-db" }
+gateway-providers = { path = "../gateway-providers" }
+gateway-observability = { path = "../gateway-observability" }
+gateway-quota = { path = "../gateway-quota" }
+gateway-auth = { path = "../gateway-auth" }
+
+axum = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+figment = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "sqlite", "uuid", "chrono", "rust_decimal"] }
+tokio-stream = { workspace = true }
+futures = { workspace = true }
+rust_decimal = { workspace = true }
+reqwest = { workspace = true }
+validator = { workspace = true }
+http = { workspace = true }
+rand = { workspace = true }
+async-trait = { workspace = true }
+
+[features]
+default = []

@@ -6,6 +6,7 @@ pub mod usage;
 pub mod types;
 pub mod models;
 pub mod quota_engine;
+pub mod aggregator;
 
 pub use types::{LimitResult, RateLimitTier, WindowConfig, default_tiers};
 pub use rate_limiter::{RateLimiter, LayerCheck};
