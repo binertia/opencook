@@ -18,7 +18,7 @@ use crate::{
     middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
     middleware::timing::TimingLayer,
-    routes::{api_keys, auth, chat, dashboard, health, metrics, models, providers, quotas, usage, users},
+    routes::{analytics, api_keys, auth, chat, dashboard, health, metrics, models, providers, quotas, usage, users},
     state::AppState,
     static_files::build_static_router,
 };
@@ -62,6 +62,8 @@ pub fn build_router(state: AppState) -> Router {
         // API key routes
         .route("/v1/api-keys", get(api_keys::list_api_keys).post(api_keys::create_api_key))
         .route("/v1/api-keys/:key_id", put(api_keys::update_api_key).delete(api_keys::delete_api_key))
+        // Analytics routes
+        .route("/v1/analytics", get(analytics::get_analytics))
         // Provider routes
         .route("/v1/providers", get(providers::list_providers).post(providers::create_provider))
         .route("/v1/providers/test", post(providers::test_connection))
