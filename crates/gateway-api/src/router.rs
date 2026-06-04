@@ -3,7 +3,7 @@
 use axum::{
     http::Method,
     middleware,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use tower_http::{
@@ -18,7 +18,7 @@ use crate::{
     middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
     middleware::timing::TimingLayer,
-    routes::{auth, chat, dashboard, health, metrics, models, providers, quotas, usage},
+    routes::{auth, chat, dashboard, health, metrics, models, providers, quotas, usage, users},
     state::AppState,
     static_files::build_static_router,
 };
@@ -56,6 +56,9 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/auth/me", get(auth::me))
         // Dashboard
         .route("/v1/dashboard", get(dashboard::get_dashboard))
+        // User routes
+        .route("/v1/users", get(users::list_users).post(users::create_user))
+        .route("/v1/users/:user_id", put(users::update_user).delete(users::delete_user))
         // Provider routes
         .route("/v1/providers", get(providers::list_providers).post(providers::create_provider))
         .route("/v1/providers/test", post(providers::test_connection))

@@ -9,3 +9,4 @@ pub mod models;
 pub mod providers;
 pub mod quotas;
 pub mod usage;
+pub mod users;
