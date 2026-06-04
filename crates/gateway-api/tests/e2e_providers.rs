@@ -116,3 +116,29 @@ async fn test_provider_test_connection_endpoint_exists() {
         response.status()
     );
 }
+
+#[tokio::test]
+async fn test_provider_new_kinds_accepted() {
+    let app = spawn_test_app().await;
+    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+
+    for kind in ["groq", "mistral", "cohere", "azure", "qwen", "kimi", "tencent"] {
+        let resp = app
+            .post_json_auth(
+                "/v1/providers",
+                &api_key,
+                serde_json::json!({
+                    "name": format!("Test {kind}"),
+                    "kind": kind,
+                    "api_key": "test-key",
+                    "models": ["test-model"],
+                }),
+            )
+            .await;
+        assert!(
+            resp.status().is_success(),
+            "Provider kind '{kind}' should be accepted, got {}",
+            resp.status()
+        );
+    }
+}
