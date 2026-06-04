@@ -64,6 +64,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/api-keys/:key_id", put(api_keys::update_api_key).delete(api_keys::delete_api_key))
         // Analytics routes
         .route("/v1/analytics", get(analytics::get_analytics))
+        .route("/v1/analytics/keys", get(analytics::get_key_usage))
         // Provider routes
         .route("/v1/providers", get(providers::list_providers).post(providers::create_provider))
         .route("/v1/providers/test", post(providers::test_connection))

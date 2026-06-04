@@ -186,6 +186,9 @@ export default function TokenUsagePage() {
           <TabsTrigger value="cache" asChild>
             <Link to="/analytics/cache">Cache</Link>
           </TabsTrigger>
+          <TabsTrigger value="keys" asChild>
+            <Link to="/analytics/keys">Keys</Link>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 

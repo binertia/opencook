@@ -8,7 +8,7 @@ use axum::{
 use chrono::{DateTime, Timelike, Utc};
 use gateway_auth::AuthContext;
 use gateway_db::{
-    repos::request_repo::RequestRepo,
+    repos::{api_key_repo::ApiKeyRepo, request_repo::RequestRepo},
     Request,
 };
 use serde::{Deserialize, Serialize};
@@ -58,6 +58,25 @@ pub struct CacheBreakdownItem {
     pub cache_hits: i64,
     pub cache_hit_rate: f64,
     pub cost_saved_usd: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct KeyUsageItem {
+    pub api_key_id: String,
+    pub key_name: String,
+    pub key_prefix: String,
+    pub key_status: String,
+    pub requests: i64,
+    pub tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub cost_usd: f64,
+    pub avg_latency_ms: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct KeyUsageResponse {
+    pub data: Vec<KeyUsageItem>,
 }
 
 #[derive(Debug, Serialize)]
@@ -327,4 +346,71 @@ fn build_cache_breakdown(requests: &[Request]) -> Vec<CacheBreakdownItem> {
 
     items.sort_by(|a, b| b.cache_hits.cmp(&a.cache_hits));
     items.into_iter().take(10).collect()
+}
+
+// ── Key Usage Handler ────────────────────────────────────────────────
+
+pub async fn get_key_usage(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
+    Query(query): Query<AnalyticsQuery>,
+) -> Result<Json<KeyUsageResponse>, ApiError> {
+    let (_start, _end) = compute_range(&query.range);
+    let request_repo = RequestRepo::new(state.db_pool.clone());
+    let key_repo = ApiKeyRepo::new(state.db_pool.clone());
+
+    let requests = request_repo
+        .list_recent(auth.org_id, 1000)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
+    let keys = key_repo
+        .list_by_org(auth.org_id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
+    // Aggregate by api_key_id
+    let mut aggregates: std::collections::HashMap<uuid::Uuid, (i64, i64, i64, i64, f64, f64, i64)> =
+        std::collections::HashMap::new();
+
+    for r in &requests {
+        if let Some(key_id) = r.api_key_id {
+            let (reqs, tokens, prompt, completion, cost, lat_sum, lat_count) =
+                aggregates.entry(key_id).or_insert((0, 0, 0, 0, 0.0, 0.0, 0));
+            *reqs += 1;
+            *tokens += r.total_tokens as i64;
+            *prompt += r.prompt_tokens as i64;
+            *completion += r.completion_tokens as i64;
+            *cost += f64::try_from(r.total_cost).unwrap_or(0.0);
+            if let Some(lat) = r.latency_total_ms {
+                *lat_sum += lat as f64;
+                *lat_count += 1;
+            }
+        }
+    }
+
+    let mut items: Vec<KeyUsageItem> = keys
+        .into_iter()
+        .map(|k| {
+            let agg = aggregates.get(&k.id);
+            KeyUsageItem {
+                api_key_id: k.id.to_string(),
+                key_name: k.name,
+                key_prefix: k.key_prefix,
+                key_status: k.status,
+                requests: agg.map(|a| a.0).unwrap_or(0),
+                tokens: agg.map(|a| a.1).unwrap_or(0),
+                prompt_tokens: agg.map(|a| a.2).unwrap_or(0),
+                completion_tokens: agg.map(|a| a.3).unwrap_or(0),
+                cost_usd: agg.map(|a| a.4).unwrap_or(0.0),
+                avg_latency_ms: agg
+                    .and_then(|a| if a.6 > 0 { Some(a.5 / a.6 as f64) } else { None })
+                    .unwrap_or(0.0),
+            }
+        })
+        .collect();
+
+    items.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+
+    Ok(Json(KeyUsageResponse { data: items }))
 }
