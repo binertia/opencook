@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard'
 import Providers from '@/pages/Providers'
 import ApiKeys from '@/pages/ApiKeys'
 import Analytics from '@/pages/Analytics'
+import RequestsPage from '@/pages/Requests'
 import Settings from '@/pages/Settings'
 import UsersPage from '@/pages/settings/UsersPage'
 import ProviderDetailPage from '@/pages/providers/ProviderDetailPage'
@@ -59,6 +60,7 @@ function App() {
         <Route path="/providers/:providerId" element={<ProviderDetailPage />} />
         <Route path="/keys" element={<ApiKeys />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/requests" element={<RequestsPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/users" element={<UsersPage />} />
       </Route>

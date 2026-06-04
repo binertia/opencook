@@ -4,6 +4,7 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  FileText,
   KeyRound,
   LayoutDashboard,
   Plug,
@@ -28,6 +29,7 @@ const manageItems: NavItem[] = [
 
 const monitorItems: NavItem[] = [
   { label: 'Analytics', href: '/analytics', icon: BarChart3 },
+  { label: 'Request Logs', href: '/requests', icon: FileText },
 ]
 
 const configureItems: NavItem[] = [

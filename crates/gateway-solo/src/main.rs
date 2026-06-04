@@ -4,6 +4,7 @@ mod middleware;
 mod router;
 mod routes;
 mod state;
+mod static_files;
 
 use std::net::SocketAddr;
 
