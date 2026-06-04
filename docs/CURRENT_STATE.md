@@ -85,7 +85,8 @@ CORS → body limit → trace → rate limit → auth → handler
 - TASK-0046: React dashboard scaffolded (Vite + TypeScript + Tailwind + shadcn/ui)
 - TASK-0047: API client (ky), auth hooks, Zustand store, login page with Zod validation
 - TASK-0048: Dashboard layout with responsive sidebar, header, dark mode toggle, route protection
-- Tasks TASK-0049 through TASK-0100 remain unstarted.
+- TASK-0049: Organization settings page with form validation, routing strategy selector, multi-select for providers/models
+- Tasks TASK-0050 through TASK-0100 remain unstarted.
 
 ## Known Gaps
 1. Provider Config Encryption (TASK-0023) — AES-256-GCM for `api_key_enc`; currently env vars

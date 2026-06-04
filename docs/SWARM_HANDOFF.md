@@ -198,8 +198,9 @@ Services: gateway API (Rust binary), PostgreSQL 16, Redis 7.2, React dashboard (
 | 1 | TASK-0046: React Dashboard setup | ✅ Done | Vite 5.2 + React 18 + TypeScript 5.4 + Tailwind CSS 3.4 + shadcn/ui. Dev server on :5173, proxy to :8080. Build produces `frontend/dist/`. Lint passes. Base components: button, card, input, label, table, dialog, dropdown-menu, select, tabs, toast |
 | 2 | TASK-0047: API Client + Auth Hooks + Login Page | ✅ Done | Typed ky client with 401 redirect, Zustand auth store, `useAuth` hook (login/logout/refresh/fetchMe), `useApi` hooks (query + mutation), Login page with Zod + react-hook-form validation, route protection with `RequireAuth` |
 | 3 | TASK-0048: Dashboard Layout with Sidebar Navigation | ✅ Done | Responsive sidebar with collapsible desktop + mobile drawer, header with user dropdown + dark mode toggle + notification bell, `DashboardLayout` with `Outlet`, dark mode hook with localStorage persistence, 7 tests passing |
+| 4 | TASK-0049: Organization Settings Page | ✅ Done | Org settings form with Zod validation (name, slug, email), routing strategy selector, allowed providers + blocked models multi-select, `useOrganization` hook with TanStack Query, optimistic updates, loading/error/success states, 4 tests passing |
 
-Tasks TASK-0049 through TASK-0100 remain unstarted.
+Tasks TASK-0050 through TASK-0100 remain unstarted.
 
 ### Critical Path (Updated)
 
@@ -215,10 +216,11 @@ TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 
     → TASK-0046 ✅ COMPLETED TO HERE
     → TASK-0047 ✅ COMPLETED TO HERE
     → TASK-0048 ✅ COMPLETED TO HERE
-    → TASK-0049 → TASK-0051 → TASK-0055
+    → TASK-0049 ✅ COMPLETED TO HERE
+    → TASK-0050 → TASK-0051 → TASK-0055
 ```
 
-**Next task on critical path:** TASK-0049 (Organization Settings Page)
+**Next task on critical path:** TASK-0050 (User Management and Invitation Flow)
 
 ### What Can Run in Parallel
 

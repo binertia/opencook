@@ -1,11 +1,18 @@
 import { create } from 'zustand'
 
+export interface UserOrg {
+  org_id: string
+  org_name: string
+  role: string
+}
+
 export interface User {
   id: string
   email: string
   name: string
   role: string
   permissions: string[]
+  organizations?: UserOrg[]
 }
 
 interface AuthState {
