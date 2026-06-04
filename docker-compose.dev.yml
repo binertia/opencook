@@ -59,7 +59,7 @@ services:
       redis:
         condition: service_healthy
     working_dir: /app
-    command: ["cargo", "watch", "-x", "check", "-x", "run", "--bin", "gateway-api"]
+    command: ["/bin/sh", "-c", "cargo watch -x check -x 'run --bin gateway-api'"]
 
   frontend:
     build:
@@ -77,7 +77,7 @@ services:
     depends_on:
       - backend
     working_dir: /app
-    command: ["pnpm", "dev", "--host", "0.0.0.0"]
+    command: npm run dev -- --host 0.0.0.0
 
 volumes:
   postgres_dev_data:

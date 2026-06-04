@@ -3,8 +3,8 @@ FROM rust:1.80-bookworm
 # Install cargo-watch for hot reload
 RUN cargo install cargo-watch --locked
 
-# Install sqlx-cli for migrations
-RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres --locked
+# Install sqlx-cli for migrations (pin to 0.8.x for Rust 1.80 compatibility)
+RUN cargo install sqlx-cli --version ~0.8 --no-default-features --features native-tls,postgres --locked
 
 WORKDIR /app
 
