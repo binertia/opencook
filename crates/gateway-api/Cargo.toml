@@ -43,3 +43,9 @@ validator = { workspace = true }
 tokio-stream = { workspace = true }
 futures = { workspace = true }
 rust_decimal = { workspace = true }
+
+[dev-dependencies]
+wiremock = { workspace = true }
+testcontainers = { workspace = true }
+testcontainers-modules = { workspace = true }
+tempfile = "3"
