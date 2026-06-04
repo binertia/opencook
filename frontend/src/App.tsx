@@ -10,6 +10,7 @@ import Analytics from '@/pages/Analytics'
 import TokenUsagePage from '@/pages/analytics/TokenUsagePage'
 import CacheAnalyticsPage from '@/pages/analytics/CacheAnalyticsPage'
 import KeyUsagePage from '@/pages/analytics/KeyUsagePage'
+import BudgetPage from '@/pages/analytics/BudgetPage'
 import RequestsPage from '@/pages/Requests'
 import Settings from '@/pages/Settings'
 import UsersPage from '@/pages/settings/UsersPage'
@@ -66,6 +67,7 @@ function App() {
         <Route path="/analytics/tokens" element={<TokenUsagePage />} />
         <Route path="/analytics/cache" element={<CacheAnalyticsPage />} />
         <Route path="/analytics/keys" element={<KeyUsagePage />} />
+        <Route path="/analytics/budget" element={<BudgetPage />} />
         <Route path="/requests" element={<RequestsPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/users" element={<UsersPage />} />

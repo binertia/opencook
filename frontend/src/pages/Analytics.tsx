@@ -56,6 +56,9 @@ export default function Analytics() {
           <TabsTrigger value="keys" asChild>
             <Link to="/analytics/keys">Keys</Link>
           </TabsTrigger>
+          <TabsTrigger value="budget" asChild>
+            <Link to="/analytics/budget">Budget</Link>
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
