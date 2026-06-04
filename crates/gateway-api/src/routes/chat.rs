@@ -12,7 +12,7 @@ use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError}
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
 use gateway_db::RequestRepo;
-use gateway_db::repos::routing_repo::RoutingRepo;
+use gateway_db::repos::{provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo};
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -29,8 +29,51 @@ fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
     }
 }
 
-/// Build a ProviderConfig from a routing target using environment variables.
-fn build_provider_config(target: &gateway_db::Target) -> Option<ProviderConfig> {
+/// Build a ProviderConfig from a DB provider config, decrypting the API key.
+async fn build_provider_config_from_db(
+    state: &AppState,
+    auth: &AuthContext,
+    target: &gateway_db::Target,
+) -> Option<ProviderConfig> {
+    // Look up provider by config ID from the database
+    let repo = ProviderConfigRepo::new(state.db_pool.clone());
+    let db_config = match repo.get_by_id(target.provider_config_id, auth.org_id).await {
+        Ok(Some(c)) => c,
+        Ok(None) => {
+            tracing::warn!(provider_id = %target.provider_config_id, "Provider config not found in DB");
+            return build_provider_config_from_env(target).await;
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to fetch provider config from DB");
+            return build_provider_config_from_env(target).await;
+        }
+    };
+
+    let kind = parse_provider_kind(&db_config.kind)?;
+    let base_url = db_config
+        .api_base
+        .clone()
+        .unwrap_or_else(|| default_base_url(&kind));
+
+    let api_key = if db_config.api_key_enc.is_empty() {
+        String::new()
+    } else {
+        gateway_auth::crypto::decrypt(&db_config.api_key_enc, &state.config.master_key)
+            .unwrap_or_default()
+    };
+
+    Some(ProviderConfig {
+        kind,
+        provider_id: db_config.id.to_string(),
+        base_url,
+        api_key,
+        default_model: target.model_id.clone(),
+        timeout_ms: 30000,
+    })
+}
+
+/// Fallback: build ProviderConfig from environment variables.
+async fn build_provider_config_from_env(target: &gateway_db::Target) -> Option<ProviderConfig> {
     let kind_str = target.provider_kind.as_deref()?;
     let kind = parse_provider_kind(kind_str)?;
 
@@ -49,7 +92,7 @@ fn build_provider_config(target: &gateway_db::Target) -> Option<ProviderConfig> 
         ),
         ProviderKind::Ollama => (
             std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".to_string()),
-            String::new(), // Ollama typically doesn't need an API key
+            String::new(),
         ),
         ProviderKind::Custom => return None,
     };
@@ -62,6 +105,16 @@ fn build_provider_config(target: &gateway_db::Target) -> Option<ProviderConfig> 
         default_model: target.model_id.clone(),
         timeout_ms: 30000,
     })
+}
+
+fn default_base_url(kind: &ProviderKind) -> String {
+    match kind {
+        ProviderKind::OpenAi => "https://api.openai.com".to_string(),
+        ProviderKind::Anthropic => "https://api.anthropic.com".to_string(),
+        ProviderKind::Gemini => "https://generativelanguage.googleapis.com".to_string(),
+        ProviderKind::Ollama => "http://localhost:11434".to_string(),
+        ProviderKind::Custom => String::new(),
+    }
 }
 
 /// Resolve routing for a request: query rules, evaluate, return provider configs.
@@ -81,18 +134,54 @@ async fn resolve_routing(
 
     let decision = gateway_core::router::resolve_with_fallback(request, &rules);
 
-    let primary = build_provider_config(&decision.primary)?;
-    let fallbacks: Vec<ProviderConfig> = decision
-        .fallback_chain
-        .iter()
-        .filter_map(build_provider_config)
-        .collect();
+    let primary = build_provider_config_from_db(state, auth, &decision.primary).await?;
+    let mut fallbacks: Vec<ProviderConfig> = Vec::new();
+    for target in &decision.fallback_chain {
+        if let Some(config) = build_provider_config_from_db(state, auth, target).await {
+            fallbacks.push(config);
+        }
+    }
 
     Some((primary, fallbacks))
 }
 
 /// Default provider config when no routing rules match.
-fn default_provider_config(request: &ChatCompletionRequest) -> ProviderConfig {
+/// Tries to find an active provider in the DB first, then falls back to env vars.
+async fn default_provider_config(
+    state: &AppState,
+    auth: &AuthContext,
+    request: &ChatCompletionRequest,
+) -> ProviderConfig {
+    // Try to find an active provider in the DB for this org
+    let repo = ProviderConfigRepo::new(state.db_pool.clone());
+    match repo.list_active_by_org(auth.org_id).await {
+        Ok(configs) => {
+            for config in configs {
+                if let Some(kind) = parse_provider_kind(&config.kind) {
+                    let base_url = config.api_base.clone().unwrap_or_else(|| default_base_url(&kind));
+                    let api_key = if config.api_key_enc.is_empty() {
+                        String::new()
+                    } else {
+                        gateway_auth::crypto::decrypt(&config.api_key_enc, &state.config.master_key)
+                            .unwrap_or_default()
+                    };
+                    return ProviderConfig {
+                        kind,
+                        provider_id: config.id.to_string(),
+                        base_url,
+                        api_key,
+                        default_model: request.model.clone(),
+                        timeout_ms: 30000,
+                    };
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to fetch active providers from DB");
+        }
+    }
+
+    // Fallback to env vars
     ProviderConfig {
         kind: ProviderKind::OpenAi,
         provider_id: "openai".to_string(),
@@ -183,9 +272,11 @@ async fn non_stream_chat_completions(
     }
 
     // ── Routing: resolve provider config(s) ────────────────────────────
-    let (primary_config, fallback_configs) = resolve_routing(&state, &auth, &request)
-        .await
-        .unwrap_or_else(|| (default_provider_config(&request), vec![]));
+    let (primary_config, fallback_configs) = if let Some(result) = resolve_routing(&state, &auth, &request).await {
+        result
+    } else {
+        (default_provider_config(&state, &auth, &request).await, vec![])
+    };
 
     // ── Provider call (with circuit breaker + retry + fallback) ────────
     let provider_call: gateway_core::orchestrator::ProviderCall = {
@@ -398,9 +489,11 @@ async fn stream_chat_completions(
         ))?;
 
     // ── Routing: resolve provider config ───────────────────────────────
-    let (provider_config, _fallback_configs) = resolve_routing(&state, &auth, &request)
-        .await
-        .unwrap_or_else(|| (default_provider_config(&request), vec![]));
+    let (provider_config, _fallback_configs) = if let Some(result) = resolve_routing(&state, &auth, &request).await {
+        result
+    } else {
+        (default_provider_config(&state, &auth, &request).await, vec![])
+    };
 
     // Circuit breaker check for streaming
     let provider_key = provider_config.provider_id.clone();

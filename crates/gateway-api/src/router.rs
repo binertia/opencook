@@ -18,7 +18,7 @@ use crate::{
     middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
     middleware::timing::TimingLayer,
-    routes::{auth, chat, health, metrics, models, quotas, usage},
+    routes::{auth, chat, health, metrics, models, providers, quotas, usage},
     state::AppState,
     static_files::build_static_router,
 };
@@ -54,6 +54,13 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/auth/logout", post(auth::logout))
         .route("/v1/auth/refresh", post(auth::refresh))
         .route("/v1/auth/me", get(auth::me))
+        // Provider routes
+        .route("/v1/providers", get(providers::list_providers).post(providers::create_provider))
+        .route("/v1/providers/test", post(providers::test_connection))
+        .route("/v1/providers/:provider_id", get(providers::get_provider).put(providers::update_provider).delete(providers::delete_provider))
+        .route("/v1/providers/:provider_id/health", get(providers::get_provider_health).post(providers::trigger_health_check))
+        .route("/v1/providers/:provider_id/health-history", get(providers::get_health_history))
+        .route("/v1/providers/:provider_id/test", post(providers::test_existing_connection))
         // Chat and models
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))

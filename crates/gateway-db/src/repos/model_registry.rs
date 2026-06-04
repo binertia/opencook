@@ -199,6 +199,79 @@ impl ModelRegistry {
         }))
     }
 
+    /// Create a provider model entry.
+    pub async fn create_model(
+        &self,
+        org_id: Uuid,
+        provider_config_id: Uuid,
+        model_id: &str,
+        model_name: &str,
+    ) -> Result<ProviderModel, DbError> {
+        let sql = r#"
+            INSERT INTO provider_models (
+                org_id, provider_config_id, model_id, model_name,
+                aliases, input_cost_per_1k, output_cost_per_1k,
+                context_window, max_tokens, supports_streaming, supports_tools, supports_vision,
+                status, config
+            )
+            VALUES ($1, $2, $3, $4, '[]', '0', '0', NULL, NULL, 1, 0, 0, 'active', '{}')
+            RETURNING *
+            "#;
+        let row = match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query_as::<_, ProviderModel>(sql)
+                    .bind(org_id)
+                    .bind(provider_config_id)
+                    .bind(model_id)
+                    .bind(model_name)
+                    .fetch_one(pg)
+                    .await?
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query_as::<_, ProviderModel>(sql)
+                    .bind(org_id)
+                    .bind(provider_config_id)
+                    .bind(model_id)
+                    .bind(model_name)
+                    .fetch_one(sqlite)
+                    .await?
+            }
+        };
+        Ok(row)
+    }
+
+    /// Delete all models for a provider config.
+    pub async fn delete_models_by_provider(
+        &self,
+        org_id: Uuid,
+        provider_config_id: Uuid,
+    ) -> Result<(), DbError> {
+        let sql = r#"
+            UPDATE provider_models
+            SET deleted_at = NOW(), status = 'inactive'
+            WHERE org_id = $1 AND provider_config_id = $2 AND deleted_at IS NULL
+            "#;
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query(sql)
+                    .bind(org_id)
+                    .bind(provider_config_id)
+                    .execute(pg)
+                    .await?;
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE provider_models SET deleted_at = datetime('now'), status = 'inactive' WHERE org_id = $1 AND provider_config_id = $2 AND deleted_at IS NULL"
+                )
+                .bind(org_id)
+                .bind(provider_config_id)
+                .execute(sqlite)
+                .await?;
+            }
+        };
+        Ok(())
+    }
+
     /// Get provider name from provider_configs.
     async fn get_provider_name(
         &self,

@@ -32,6 +32,7 @@ pub struct HealthWorker {
     shutdown: Arc<Notify>,
     interval_secs: u64,
     check_timeout_secs: u64,
+    master_key: [u8; 32],
 }
 
 impl HealthWorker {
@@ -41,6 +42,7 @@ impl HealthWorker {
         redis: ConnectionManager,
         interval_secs: u64,
         check_timeout_secs: u64,
+        master_key: [u8; 32],
     ) -> Self {
         Self {
             db_pool,
@@ -49,6 +51,7 @@ impl HealthWorker {
             shutdown: Arc::new(Notify::new()),
             interval_secs,
             check_timeout_secs,
+            master_key,
         }
     }
 
@@ -76,17 +79,18 @@ impl HealthWorker {
         );
 
         let cb = self.circuit_breaker.clone();
+        let master_key = self.master_key;
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
-                    if let Err(e) = Self::check_all(&repo, &self.redis, cb.as_ref(), self.check_timeout_secs).await {
+                    if let Err(e) = Self::check_all(&repo, &self.redis, cb.as_ref(), self.check_timeout_secs, &master_key).await {
                         error!(error = %e, "Health check round failed");
                     }
                 }
                 _ = self.shutdown.notified() => {
                     info!("Health check worker shutting down");
                     // One final check before exit
-                    if let Err(e) = Self::check_all(&repo, &self.redis, cb.as_ref(), self.check_timeout_secs).await {
+                    if let Err(e) = Self::check_all(&repo, &self.redis, cb.as_ref(), self.check_timeout_secs, &master_key).await {
                         error!(error = %e, "Final health check round failed");
                     }
                     break;
@@ -103,6 +107,7 @@ impl HealthWorker {
         redis: &ConnectionManager,
         circuit_breaker: Option<&CircuitBreaker>,
         timeout_secs: u64,
+        master_key: &[u8; 32],
     ) -> Result<(), HealthWorkerError> {
         let configs = repo.list_all_active().await?;
         debug!(provider_count = configs.len(), "Starting health check round");
@@ -110,7 +115,7 @@ impl HealthWorker {
         for config in configs {
             let provider_key = config.kind.clone(); // e.g. "openai", "anthropic"
             let start = std::time::Instant::now();
-            let result = match Self::check_one(&config, timeout_secs).await {
+            let result = match Self::check_one(&config, timeout_secs, master_key).await {
                 Ok(()) => {
                     let latency = start.elapsed().as_millis() as u64;
                     debug!(provider = %config.name, latency_ms = latency, "Health check passed");
@@ -210,6 +215,7 @@ impl HealthWorker {
     async fn check_one(
         config: &gateway_db::models::ProviderConfig,
         timeout_secs: u64,
+        master_key: &[u8; 32],
     ) -> Result<(), String> {
         let kind = match config.kind.to_lowercase().as_str() {
             "openai" => ProviderKind::OpenAi,
@@ -224,12 +230,11 @@ impl HealthWorker {
             .clone()
             .unwrap_or_else(|| default_base_url(kind.clone()));
 
-        let api_key = match kind {
-            ProviderKind::OpenAi => std::env::var("OPENAI_API_KEY").unwrap_or_default(),
-            ProviderKind::Anthropic => std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-            ProviderKind::Gemini => std::env::var("GEMINI_API_KEY").unwrap_or_default(),
-            ProviderKind::Ollama => String::new(),
-            ProviderKind::Custom => String::new(),
+        let api_key = if config.api_key_enc.is_empty() {
+            String::new()
+        } else {
+            gateway_auth::crypto::decrypt(&config.api_key_enc, master_key)
+                .unwrap_or_default()
         };
 
         let provider_config = ProviderConfig {

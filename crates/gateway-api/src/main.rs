@@ -48,6 +48,7 @@ async fn run_server() -> anyhow::Result<()> {
         state.redis.clone(),
         30, // interval: 30 seconds
         10, // timeout: 10 seconds per provider
+        state.config.master_key,
     )
     .with_circuit_breaker(state.circuit_breaker.clone());
     let _health_shutdown = health_worker.spawn();
