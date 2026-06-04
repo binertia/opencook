@@ -142,7 +142,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS organizations (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             name TEXT NOT NULL,
             slug TEXT NOT NULL UNIQUE,
             status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
@@ -155,7 +155,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS users (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             email TEXT NOT NULL,
             password_hash TEXT,
@@ -169,7 +169,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS api_keys (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             user_id BLOB REFERENCES users(id),
             name TEXT NOT NULL,
@@ -186,7 +186,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS provider_configs (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             name TEXT NOT NULL,
             kind TEXT NOT NULL,
@@ -204,7 +204,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS provider_models (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             provider_config_id BLOB NOT NULL REFERENCES provider_configs(id),
             model_id TEXT NOT NULL,
@@ -225,7 +225,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS routing_rules (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             name TEXT NOT NULL,
             description TEXT,
@@ -244,7 +244,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS requests (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             api_key_id BLOB REFERENCES api_keys(id),
             user_id BLOB REFERENCES users(id),
@@ -287,7 +287,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS quotas (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             api_key_id BLOB REFERENCES api_keys(id),
             name TEXT NOT NULL,
@@ -306,7 +306,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS quota_usage (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             quota_id BLOB NOT NULL REFERENCES quotas(id),
             api_key_id BLOB REFERENCES api_keys(id),
@@ -323,7 +323,7 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         );
 
         CREATE TABLE IF NOT EXISTS usage_records (
-            id BLOB PRIMARY KEY NOT NULL,
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),
             api_key_id BLOB REFERENCES api_keys(id),
             provider_config_id BLOB REFERENCES provider_configs(id),

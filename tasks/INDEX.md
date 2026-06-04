@@ -78,9 +78,9 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0043 | Implement Usage Aggregation Pipeline | Epic-08 | High | 1d | TASK-0010, TASK-0029 | done |
 | TASK-0044 | Integrate Rate Limiting and Quota into Request Orchestrator | Epic-08 | Critical | 1d | TASK-0041, TASK-0042, TASK-0039 | done |
 | TASK-0045 | Implement Quota and Budget Admin API | Epic-08 | High | 1d | TASK-0042, TASK-0043, TASK-0016 | done |
-| TASK-0046 | Initialize React Dashboard with Vite, TypeScript, and shadcn/ui | Epic-09 | Critical | 1d | TASK-0001 | todo |
-| TASK-0047 | Implement API Client, Auth Hooks, and Login Page | Epic-09 | Critical | 1d | TASK-0046, TASK-0013 | todo |
-| TASK-0048 | Implement Dashboard Layout with Sidebar Navigation | Epic-09 | Critical | 1d | TASK-0046, TASK-0047 | todo |
+| TASK-0046 | Initialize React Dashboard with Vite, TypeScript, and shadcn/ui | Epic-09 | Critical | 1d | TASK-0001 | done |
+| TASK-0047 | Implement API Client, Auth Hooks, and Login Page | Epic-09 | Critical | 1d | TASK-0046, TASK-0013 | done |
+| TASK-0048 | Implement Dashboard Layout with Sidebar Navigation | Epic-09 | Critical | 1d | TASK-0046, TASK-0047 | done |
 | TASK-0049 | Implement Organization Settings Page | Epic-09 | High | 1d | TASK-0048, TASK-0047 | todo |
 | TASK-0050 | Implement User Management and Invitation Flow | Epic-09 | High | 1.5d | TASK-0048, TASK-0016 | todo |
 | TASK-0051 | Implement Dashboard Overview Page with KPI Cards | Epic-09 | High | 1d | TASK-0048, TASK-0045, TASK-0047 | todo |

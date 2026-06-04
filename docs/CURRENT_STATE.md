@@ -2,7 +2,7 @@
 
 > **One-page snapshot of what's actually built right now.**
 > Update this after every completed task. Keep it under 50 lines.
-> Last updated: 2026-05-31
+> Last updated: 2026-06-04
 
 ## Phase 1–3: Foundation + Core Gateway + Admin APIs — COMPLETED ✅
 
@@ -80,9 +80,12 @@ CORS → body limit → trace → rate limit → auth → handler
 - Prometheus `/metrics` endpoint
 - Request logs persisted to `requests` table
 
-## Phase 4: Dashboard & Polish — NOT STARTED
+## Phase 4: Dashboard & Polish — IN PROGRESS
 
-Tasks TASK-0046 through TASK-0100 remain unstarted.
+- TASK-0046: React dashboard scaffolded (Vite + TypeScript + Tailwind + shadcn/ui)
+- TASK-0047: API client (ky), auth hooks, Zustand store, login page with Zod validation
+- TASK-0048: Dashboard layout with responsive sidebar, header, dark mode toggle, route protection
+- Tasks TASK-0049 through TASK-0100 remain unstarted.
 
 ## Known Gaps
 1. Provider Config Encryption (TASK-0023) — AES-256-GCM for `api_key_enc`; currently env vars

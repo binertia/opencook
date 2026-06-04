@@ -191,9 +191,15 @@ Services: gateway API (Rust binary), PostgreSQL 16, Redis 7.2, React dashboard (
 | 1 | TASK-0043: Usage aggregation pipeline | ✅ Done | `AggregationWorker` with 60s interval. `ON CONFLICT DO UPDATE` for idempotency. Graceful shutdown support |
 | 2 | TASK-0045: Quota and budget admin API | ✅ Done | Full CRUD for quotas + usage/cost analytics endpoints. RBAC-protected (Owner/Admin/Member/Viewer) |
 
-### Phase 4: Dashboard & Polish — NOT STARTED
+### Phase 4: Dashboard & Polish — IN PROGRESS
 
-See original plan. Tasks TASK-0046 through TASK-0100 remain unstarted.
+| Order | Task | Status | Notes |
+|-------|------|--------|-------|
+| 1 | TASK-0046: React Dashboard setup | ✅ Done | Vite 5.2 + React 18 + TypeScript 5.4 + Tailwind CSS 3.4 + shadcn/ui. Dev server on :5173, proxy to :8080. Build produces `frontend/dist/`. Lint passes. Base components: button, card, input, label, table, dialog, dropdown-menu, select, tabs, toast |
+| 2 | TASK-0047: API Client + Auth Hooks + Login Page | ✅ Done | Typed ky client with 401 redirect, Zustand auth store, `useAuth` hook (login/logout/refresh/fetchMe), `useApi` hooks (query + mutation), Login page with Zod + react-hook-form validation, route protection with `RequireAuth` |
+| 3 | TASK-0048: Dashboard Layout with Sidebar Navigation | ✅ Done | Responsive sidebar with collapsible desktop + mobile drawer, header with user dropdown + dark mode toggle + notification bell, `DashboardLayout` with `Outlet`, dark mode hook with localStorage persistence, 7 tests passing |
+
+Tasks TASK-0049 through TASK-0100 remain unstarted.
 
 ### Critical Path (Updated)
 
@@ -206,10 +212,13 @@ TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 
     → TASK-0036 → TASK-0037 → TASK-0038 → TASK-0039
     → TASK-0041 → TASK-0042 → TASK-0044  ✅ COMPLETED TO HERE
     → TASK-0043 → TASK-0045  ✅ COMPLETED TO HERE
-    → TASK-0046 → TASK-0047 → TASK-0048 → TASK-0051 → TASK-0055
+    → TASK-0046 ✅ COMPLETED TO HERE
+    → TASK-0047 ✅ COMPLETED TO HERE
+    → TASK-0048 ✅ COMPLETED TO HERE
+    → TASK-0049 → TASK-0051 → TASK-0055
 ```
 
-**Next task on critical path:** TASK-0046 (React Dashboard setup)
+**Next task on critical path:** TASK-0049 (Organization Settings Page)
 
 ### What Can Run in Parallel
 
@@ -565,5 +574,5 @@ This allows development without API keys. For integration testing, the user has 
 
 *Document version: 6.0*
 *Generated from: VISION.md, PRODUCT.md, MARKET.md, ARCHITECTURE.md, TECH_STACK.md, API_SPEC.md, DATABASE.md, AUTH.md, CACHE.md, SECURITY.md, ROADMAP.md, EPICS.md, COMPETITORS.md, MONETIZATION.md, 8 ADRs, tasks/INDEX.md*
-*Last updated: 2026-05-31*
-*Current swarm: Phases 1–3 complete. Phase 4 (Dashboard) not started. Next: TASK-0046 (React Dashboard setup)*
+*Last updated: 2026-06-04*
+*Current swarm: Phases 1–3 complete. Phase 4 (Dashboard) in progress. Next: TASK-0048 (Dashboard Layout with Sidebar Navigation)*
