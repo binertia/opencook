@@ -201,8 +201,9 @@ Services: gateway API (Rust binary), PostgreSQL 16, Redis 7.2, React dashboard (
 | 4 | TASK-0049: Organization Settings Page | ✅ Done | Org settings form with Zod validation (name, slug, email), routing strategy selector, allowed providers + blocked models multi-select, `useOrganization` hook with TanStack Query, optimistic updates, loading/error/success states, 4 tests passing |
 | 5 | TASK-0050: User Management and Invitation Flow | ✅ Done | Users table with name/email/role/status/last-login columns, role change dropdown with RBAC (owner/admin restrictions), remove member confirmation dialog, invite user modal with Zod validation, `useUsers` hook, status filter + search, 5 tests passing |
 | 6 | TASK-0051: Dashboard Overview Page with KPI Cards | ✅ Done | 4 KPI cards (requests, cost, cache hit rate, latency) with change indicators, time range selector, recent requests table with status badges, active providers with health indicators, quick action cards, loading skeletons, error states with retry, `useDashboard` hook, 6 tests passing |
+| 7 | TASK-0052: Provider List Page with Health Status | ✅ Done | Provider table with name, kind, status, health indicator (color-coded), latency (color-coded by threshold), error rate (color-coded by threshold), sortable columns, status filter buttons, search, manual health check trigger with refresh icon, `useProviders` hook with auto-refresh every 30s, Tooltip component, 4 tests passing |
 
-Tasks TASK-0052 through TASK-0100 remain unstarted.
+Tasks TASK-0053 through TASK-0100 remain unstarted.
 
 ### Critical Path (Updated)
 
@@ -221,10 +222,11 @@ TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 
     → TASK-0049 ✅ COMPLETED TO HERE
     → TASK-0050 ✅ COMPLETED TO HERE
     → TASK-0051 ✅ COMPLETED TO HERE
-    → TASK-0052 → TASK-0055
+    → TASK-0052 ✅ COMPLETED TO HERE
+    → TASK-0053 → TASK-0055
 ```
 
-**Next task on critical path:** TASK-0052 (Provider List Page with Health Status)
+**Next task on critical path:** TASK-0053 (Add/Edit Provider Wizard)
 
 ### What Can Run in Parallel
 
