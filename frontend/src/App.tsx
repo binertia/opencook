@@ -9,6 +9,7 @@ import ApiKeys from '@/pages/ApiKeys'
 import Analytics from '@/pages/Analytics'
 import Settings from '@/pages/Settings'
 import UsersPage from '@/pages/settings/UsersPage'
+import ProviderDetailPage from '@/pages/providers/ProviderDetailPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -55,6 +56,7 @@ function App() {
       >
         <Route path="/" element={<Dashboard />} />
         <Route path="/providers" element={<Providers />} />
+        <Route path="/providers/:providerId" element={<ProviderDetailPage />} />
         <Route path="/keys" element={<ApiKeys />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />

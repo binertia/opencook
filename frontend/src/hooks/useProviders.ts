@@ -12,6 +12,19 @@ export interface Provider {
   updated_at: string
 }
 
+export interface ProviderModel {
+  id: string
+  name: string
+  context_window?: number
+  capabilities?: string[]
+  pricing?: {
+    input_per_1m_tokens: number
+    output_per_1m_tokens: number
+    currency: string
+  }
+  status: 'active' | 'inactive'
+}
+
 export interface ProviderHealth {
   provider_id: string
   status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown'
@@ -21,9 +34,28 @@ export interface ProviderHealth {
   message?: string
 }
 
+export interface ProviderDetail extends Provider {
+  models: ProviderModel[]
+  health?: ProviderHealth
+  routing_weight: number
+  priority: number
+}
+
 export interface ProvidersListResponse {
   object: 'list'
   data: Provider[]
+}
+
+export interface HealthHistoryEntry {
+  checked_at: string
+  status: 'healthy' | 'degraded' | 'unhealthy'
+  latency_ms: number
+  error: string | null
+}
+
+export interface HealthHistoryResponse {
+  object: 'list'
+  data: HealthHistoryEntry[]
 }
 
 const PROVIDERS_QUERY_KEY = ['providers']
@@ -38,6 +70,17 @@ export function useProviders() {
   })
 }
 
+export function useProvider(providerId: string) {
+  return useQuery<ProviderDetail, ApiError>({
+    queryKey: ['provider', providerId],
+    queryFn: async () => {
+      const response = await api.get(`v1/providers/${providerId}`)
+      return response.json<ProviderDetail>()
+    },
+    enabled: !!providerId,
+  })
+}
+
 export function useProviderHealth(providerId: string) {
   return useQuery<ProviderHealth, ApiError>({
     queryKey: ['provider-health', providerId],
@@ -47,6 +90,36 @@ export function useProviderHealth(providerId: string) {
     },
     refetchInterval: 30_000,
     enabled: !!providerId,
+  })
+}
+
+export function useProviderHealthHistory(providerId: string, hours = 24) {
+  return useQuery<HealthHistoryResponse, ApiError>({
+    queryKey: ['provider-health-history', providerId, hours],
+    queryFn: async () => {
+      const response = await api.get(`v1/providers/${providerId}/health-history`, {
+        searchParams: { hours: String(hours) },
+      })
+      return response.json<HealthHistoryResponse>()
+    },
+    enabled: !!providerId,
+  })
+}
+
+export function useUpdateProviderModels(providerId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation<ProviderDetail, ApiError, ProviderModel[]>({
+    mutationFn: async (models) => {
+      const response = await api.put(`v1/providers/${providerId}`, {
+        json: { models: models.map((m) => ({ ...m, enabled: m.status === 'active' })) },
+      })
+      return response.json<ProviderDetail>()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['provider', providerId] })
+      queryClient.invalidateQueries({ queryKey: ['providers'] })
+    },
   })
 }
 

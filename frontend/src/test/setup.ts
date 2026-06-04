@@ -19,3 +19,11 @@ Object.defineProperty(window, 'matchMedia', {
 Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || vi.fn()
 Element.prototype.releasePointerCapture = Element.prototype.releasePointerCapture || vi.fn()
 Element.prototype.hasPointerCapture = Element.prototype.hasPointerCapture || vi.fn(() => false)
+
+// Polyfill for ResizeObserver (required by recharts)
+class ResizeObserverMock {
+  observe = vi.fn()
+  unobserve = vi.fn()
+  disconnect = vi.fn()
+}
+window.ResizeObserver = ResizeObserverMock

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { ArrowUpDown, RefreshCw, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowUpDown, RefreshCw, Search, Eye } from 'lucide-react'
 import { useProviders, useProviderHealth, useTriggerHealthCheck } from '@/hooks/useProviders'
 import type { Provider } from '@/hooks/useProviders'
 import { HealthIndicator } from '@/components/providers/HealthIndicator'
@@ -225,7 +226,14 @@ export default function ProvidersPage() {
                   ) : (
                     filtered.map((provider) => (
                       <TableRow key={provider.id}>
-                        <TableCell className="font-medium">{provider.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <Link
+                            to={`/providers/${provider.id}`}
+                            className="hover:underline"
+                          >
+                            {provider.name}
+                          </Link>
+                        </TableCell>
                         <TableCell className="capitalize">{provider.kind}</TableCell>
                         <TableCell>
                           <Badge
@@ -236,13 +244,25 @@ export default function ProvidersPage() {
                         </TableCell>
                         <ProviderHealthRow providerId={provider.id} />
                         <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditProvider(provider)}
-                          >
-                            Edit
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              asChild
+                              title="View details"
+                            >
+                              <Link to={`/providers/${provider.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditProvider(provider)}
+                            >
+                              Edit
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
