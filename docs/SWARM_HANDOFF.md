@@ -200,8 +200,9 @@ Services: gateway API (Rust binary), PostgreSQL 16, Redis 7.2, React dashboard (
 | 3 | TASK-0048: Dashboard Layout with Sidebar Navigation | ✅ Done | Responsive sidebar with collapsible desktop + mobile drawer, header with user dropdown + dark mode toggle + notification bell, `DashboardLayout` with `Outlet`, dark mode hook with localStorage persistence, 7 tests passing |
 | 4 | TASK-0049: Organization Settings Page | ✅ Done | Org settings form with Zod validation (name, slug, email), routing strategy selector, allowed providers + blocked models multi-select, `useOrganization` hook with TanStack Query, optimistic updates, loading/error/success states, 4 tests passing |
 | 5 | TASK-0050: User Management and Invitation Flow | ✅ Done | Users table with name/email/role/status/last-login columns, role change dropdown with RBAC (owner/admin restrictions), remove member confirmation dialog, invite user modal with Zod validation, `useUsers` hook, status filter + search, 5 tests passing |
+| 6 | TASK-0051: Dashboard Overview Page with KPI Cards | ✅ Done | 4 KPI cards (requests, cost, cache hit rate, latency) with change indicators, time range selector, recent requests table with status badges, active providers with health indicators, quick action cards, loading skeletons, error states with retry, `useDashboard` hook, 6 tests passing |
 
-Tasks TASK-0051 through TASK-0100 remain unstarted.
+Tasks TASK-0052 through TASK-0100 remain unstarted.
 
 ### Critical Path (Updated)
 
@@ -219,10 +220,11 @@ TASK-0001 → TASK-0006 → TASK-0007 → TASK-0008 → TASK-0009 → TASK-0010 
     → TASK-0048 ✅ COMPLETED TO HERE
     → TASK-0049 ✅ COMPLETED TO HERE
     → TASK-0050 ✅ COMPLETED TO HERE
-    → TASK-0051 → TASK-0055
+    → TASK-0051 ✅ COMPLETED TO HERE
+    → TASK-0052 → TASK-0055
 ```
 
-**Next task on critical path:** TASK-0051 (Dashboard Overview Page with KPI Cards)
+**Next task on critical path:** TASK-0052 (Provider List Page with Health Status)
 
 ### What Can Run in Parallel
 

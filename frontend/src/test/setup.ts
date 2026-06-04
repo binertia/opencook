@@ -14,3 +14,8 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 })
+
+// Polyfills for Radix UI Select in jsdom
+Element.prototype.setPointerCapture = Element.prototype.setPointerCapture || vi.fn()
+Element.prototype.releasePointerCapture = Element.prototype.releasePointerCapture || vi.fn()
+Element.prototype.hasPointerCapture = Element.prototype.hasPointerCapture || vi.fn(() => false)
