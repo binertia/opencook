@@ -32,6 +32,8 @@ pub struct TimeSeriesPoint {
     pub timestamp: String,
     pub requests: i64,
     pub tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
     pub cost_usd: f64,
     pub latency_ms: f64,
     pub cache_hits: i64,
@@ -44,20 +46,35 @@ pub struct BreakdownItem {
     pub value: String,
     pub requests: i64,
     pub tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
     pub cost_usd: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CacheBreakdownItem {
+    pub model: String,
+    pub requests: i64,
+    pub cache_hits: i64,
+    pub cache_hit_rate: f64,
+    pub cost_saved_usd: f64,
 }
 
 #[derive(Debug, Serialize)]
 pub struct AnalyticsResponse {
     pub total_requests: i64,
     pub total_tokens: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
     pub total_cost_usd: f64,
+    pub cost_saved_from_cache_usd: f64,
     pub avg_latency_ms: f64,
     pub cache_hit_rate: f64,
     pub error_rate: f64,
     pub time_series: Vec<TimeSeriesPoint>,
     pub by_model: Vec<BreakdownItem>,
     pub by_status: Vec<BreakdownItem>,
+    pub top_cached_models: Vec<CacheBreakdownItem>,
 }
 
 // ── Handler ──────────────────────────────────────────────────────────
@@ -83,8 +100,11 @@ pub async fn get_analytics(
     let time_series = build_time_series(&requests, start, end, &query.range);
     let by_model = build_model_breakdown(&requests);
     let by_status = build_status_breakdown(&requests);
+    let top_cached_models = build_cache_breakdown(&requests);
 
-    let total_tokens = requests.iter().map(|r| r.total_tokens as i64).sum();
+    let total_tokens: i64 = requests.iter().map(|r| r.total_tokens as i64).sum();
+    let prompt_tokens: i64 = requests.iter().map(|r| r.prompt_tokens as i64).sum();
+    let completion_tokens: i64 = requests.iter().map(|r| r.completion_tokens as i64).sum();
     let total_errors = requests.iter().filter(|r| r.status == "error").count() as i64;
     let error_rate = if stats.total_requests > 0 {
         (total_errors as f64 / stats.total_requests as f64) * 100.0
@@ -98,16 +118,26 @@ pub async fn get_analytics(
         0.0
     };
 
+    let cost_saved_from_cache_usd: f64 = requests
+        .iter()
+        .filter(|r| r.cache_hit)
+        .map(|r| f64::try_from(r.total_cost).unwrap_or(0.0))
+        .sum();
+
     Ok(Json(AnalyticsResponse {
         total_requests: stats.total_requests,
         total_tokens,
+        prompt_tokens,
+        completion_tokens,
         total_cost_usd: stats.total_cost,
+        cost_saved_from_cache_usd,
         avg_latency_ms: stats.avg_latency_ms,
         cache_hit_rate,
         error_rate,
         time_series,
         by_model,
         by_status,
+        top_cached_models,
     }))
 }
 
@@ -148,6 +178,8 @@ fn build_time_series(
                 timestamp: t.to_rfc3339(),
                 requests: 0,
                 tokens: 0,
+                prompt_tokens: 0,
+                completion_tokens: 0,
                 cost_usd: 0.0,
                 latency_ms: 0.0,
                 cache_hits: 0,
@@ -169,6 +201,8 @@ fn build_time_series(
         if let Some(point) = buckets.get_mut(&bucket) {
             point.requests += 1;
             point.tokens += r.total_tokens as i64;
+            point.prompt_tokens += r.prompt_tokens as i64;
+            point.completion_tokens += r.completion_tokens as i64;
             point.cost_usd += f64::try_from(r.total_cost).unwrap_or(0.0);
             if let Some(lat) = r.latency_total_ms {
                 point.latency_ms += lat as f64;
@@ -206,11 +240,15 @@ fn build_model_breakdown(requests: &[Request]) -> Vec<BreakdownItem> {
             value: model,
             requests: 0,
             tokens: 0,
+            prompt_tokens: 0,
+            completion_tokens: 0,
             cost_usd: 0.0,
         });
 
         entry.requests += 1;
         entry.tokens += r.total_tokens as i64;
+        entry.prompt_tokens += r.prompt_tokens as i64;
+        entry.completion_tokens += r.completion_tokens as i64;
         entry.cost_usd += f64::try_from(r.total_cost).unwrap_or(0.0);
     }
 
@@ -236,13 +274,57 @@ fn build_status_breakdown(requests: &[Request]) -> Vec<BreakdownItem> {
             value: status,
             requests: 0,
             tokens: 0,
+            prompt_tokens: 0,
+            completion_tokens: 0,
             cost_usd: 0.0,
         });
 
         entry.requests += 1;
         entry.tokens += r.total_tokens as i64;
+        entry.prompt_tokens += r.prompt_tokens as i64;
+        entry.completion_tokens += r.completion_tokens as i64;
         entry.cost_usd += f64::try_from(r.total_cost).unwrap_or(0.0);
     }
 
     map.into_values().collect()
+}
+
+fn build_cache_breakdown(requests: &[Request]) -> Vec<CacheBreakdownItem> {
+    let mut map: std::collections::HashMap<String, (i64, i64, f64)> =
+        std::collections::HashMap::new();
+
+    for r in requests {
+        let model = r
+            .model_routed
+            .clone()
+            .unwrap_or_else(|| r.model_requested.clone().unwrap_or_else(|| "unknown".to_string()));
+
+        let (total, hits, saved) = map.entry(model.clone()).or_insert((0, 0, 0.0));
+        *total += 1;
+        if r.cache_hit {
+            *hits += 1;
+            *saved += f64::try_from(r.total_cost).unwrap_or(0.0);
+        }
+    }
+
+    let mut items: Vec<CacheBreakdownItem> = map
+        .into_iter()
+        .map(|(model, (requests, cache_hits, cost_saved_usd))| {
+            let rate = if requests > 0 {
+                (cache_hits as f64 / requests as f64) * 100.0
+            } else {
+                0.0
+            };
+            CacheBreakdownItem {
+                model,
+                requests,
+                cache_hits,
+                cache_hit_rate: rate,
+                cost_saved_usd,
+            }
+        })
+        .collect();
+
+    items.sort_by(|a, b| b.cache_hits.cmp(&a.cache_hits));
+    items.into_iter().take(10).collect()
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Activity, DollarSign, Zap, AlertTriangle } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { Button } from '@/components/ui/button'
@@ -6,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TIME_RANGES = [
   { value: 'today', label: 'Today' },
@@ -39,6 +41,20 @@ export default function Analytics() {
           </Select>
         </div>
       </div>
+
+      <Tabs value="overview" className="w-full">
+        <TabsList>
+          <TabsTrigger value="overview" asChild>
+            <Link to="/analytics">Overview</Link>
+          </TabsTrigger>
+          <TabsTrigger value="tokens" asChild>
+            <Link to="/analytics/tokens">Tokens</Link>
+          </TabsTrigger>
+          <TabsTrigger value="cache" asChild>
+            <Link to="/analytics/cache">Cache</Link>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4">

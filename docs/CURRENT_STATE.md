@@ -90,7 +90,13 @@ CORS → body limit → trace → rate limit → auth → handler
 - TASK-0051: Dashboard overview with 4 KPI cards, time range selector, recent requests table, active providers, quick actions
 - TASK-0052: Provider list page with health status, latency, error rate, sorting, filtering, manual health checks
 - TASK-0053: Add/Edit Provider Wizard with 6 steps, test connection, API key show/hide
-- Tasks TASK-0054 through TASK-0100 remain unstarted.
+- TASK-0054: Provider detail page with model management, health chart, recent errors
+- TASK-0055: Dashboard served as static files from backend container
+- TASK-0056–TASK-0058: API Key list, creation with one-time display, revocation/edit
+- TASK-0059: Request logs viewer with filtering
+- TASK-0060: Analytics overview with KPI cards, time series, model/status breakdowns
+- TASK-0061: Token usage page (stacked bar chart, area chart, tokens by model, export) + cache analytics page (hit rate gauge, cost saved, hit/miss area chart, top cached models table, export)
+- Tasks TASK-0062 through TASK-0100 remain unstarted.
 
 ## Known Gaps
 1. Provider Config Encryption (TASK-0023) — AES-256-GCM for `api_key_enc`; currently env vars

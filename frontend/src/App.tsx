@@ -7,6 +7,8 @@ import Dashboard from '@/pages/Dashboard'
 import Providers from '@/pages/Providers'
 import ApiKeys from '@/pages/ApiKeys'
 import Analytics from '@/pages/Analytics'
+import TokenUsagePage from '@/pages/analytics/TokenUsagePage'
+import CacheAnalyticsPage from '@/pages/analytics/CacheAnalyticsPage'
 import RequestsPage from '@/pages/Requests'
 import Settings from '@/pages/Settings'
 import UsersPage from '@/pages/settings/UsersPage'
@@ -60,6 +62,8 @@ function App() {
         <Route path="/providers/:providerId" element={<ProviderDetailPage />} />
         <Route path="/keys" element={<ApiKeys />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/analytics/tokens" element={<TokenUsagePage />} />
+        <Route path="/analytics/cache" element={<CacheAnalyticsPage />} />
         <Route path="/requests" element={<RequestsPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/users" element={<UsersPage />} />
