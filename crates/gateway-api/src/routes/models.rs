@@ -1,11 +1,11 @@
 //! Model listing endpoints.
 
-use axum::{extract::State, http::HeaderMap, Extension, Json};
+use axum::{extract::{Path, State}, http::{HeaderMap, StatusCode}, Extension, Json};
 use gateway_auth::AuthContext;
 use gateway_db::ModelRegistry;
 use serde::Serialize;
 
-use crate::state::AppState;
+use crate::{error::ApiError, state::AppState};
 
 #[derive(Serialize)]
 pub struct ModelListResponse {
@@ -81,6 +81,60 @@ pub async fn list_models(
                 object: "list".to_string(),
                 data: static_fallback_models(),
             })
+        }
+    }
+}
+
+/// Get a single model by ID (OpenAI-compatible).
+pub async fn get_model(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
+    Path(model_id): Path<String>,
+) -> Result<Json<ModelInfo>, ApiError> {
+    let registry = ModelRegistry::new(state.db_pool);
+
+    match registry.list_models(auth.org_id).await {
+        Ok(entries) => {
+            for e in entries {
+                if e.model_id == model_id {
+                    let mut capabilities = vec!["chat".to_string()];
+                    if e.capabilities.vision {
+                        capabilities.push("vision".to_string());
+                    }
+                    if e.capabilities.tools {
+                        capabilities.push("tools".to_string());
+                    }
+                    if e.capabilities.json_mode {
+                        capabilities.push("json_mode".to_string());
+                    }
+
+                    return Ok(Json(ModelInfo {
+                        id: e.model_id,
+                        object: "model".to_string(),
+                        created: chrono::Utc::now().timestamp(),
+                        owned_by: e.provider_name.clone(),
+                        gateway: Some(ModelGatewayMeta {
+                            provider_id: e.provider_name,
+                            capabilities,
+                        }),
+                    }));
+                }
+            }
+            // Check static fallback
+            for m in static_fallback_models() {
+                if m.id == model_id {
+                    return Ok(Json(m));
+                }
+            }
+            Err(ApiError::new(StatusCode::NOT_FOUND, "model_not_found", "Model not found"))
+        }
+        Err(_) => {
+            for m in static_fallback_models() {
+                if m.id == model_id {
+                    return Ok(Json(m));
+                }
+            }
+            Err(ApiError::new(StatusCode::NOT_FOUND, "model_not_found", "Model not found"))
         }
     }
 }

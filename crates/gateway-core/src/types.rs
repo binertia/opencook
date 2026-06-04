@@ -133,6 +133,10 @@ pub struct ChatCompletionResponse {
     pub choices: Vec<Choice>,
     pub usage: Usage,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_fingerprint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service_tier: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gateway: Option<GatewayMetadata>,
 }
 
@@ -170,6 +174,10 @@ pub struct StreamingChunk {
     pub created: u64,
     pub model: String,
     pub choices: Vec<StreamChoice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_fingerprint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage: Option<Usage>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

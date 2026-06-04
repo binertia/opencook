@@ -350,6 +350,8 @@ impl OllamaChatResponse {
                 completion_tokens,
                 total_tokens: prompt_tokens + completion_tokens,
             },
+            system_fingerprint: None,
+            service_tier: None,
             gateway: Some(gateway_core::types::GatewayMetadata {
                 provider: provider_name.to_string(),
                 latency_ms: 0,

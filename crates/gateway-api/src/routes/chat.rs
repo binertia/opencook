@@ -339,6 +339,8 @@ async fn non_stream_chat_completions(
                                 completion_tokens: 20,
                                 total_tokens: 30,
                             },
+                            system_fingerprint: None,
+                            service_tier: None,
                             gateway: Some(gateway_core::types::GatewayMetadata {
                                 provider: config.provider_id.clone(),
                                 latency_ms: 0,
@@ -536,6 +538,8 @@ async fn stream_chat_completions(
                         },
                         finish_reason: None,
                     }],
+                    system_fingerprint: None,
+                    usage: None,
                 };
                 let data = serde_json::to_string(&chunk).unwrap_or_default();
                 if tx.send(Ok(Event::default().data(data))).await.is_err() {

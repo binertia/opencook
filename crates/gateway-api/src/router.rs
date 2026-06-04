@@ -74,6 +74,7 @@ pub fn build_router(state: AppState) -> Router {
         // Chat and models
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
+        .route("/v1/models/:model_id", get(models::get_model))
         // Quota admin routes
         .route("/api/v1/organizations/:org_id/quotas", get(quotas::list_quotas).post(quotas::create_quota))
         .route("/api/v1/organizations/:org_id/quotas/:quota_id", get(quotas::get_quota).put(quotas::update_quota).delete(quotas::delete_quota))

@@ -384,6 +384,8 @@ impl GeminiResponse {
                 completion_tokens: usage.candidates_token_count,
                 total_tokens: usage.total_token_count,
             },
+            system_fingerprint: None,
+            service_tier: None,
             gateway: Some(gateway_core::types::GatewayMetadata {
                 provider: provider_name.to_string(),
                 latency_ms: 0,

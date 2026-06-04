@@ -346,6 +346,8 @@ impl AnthropicResponse {
                 completion_tokens: self.usage.output_tokens,
                 total_tokens: self.usage.input_tokens + self.usage.output_tokens,
             },
+            system_fingerprint: None,
+            service_tier: None,
             gateway: Some(gateway_core::types::GatewayMetadata {
                 provider: provider_name.to_string(),
                 latency_ms: 0,
