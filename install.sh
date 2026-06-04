@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
-# AI Gateway — One-liner installer
+# OpenCook — One-liner installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/ai-gateway/ai-gateway/main/install.sh | bash
 
 REPO="ai-gateway/ai-gateway"
-BINARY="ai-gateway"
+BINARY="opencook"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
 
 # Colors
@@ -92,7 +92,7 @@ install_cargo() {
     fi
 
     info "Installing ${BINARY} via cargo..."
-    cargo install --locked --git https://github.com/${REPO} --bin ai-gateway
+    cargo install --locked --git https://github.com/${REPO} --bin opencook
     ok "Installed ${BINARY} via cargo"
     return 0
 }
@@ -111,8 +111,8 @@ install_source() {
 
     git clone --depth 1 https://github.com/${REPO}.git "$tmpdir/repo"
     cd "$tmpdir/repo"
-    cargo build --release --bin ai-gateway
-    cp "target/release/ai-gateway" "${INSTALL_DIR}/${BINARY}"
+    cargo build --release --bin opencook
+    cp "target/release/opencook" "${INSTALL_DIR}/${BINARY}"
     chmod +x "${INSTALL_DIR}/${BINARY}"
 
     ok "Built and installed ${BINARY} to ${INSTALL_DIR}"
@@ -120,7 +120,7 @@ install_source() {
 
 main() {
     echo ""
-    info "AI Gateway Installer"
+    info "OpenCook Installer"
     echo ""
 
     # Ensure install directory exists

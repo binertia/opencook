@@ -1,4 +1,6 @@
-# AI Gateway
+# OpenCook
+
+> Cook locally. GPT when the stacktrace speaking Thai.
 
 A lightweight, self-hosted AI gateway that unifies access to 11+ LLM providers through a single OpenAI-compatible API. Built in Rust for performance and reliability.
 
@@ -13,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/ai-gateway/ai-gateway/main/install.
 Or with Cargo:
 
 ```bash
-cargo install --git https://github.com/ai-gateway/ai-gateway --bin ai-gateway
+cargo install --git https://github.com/ai-gateway/ai-gateway --bin opencook
 ```
 
 ### Start the Gateway
@@ -23,7 +25,7 @@ cargo install --git https://github.com/ai-gateway/ai-gateway --bin ai-gateway
 export OPENAI_API_KEY="sk-..."
 
 # Start the server
-ai-gateway serve
+opencook serve
 ```
 
 The gateway will start on `http://localhost:8080` with a built-in admin dashboard.
@@ -84,7 +86,7 @@ The React admin dashboard is available at `http://localhost:8080` and includes:
 No configuration needed. SQLite database is auto-created. Just run:
 
 ```bash
-ai-gateway serve
+opencook serve
 ```
 
 ### TEAM Mode
@@ -123,7 +125,7 @@ cargo test --workspace
 cargo test -p gateway-api --test e2e_auth --test e2e_chat_completion
 
 # Run SOLO mode locally
-cargo run --bin ai-gateway -- serve
+cargo run --bin opencook -- serve
 ```
 
 ## Architecture
