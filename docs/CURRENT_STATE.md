@@ -89,7 +89,8 @@ CORS → body limit → trace → rate limit → auth → handler
 - TASK-0050: User management page with member table, role changes, remove confirmation, invite modal
 - TASK-0051: Dashboard overview with 4 KPI cards, time range selector, recent requests table, active providers, quick actions
 - TASK-0052: Provider list page with health status, latency, error rate, sorting, filtering, manual health checks
-- Tasks TASK-0053 through TASK-0100 remain unstarted.
+- TASK-0053: Add/Edit Provider Wizard with 6 steps, test connection, API key show/hide
+- Tasks TASK-0054 through TASK-0100 remain unstarted.
 
 ## Known Gaps
 1. Provider Config Encryption (TASK-0023) — AES-256-GCM for `api_key_enc`; currently env vars

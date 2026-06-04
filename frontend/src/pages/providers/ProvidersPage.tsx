@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { ArrowUpDown, RefreshCw, Search } from 'lucide-react'
 import { useProviders, useProviderHealth, useTriggerHealthCheck } from '@/hooks/useProviders'
+import type { Provider } from '@/hooks/useProviders'
 import { HealthIndicator } from '@/components/providers/HealthIndicator'
+import { AddProviderWizard } from '@/components/providers/AddProviderWizard'
+import { EditProviderModal } from '@/components/providers/EditProviderModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -94,6 +97,7 @@ export default function ProvidersPage() {
     key: 'name',
     dir: 'asc',
   })
+  const [editProvider, setEditProvider] = useState<Provider | null>(null)
 
   const filtered = useMemo(() => {
     let result = data?.data || []
@@ -139,6 +143,7 @@ export default function ProvidersPage() {
             Manage and monitor AI provider configurations.
           </p>
         </div>
+        <AddProviderWizard />
       </div>
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -204,13 +209,14 @@ export default function ProvidersPage() {
                       Error Rate <SortIcon column="error_rate" />
                     </TableHead>
                     <TableHead className="w-12" />
+                    <TableHead className="w-20">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={7}
+                        colSpan={8}
                         className="text-center text-muted-foreground"
                       >
                         No providers found.
@@ -229,6 +235,15 @@ export default function ProvidersPage() {
                           </Badge>
                         </TableCell>
                         <ProviderHealthRow providerId={provider.id} />
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditProvider(provider)}
+                          >
+                            Edit
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -238,6 +253,12 @@ export default function ProvidersPage() {
           </CardContent>
         </Card>
       )}
+
+      <EditProviderModal
+        provider={editProvider}
+        open={!!editProvider}
+        onOpenChange={() => setEditProvider(null)}
+      />
     </div>
   )
 }
