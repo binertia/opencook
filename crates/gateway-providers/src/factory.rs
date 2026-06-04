@@ -19,6 +19,10 @@ pub enum ProviderKind {
     Qwen,
     Kimi,
     Tencent,
+    Groq,
+    Mistral,
+    Cohere,
+    Azure,
     Custom,
 }
 
@@ -39,7 +43,11 @@ pub fn create_provider(config: ProviderConfig) -> Result<Box<dyn Provider>, Prov
         ProviderKind::OpenAi
         | ProviderKind::Qwen
         | ProviderKind::Kimi
-        | ProviderKind::Tencent => Ok(Box::new(OpenAiProvider::new(config)?)),
+        | ProviderKind::Tencent
+        | ProviderKind::Groq
+        | ProviderKind::Mistral
+        | ProviderKind::Cohere
+        | ProviderKind::Azure => Ok(Box::new(OpenAiProvider::new(config)?)),
         ProviderKind::Anthropic => Ok(Box::new(AnthropicProvider::new(config)?)),
         ProviderKind::Gemini => Ok(Box::new(GeminiProvider::new(config)?)),
         ProviderKind::Ollama => Ok(Box::new(OllamaProvider::new(config)?)),

@@ -232,5 +232,46 @@ fn static_fallback_models() -> Vec<ModelInfo> {
                 capabilities: vec!["chat".to_string()],
             }),
         },
+        // Additional providers
+        ModelInfo {
+            id: "llama-3.1-70b-versatile".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "groq".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "groq".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "mistral-large-latest".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "mistral".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "mistral".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "command-r".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "cohere".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "cohere".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "gpt-4o".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "azure".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "azure".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
     ]
 }

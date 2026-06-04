@@ -282,6 +282,10 @@ fn default_base_url(kind: ProviderKind) -> String {
         ProviderKind::Qwen => "https://dashscope.aliyuncs.com/compatible-mode".to_string(),
         ProviderKind::Kimi => "https://api.moonshot.cn".to_string(),
         ProviderKind::Tencent => "https://hunyuan.tencentcloudapi.com".to_string(),
+        ProviderKind::Groq => "https://api.groq.com/openai".to_string(),
+        ProviderKind::Mistral => "https://api.mistral.ai".to_string(),
+        ProviderKind::Cohere => "https://api.cohere.ai/compatibility".to_string(),
+        ProviderKind::Azure => "https://your-resource.openai.azure.com".to_string(),
         ProviderKind::Custom => String::new(),
     }
 }

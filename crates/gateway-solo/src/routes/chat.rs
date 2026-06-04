@@ -42,6 +42,10 @@ fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
         "qwen" | "alibaba" | "dashscope" => Some(ProviderKind::Qwen),
         "kimi" | "moonshot" => Some(ProviderKind::Kimi),
         "tencent" | "hunyuan" => Some(ProviderKind::Tencent),
+        "groq" => Some(ProviderKind::Groq),
+        "mistral" => Some(ProviderKind::Mistral),
+        "cohere" => Some(ProviderKind::Cohere),
+        "azure" => Some(ProviderKind::Azure),
         _ => None,
     }
 }
@@ -78,6 +82,22 @@ fn build_provider_config(target: &gateway_db::Target) -> Option<ProviderConfig> 
         ProviderKind::Tencent => (
             std::env::var("TENCENT_BASE_URL").unwrap_or_else(|_| "https://hunyuan.tencentcloudapi.com".to_string()),
             std::env::var("TENCENT_API_KEY").unwrap_or_default(),
+        ),
+        ProviderKind::Groq => (
+            std::env::var("GROQ_BASE_URL").unwrap_or_else(|_| "https://api.groq.com/openai".to_string()),
+            std::env::var("GROQ_API_KEY").unwrap_or_default(),
+        ),
+        ProviderKind::Mistral => (
+            std::env::var("MISTRAL_BASE_URL").unwrap_or_else(|_| "https://api.mistral.ai".to_string()),
+            std::env::var("MISTRAL_API_KEY").unwrap_or_default(),
+        ),
+        ProviderKind::Cohere => (
+            std::env::var("COHERE_BASE_URL").unwrap_or_else(|_| "https://api.cohere.ai/compatibility".to_string()),
+            std::env::var("COHERE_API_KEY").unwrap_or_default(),
+        ),
+        ProviderKind::Azure => (
+            std::env::var("AZURE_OPENAI_BASE_URL").unwrap_or_else(|_| "https://your-resource.openai.azure.com".to_string()),
+            std::env::var("AZURE_OPENAI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Custom => return None,
     };
