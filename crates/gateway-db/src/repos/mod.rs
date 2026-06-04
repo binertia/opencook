@@ -1,5 +1,6 @@
 //! Database repositories.
 
+pub mod api_key_repo;
 pub mod quota_repo;
 pub mod quota_usage_repo;
 pub mod request_repo;

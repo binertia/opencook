@@ -15,6 +15,7 @@ pub use models::{
     Quota, QuotaUsage, Request, RoutingRule, Target, User,
 };
 pub use pool::{create_pool, verify_rls_context, DbBackend, DEFAULT_ORG_ID};
+pub use repos::api_key_repo::ApiKeyRepo;
 pub use repos::model_registry::ModelRegistry;
 pub use repos::quota_repo::QuotaRepo;
 pub use repos::quota_usage_repo::QuotaUsageRepo;
