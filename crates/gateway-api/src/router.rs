@@ -20,6 +20,7 @@ use crate::{
     middleware::timing::TimingLayer,
     routes::{chat, health, metrics, models, quotas, usage},
     state::AppState,
+    static_files::build_static_router,
 };
 
 /// Build the application router with middleware stack.
@@ -62,7 +63,11 @@ pub fn build_router(state: AppState) -> Router {
         ))
         .layer(middleware::from_fn(api_key_auth_middleware));
 
+    // Static file routes for the React SPA dashboard
+    let static_routes = build_static_router::<AppState>();
+
     Router::new()
+        .merge(static_routes)
         .merge(public_routes)
         .merge(api_routes)
         .layer(trace)
