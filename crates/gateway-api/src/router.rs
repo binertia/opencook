@@ -18,7 +18,7 @@ use crate::{
     middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
     middleware::timing::TimingLayer,
-    routes::{auth, chat, health, metrics, models, providers, quotas, usage},
+    routes::{auth, chat, dashboard, health, metrics, models, providers, quotas, usage},
     state::AppState,
     static_files::build_static_router,
 };
@@ -54,6 +54,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/auth/logout", post(auth::logout))
         .route("/v1/auth/refresh", post(auth::refresh))
         .route("/v1/auth/me", get(auth::me))
+        // Dashboard
+        .route("/v1/dashboard", get(dashboard::get_dashboard))
         // Provider routes
         .route("/v1/providers", get(providers::list_providers).post(providers::create_provider))
         .route("/v1/providers/test", post(providers::test_connection))

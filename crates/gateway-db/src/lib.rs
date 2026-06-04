@@ -18,7 +18,7 @@ pub use pool::{create_pool, verify_rls_context, DbBackend, DEFAULT_ORG_ID};
 pub use repos::model_registry::ModelRegistry;
 pub use repos::quota_repo::QuotaRepo;
 pub use repos::quota_usage_repo::QuotaUsageRepo;
-pub use repos::request_repo::RequestRepo;
+pub use repos::request_repo::{RequestRepo, RequestStats};
 pub use repos::routing_repo::RoutingRepo;
 pub use repos::usage_repo::UsageRepo;
 pub use repos::user_repo::UserRepo;
