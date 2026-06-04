@@ -10,6 +10,10 @@ rust-version.workspace = true
 name = "gateway-solo"
 path = "src/main.rs"
 
+[[bin]]
+name = "ai-gateway"
+path = "src/main.rs"
+
 [dependencies]
 gateway-core = { path = "../gateway-core" }
 gateway-db = { path = "../gateway-db" }

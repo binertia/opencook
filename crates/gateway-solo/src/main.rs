@@ -17,12 +17,13 @@ async fn main() -> anyhow::Result<()> {
         CliCommand::Config => run_config_wizard().await,
         CliCommand::Profile => {
             let config = state::AppConfig::load();
+            let bin = bin_name();
             println!("AI Gateway SOLO");
             println!("===============");
             println!("Active profile: {}", config.profile.display_name());
             println!("  Description: {}", config.profile.description());
             println!("  Strategy:    {}", config.profile.default_strategy());
-            println!("\nRun `gateway-solo config` to change your profile.");
+            println!("\nRun `{} config` to change your profile.", bin);
             Ok(())
         }
         CliCommand::Serve => run_server().await,
@@ -36,6 +37,13 @@ enum CliCommand {
     Serve,
 }
 
+fn bin_name() -> String {
+    std::env::args()
+        .next()
+        .and_then(|s| s.rsplit('/').next().map(|s| s.to_string()))
+        .unwrap_or_else(|| "ai-gateway".to_string())
+}
+
 fn parse_cli() -> CliCommand {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(|s| s.as_str()) {
@@ -44,7 +52,7 @@ fn parse_cli() -> CliCommand {
         Some("serve") | Some("start") | None => CliCommand::Serve,
         Some(other) => {
             eprintln!("Unknown command: {}", other);
-            eprintln!("Usage: gateway-solo [config|profile|serve]");
+            eprintln!("Usage: {} [config|profile|serve]", bin_name());
             std::process::exit(1);
         }
     }
@@ -90,7 +98,7 @@ profile = "{}"
 
     std::fs::write("gateway-solo.toml", toml)?;
     println!("Configuration saved to gateway-solo.toml");
-    println!("\nStart the server with: gateway-solo serve");
+    println!("\nStart the server with: {} serve", bin_name());
 
     Ok(())
 }
@@ -108,12 +116,58 @@ async fn run_server() -> anyhow::Result<()> {
         .and_then(|p| p.parse().ok())
         .unwrap_or(8080);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    tracing::info!("gateway-solo listening on {}", addr);
-    tracing::info!("Database: {}", state.config.database_url);
-    tracing::info!("Profile:  {}", state.config.profile.display_name());
+
+    print_banner(port, &state);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+fn print_banner(port: u16, state: &state::AppState) {
+    let version = env!("CARGO_PKG_VERSION");
+    let profile = state.config.profile.display_name();
+    let db_mode = if state.config.database_url.starts_with("sqlite:") || state.config.database_url == ":memory:" {
+        "SQLite (local file)"
+    } else {
+        "PostgreSQL"
+    };
+
+    let width: usize = 60;
+    let line = |content: &str| {
+        // Rough display width: emoji ≈ 2 cols, everything else ≈ 1 col
+        let display_width: usize = content
+            .chars()
+            .map(|c| if c as u32 >= 0x1F300 { 2 } else { 1 })
+            .sum();
+        let pad = width.saturating_sub(display_width);
+        format!("║  {}{} ║", content, " ".repeat(pad))
+    };
+
+    println!(r#"
+╔══════════════════════════════════════════════════════════════╗
+{}
+╠══════════════════════════════════════════════════════════════╣
+{}
+{}
+{}
+{}
+╠══════════════════════════════════════════════════════════════╣
+{}
+{}
+{}
+{}
+╚══════════════════════════════════════════════════════════════╝
+"#,
+        line(&format!("🤖 AI Gateway SOLO v{}", version)),
+        line(&format!("🌐 HTTP API    http://localhost:{}/v1/chat/completions", port)),
+        line(&format!("📊 Metrics     http://localhost:{}/metrics", port)),
+        line(&format!("💾 Database    {}", db_mode)),
+        line(&format!("🧠 Profile     {}", profile)),
+        line("Quick start:"),
+        line(&format!("  curl -X POST http://localhost:{}/v1/chat_completions", port)),
+        line("    -H \"Content-Type: application/json\""),
+        line("    -d '{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}'")
+    );
 }
