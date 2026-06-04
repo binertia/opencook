@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   Plug,
   Settings,
+  Users,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -22,6 +23,7 @@ interface NavItem {
 const manageItems: NavItem[] = [
   { label: 'Providers', href: '/providers', icon: Plug },
   { label: 'API Keys', href: '/keys', icon: KeyRound },
+  { label: 'Users', href: '/users', icon: Users },
 ]
 
 const monitorItems: NavItem[] = [

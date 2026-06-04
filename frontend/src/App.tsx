@@ -8,6 +8,7 @@ import Providers from '@/pages/Providers'
 import ApiKeys from '@/pages/ApiKeys'
 import Analytics from '@/pages/Analytics'
 import Settings from '@/pages/Settings'
+import UsersPage from '@/pages/settings/UsersPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -57,6 +58,7 @@ function App() {
         <Route path="/keys" element={<ApiKeys />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/users" element={<UsersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
