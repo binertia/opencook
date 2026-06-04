@@ -191,5 +191,46 @@ fn static_fallback_models() -> Vec<ModelInfo> {
                 capabilities: vec!["chat".to_string()],
             }),
         },
+        // Chinese providers
+        ModelInfo {
+            id: "qwen-max".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "qwen".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "qwen".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "qwen-plus".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "qwen".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "qwen".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "moonshot-v1-8k".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "kimi".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "kimi".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "hunyuan-lite".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "tencent".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "tencent".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
     ]
 }

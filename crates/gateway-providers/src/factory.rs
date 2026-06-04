@@ -16,6 +16,9 @@ pub enum ProviderKind {
     Anthropic,
     Gemini,
     Ollama,
+    Qwen,
+    Kimi,
+    Tencent,
     Custom,
 }
 
@@ -33,7 +36,10 @@ pub struct ProviderConfig {
 /// Create a Provider from configuration.
 pub fn create_provider(config: ProviderConfig) -> Result<Box<dyn Provider>, ProviderError> {
     match config.kind {
-        ProviderKind::OpenAi => Ok(Box::new(OpenAiProvider::new(config)?)),
+        ProviderKind::OpenAi
+        | ProviderKind::Qwen
+        | ProviderKind::Kimi
+        | ProviderKind::Tencent => Ok(Box::new(OpenAiProvider::new(config)?)),
         ProviderKind::Anthropic => Ok(Box::new(AnthropicProvider::new(config)?)),
         ProviderKind::Gemini => Ok(Box::new(GeminiProvider::new(config)?)),
         ProviderKind::Ollama => Ok(Box::new(OllamaProvider::new(config)?)),

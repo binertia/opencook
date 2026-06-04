@@ -40,6 +40,18 @@ Create or edit `~/.config/opencode/opencode.json`:
         },
         "claude-3-5-sonnet-20241022": {
           "name": "Claude 3.5 Sonnet"
+        },
+        "qwen-max": {
+          "name": "Qwen Max"
+        },
+        "qwen-plus": {
+          "name": "Qwen Plus"
+        },
+        "moonshot-v1-8k": {
+          "name": "Kimi (Moonshot)"
+        },
+        "hunyuan-lite": {
+          "name": "Hunyuan Lite"
         }
       }
     }
@@ -70,6 +82,18 @@ export GATEWAY_API_KEY="sk_gw_your_key_here"
 ```
 
 You should see your gateway provider listed. Start chatting!
+
+## Chinese Model Providers
+
+This gateway has first-class support for major Chinese LLM providers:
+
+| Provider | Kind | Base URL | Models |
+|----------|------|----------|--------|
+| **Qwen (Alibaba)** | `qwen` | `https://dashscope.aliyuncs.com/compatible-mode` | `qwen-max`, `qwen-plus`, `qwen-turbo` |
+| **Kimi (Moonshot)** | `kimi` | `https://api.moonshot.cn` | `moonshot-v1-8k`, `moonshot-v1-32k`, `moonshot-v1-128k` |
+| **Tencent (Hunyuan)** | `tencent` | `https://hunyuan.tencentcloudapi.com` | `hunyuan-lite`, `hunyuan-standard`, `hunyuan-pro` |
+
+All three use OpenAI-compatible APIs and support streaming.
 
 ## Supported Endpoints
 

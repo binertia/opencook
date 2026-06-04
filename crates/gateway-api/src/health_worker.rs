@@ -279,6 +279,9 @@ fn default_base_url(kind: ProviderKind) -> String {
         ProviderKind::Anthropic => "https://api.anthropic.com".to_string(),
         ProviderKind::Gemini => "https://generativelanguage.googleapis.com".to_string(),
         ProviderKind::Ollama => "http://localhost:11434".to_string(),
+        ProviderKind::Qwen => "https://dashscope.aliyuncs.com/compatible-mode".to_string(),
+        ProviderKind::Kimi => "https://api.moonshot.cn".to_string(),
+        ProviderKind::Tencent => "https://hunyuan.tencentcloudapi.com".to_string(),
         ProviderKind::Custom => String::new(),
     }
 }

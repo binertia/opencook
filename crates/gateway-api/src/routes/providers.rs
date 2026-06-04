@@ -150,6 +150,9 @@ fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
         "anthropic" => Some(ProviderKind::Anthropic),
         "gemini" => Some(ProviderKind::Gemini),
         "ollama" => Some(ProviderKind::Ollama),
+        "qwen" | "alibaba" | "dashscope" => Some(ProviderKind::Qwen),
+        "kimi" | "moonshot" => Some(ProviderKind::Kimi),
+        "tencent" | "hunyuan" => Some(ProviderKind::Tencent),
         _ => None,
     }
 }
@@ -160,6 +163,9 @@ fn default_base_url(kind: &ProviderKind) -> String {
         ProviderKind::Anthropic => "https://api.anthropic.com".to_string(),
         ProviderKind::Gemini => "https://generativelanguage.googleapis.com".to_string(),
         ProviderKind::Ollama => "http://localhost:11434".to_string(),
+        ProviderKind::Qwen => "https://dashscope.aliyuncs.com/compatible-mode".to_string(),
+        ProviderKind::Kimi => "https://api.moonshot.cn".to_string(),
+        ProviderKind::Tencent => "https://hunyuan.tencentcloudapi.com".to_string(),
         ProviderKind::Custom => String::new(),
     }
 }

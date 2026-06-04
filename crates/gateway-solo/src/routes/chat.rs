@@ -39,6 +39,9 @@ fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
         "anthropic" => Some(ProviderKind::Anthropic),
         "gemini" => Some(ProviderKind::Gemini),
         "ollama" => Some(ProviderKind::Ollama),
+        "qwen" | "alibaba" | "dashscope" => Some(ProviderKind::Qwen),
+        "kimi" | "moonshot" => Some(ProviderKind::Kimi),
+        "tencent" | "hunyuan" => Some(ProviderKind::Tencent),
         _ => None,
     }
 }
@@ -63,6 +66,18 @@ fn build_provider_config(target: &gateway_db::Target) -> Option<ProviderConfig> 
         ProviderKind::Ollama => (
             std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".to_string()),
             String::new(),
+        ),
+        ProviderKind::Qwen => (
+            std::env::var("QWEN_BASE_URL").unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode".to_string()),
+            std::env::var("QWEN_API_KEY").unwrap_or_default(),
+        ),
+        ProviderKind::Kimi => (
+            std::env::var("KIMI_BASE_URL").unwrap_or_else(|_| "https://api.moonshot.cn".to_string()),
+            std::env::var("KIMI_API_KEY").unwrap_or_default(),
+        ),
+        ProviderKind::Tencent => (
+            std::env::var("TENCENT_BASE_URL").unwrap_or_else(|_| "https://hunyuan.tencentcloudapi.com".to_string()),
+            std::env::var("TENCENT_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Custom => return None,
     };
