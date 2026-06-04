@@ -89,6 +89,11 @@ pub async fn spawn_test_app() -> TestApp {
         gateway_version: "test".to_string(),
         profile: gateway_core::profiles::RoutingProfile::Balanced,
         master_key: [0u8; 32],
+        semantic_cache_enabled: false,
+        semantic_cache_threshold: 0.95,
+        embedding_base_url: "https://api.openai.com".to_string(),
+        embedding_api_key: String::new(),
+        embedding_model: "text-embedding-3-small".to_string(),
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
@@ -97,6 +102,7 @@ pub async fn spawn_test_app() -> TestApp {
         db_pool: db_pool.clone(),
         redis: redis.clone(),
         cache,
+        semantic_cache: None,
         circuit_breaker,
         config: Arc::new(config),
         jwt,

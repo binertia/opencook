@@ -16,6 +16,7 @@ pub struct AppState {
     pub db_pool: DbBackend,
     pub redis: ConnectionManager,
     pub cache: TwoTierCache,
+    pub semantic_cache: Option<gateway_cache::SemanticCache>,
     pub circuit_breaker: CircuitBreaker,
     pub config: Arc<AppConfig>,
     pub jwt: Arc<JwtService>,
@@ -38,6 +39,24 @@ struct RawConfig {
     profile: Option<RoutingProfile>,
     #[serde(default)]
     master_key: Option<String>,
+    #[serde(default)]
+    semantic_cache_enabled: bool,
+    #[serde(default = "default_semantic_threshold")]
+    semantic_cache_threshold: f32,
+    #[serde(default)]
+    embedding_base_url: Option<String>,
+    #[serde(default)]
+    embedding_api_key: Option<String>,
+    #[serde(default = "default_embedding_model")]
+    embedding_model: String,
+}
+
+fn default_semantic_threshold() -> f32 {
+    0.95
+}
+
+fn default_embedding_model() -> String {
+    "text-embedding-3-small".to_string()
 }
 
 /// Application configuration.
@@ -51,6 +70,11 @@ pub struct AppConfig {
     pub gateway_version: String,
     pub profile: RoutingProfile,
     pub master_key: [u8; 32],
+    pub semantic_cache_enabled: bool,
+    pub semantic_cache_threshold: f32,
+    pub embedding_base_url: String,
+    pub embedding_api_key: String,
+    pub embedding_model: String,
 }
 
 impl AppConfig {
@@ -79,6 +103,11 @@ impl AppConfig {
                 jwt_public_key_pem: None,
                 profile: None,
                 master_key: None,
+                semantic_cache_enabled: false,
+                semantic_cache_threshold: default_semantic_threshold(),
+                embedding_base_url: None,
+                embedding_api_key: None,
+                embedding_model: default_embedding_model(),
             }
         });
 
@@ -115,6 +144,14 @@ impl AppConfig {
             std::env::var("GATEWAY_JWT_PUBLIC_KEY").ok()
         }).unwrap_or_default();
 
+        let embedding_base_url = raw.embedding_base_url.or_else(|| {
+            std::env::var("EMBEDDING_BASE_URL").ok()
+        }).unwrap_or_else(|| "https://api.openai.com".to_string());
+
+        let embedding_api_key = raw.embedding_api_key.or_else(|| {
+            std::env::var("EMBEDDING_API_KEY").ok()
+        }).unwrap_or_else(|| std::env::var("OPENAI_API_KEY").unwrap_or_default());
+
         Self {
             port: if raw.port != 0 {
                 raw.port
@@ -135,6 +172,11 @@ impl AppConfig {
             gateway_version: env!("CARGO_PKG_VERSION").to_string(),
             profile: raw.profile.unwrap_or_default(),
             master_key,
+            semantic_cache_enabled: raw.semantic_cache_enabled,
+            semantic_cache_threshold: raw.semantic_cache_threshold,
+            embedding_base_url,
+            embedding_api_key,
+            embedding_model: raw.embedding_model,
         }
     }
 }
@@ -148,6 +190,27 @@ impl AppState {
         let redis = Self::connect_redis(&config.redis_url).await?;
         let cache = TwoTierCache::new(redis.clone());
         let circuit_breaker = CircuitBreaker::new(BreakerConfig::default());
+
+        // Semantic cache (optional)
+        let semantic_cache = if config.semantic_cache_enabled {
+            let embedding_client = gateway_cache::EmbeddingClient::new(
+                config.embedding_base_url.clone(),
+                config.embedding_api_key.clone(),
+                config.embedding_model.clone(),
+            );
+            tracing::info!(
+                model = %config.embedding_model,
+                threshold = config.semantic_cache_threshold,
+                "Semantic cache enabled"
+            );
+            Some(gateway_cache::SemanticCache::new(
+                redis.clone(),
+                embedding_client,
+                config.semantic_cache_threshold,
+            ))
+        } else {
+            None
+        };
 
         // JWT: RS256 if PEM keys provided, otherwise HS256 with random dev secret
         let jwt = if !config.jwt_private_key_pem.is_empty() && !config.jwt_public_key_pem.is_empty() {
@@ -172,6 +235,7 @@ impl AppState {
             db_pool,
             redis,
             cache,
+            semantic_cache,
             circuit_breaker,
             config: Arc::new(config),
             jwt: Arc::new(jwt),
