@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use gateway_auth::JwtService;
 use gateway_cache::TwoTierCache;
 use gateway_core::circuit_breaker::{BreakerConfig, CircuitBreaker};
 use gateway_core::profiles::RoutingProfile;
@@ -17,6 +18,7 @@ pub struct AppState {
     pub cache: TwoTierCache,
     pub circuit_breaker: CircuitBreaker,
     pub config: Arc<AppConfig>,
+    pub jwt: Arc<JwtService>,
 }
 
 /// Raw configuration loaded from file + env.
@@ -105,6 +107,14 @@ impl AppConfig {
             }
         };
 
+        let jwt_private_key_pem = raw.jwt_private_key_pem.or_else(|| {
+            std::env::var("GATEWAY_JWT_PRIVATE_KEY").ok()
+        }).unwrap_or_default();
+
+        let jwt_public_key_pem = raw.jwt_public_key_pem.or_else(|| {
+            std::env::var("GATEWAY_JWT_PUBLIC_KEY").ok()
+        }).unwrap_or_default();
+
         Self {
             port: if raw.port != 0 {
                 raw.port
@@ -120,12 +130,8 @@ impl AppConfig {
             redis_url: raw.redis_url.or_else(|| {
                 std::env::var("REDIS_URL").ok()
             }).unwrap_or_else(|| "redis://localhost:6379".into()),
-            jwt_private_key_pem: raw.jwt_private_key_pem.or_else(|| {
-                std::env::var("GATEWAY_JWT_PRIVATE_KEY").ok()
-            }).unwrap_or_default(),
-            jwt_public_key_pem: raw.jwt_public_key_pem.or_else(|| {
-                std::env::var("GATEWAY_JWT_PUBLIC_KEY").ok()
-            }).unwrap_or_default(),
+            jwt_private_key_pem,
+            jwt_public_key_pem,
             gateway_version: env!("CARGO_PKG_VERSION").to_string(),
             profile: raw.profile.unwrap_or_default(),
             master_key,
@@ -142,12 +148,33 @@ impl AppState {
         let redis = Self::connect_redis(&config.redis_url).await?;
         let cache = TwoTierCache::new(redis.clone());
         let circuit_breaker = CircuitBreaker::new(BreakerConfig::default());
+
+        // JWT: RS256 if PEM keys provided, otherwise HS256 with random dev secret
+        let jwt = if !config.jwt_private_key_pem.is_empty() && !config.jwt_public_key_pem.is_empty() {
+            JwtService::from_pem(config.jwt_private_key_pem.as_bytes(), config.jwt_public_key_pem.as_bytes())
+                .map_err(|e| anyhow::anyhow!("Failed to load JWT keys: {e}"))?
+        } else {
+            let secret = {
+                use rand::Rng;
+                let mut s = [0u8; 32];
+                rand::thread_rng().fill(&mut s);
+                s
+            };
+            tracing::warn!(
+                "JWT keys not configured. Using HS256 with a random dev secret. \
+                 Sessions will NOT survive restarts. \
+                 Set GATEWAY_JWT_PRIVATE_KEY and GATEWAY_JWT_PUBLIC_KEY for production."
+            );
+            JwtService::from_secret(&secret)
+        };
+
         Ok(Self {
             db_pool,
             redis,
             cache,
             circuit_breaker,
             config: Arc::new(config),
+            jwt: Arc::new(jwt),
         })
     }
 

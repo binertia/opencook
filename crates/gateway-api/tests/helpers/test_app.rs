@@ -91,12 +91,15 @@ pub async fn spawn_test_app() -> TestApp {
         master_key: [0u8; 32],
     };
 
+    let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
+
     let state = AppState {
         db_pool: db_pool.clone(),
         redis: redis.clone(),
         cache,
         circuit_breaker,
         config: Arc::new(config),
+        jwt,
     };
 
     let app = build_router(state);

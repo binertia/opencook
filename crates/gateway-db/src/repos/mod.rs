@@ -7,3 +7,4 @@ pub mod model_registry;
 pub mod routing_repo;
 pub mod usage_repo;
 pub mod provider_config_repo;
+pub mod user_repo;

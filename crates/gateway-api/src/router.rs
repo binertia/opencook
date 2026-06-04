@@ -14,11 +14,11 @@ use tower_http::{
 use tracing::Level;
 
 use crate::{
-    middleware::api_key_auth::api_key_auth_middleware,
+    middleware::auth::auth_middleware,
     middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
     middleware::timing::TimingLayer,
-    routes::{chat, health, metrics, models, quotas, usage},
+    routes::{auth, chat, health, metrics, models, quotas, usage},
     state::AppState,
     static_files::build_static_router,
 };
@@ -28,7 +28,7 @@ pub fn build_router(state: AppState) -> Router {
     // CORS layer
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
         .allow_headers(Any);
 
     // Body limit: 10MB
@@ -46,9 +46,15 @@ pub fn build_router(state: AppState) -> Router {
         .route("/metrics", get(metrics::metrics_handler));
 
     // API routes (auth + rate limit required)
-    // Middleware order (outer → inner): rate_limit → api_key_auth → handler
-    // Quota check moved into orchestrator (needs request body for cost estimation)
+    // Middleware order (outer → inner): rate_limit → auth → handler
+    // The auth middleware skips /v1/auth/login and /v1/auth/refresh as public routes.
     let api_routes = Router::new()
+        // Auth routes
+        .route("/v1/auth/login", post(auth::login))
+        .route("/v1/auth/logout", post(auth::logout))
+        .route("/v1/auth/refresh", post(auth::refresh))
+        .route("/v1/auth/me", get(auth::me))
+        // Chat and models
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
         // Quota admin routes
@@ -61,7 +67,10 @@ pub fn build_router(state: AppState) -> Router {
             state.redis.clone(),
             rate_limit_middleware,
         ))
-        .layer(middleware::from_fn(api_key_auth_middleware));
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
 
     // Static file routes for the React SPA dashboard
     let static_routes = build_static_router::<AppState>();

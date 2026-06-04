@@ -1,4 +1,4 @@
-//! JWT session authentication with RS256.
+//! JWT session authentication with RS256 or HS256.
 
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -32,20 +32,34 @@ pub struct RefreshClaims {
     pub token_type: String,
 }
 
-/// JWT encoder/decoder using RS256.
+/// JWT encoder/decoder supporting RS256 (asymmetric) or HS256 (symmetric).
 pub struct JwtService {
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
+    algorithm: Algorithm,
 }
 
 impl JwtService {
-    /// Create from PEM-encoded RSA private and public keys.
+    /// Create from PEM-encoded RSA private and public keys (RS256).
     pub fn from_pem(private_pem: &[u8], public_pem: &[u8]) -> Result<Self, AuthError> {
         let encoding_key = EncodingKey::from_rsa_pem(private_pem)
             .map_err(|e| AuthError::Internal(format!("invalid private key: {e}")))?;
         let decoding_key = DecodingKey::from_rsa_pem(public_pem)
             .map_err(|e| AuthError::Internal(format!("invalid public key: {e}")))?;
-        Ok(Self { encoding_key, decoding_key })
+        Ok(Self {
+            encoding_key,
+            decoding_key,
+            algorithm: Algorithm::RS256,
+        })
+    }
+
+    /// Create from a shared secret (HS256).
+    pub fn from_secret(secret: &[u8]) -> Self {
+        Self {
+            encoding_key: EncodingKey::from_secret(secret),
+            decoding_key: DecodingKey::from_secret(secret),
+            algorithm: Algorithm::HS256,
+        }
     }
 
     /// Issue a new access token (15 minutes).
@@ -71,7 +85,7 @@ impl JwtService {
             token_type: "access".to_string(),
         };
 
-        let token = encode(&Header::new(Algorithm::RS256), &claims, &self.encoding_key)
+        let token = encode(&Header::new(self.algorithm), &claims, &self.encoding_key)
             .map_err(|e| AuthError::Internal(format!("jwt encode failed: {e}")))?;
 
         Ok((token, jti))
@@ -91,7 +105,7 @@ impl JwtService {
             token_type: "refresh".to_string(),
         };
 
-        let token = encode(&Header::new(Algorithm::RS256), &claims, &self.encoding_key)
+        let token = encode(&Header::new(self.algorithm), &claims, &self.encoding_key)
             .map_err(|e| AuthError::Internal(format!("jwt encode failed: {e}")))?;
 
         Ok((token, jti))
@@ -99,7 +113,7 @@ impl JwtService {
 
     /// Verify an access token.
     pub fn verify_access(&self, token: &str) -> Result<AccessClaims, AuthError> {
-        let mut validation = Validation::new(Algorithm::RS256);
+        let mut validation = Validation::new(self.algorithm);
         validation.set_required_spec_claims(&["exp", "sub", "jti"]);
 
         let token_data = decode::<AccessClaims>(token, &self.decoding_key, &validation)
@@ -117,7 +131,7 @@ impl JwtService {
 
     /// Verify a refresh token.
     pub fn verify_refresh(&self, token: &str) -> Result<RefreshClaims, AuthError> {
-        let mut validation = Validation::new(Algorithm::RS256);
+        let mut validation = Validation::new(self.algorithm);
         validation.set_required_spec_claims(&["exp", "sub", "jti"]);
 
         let token_data = decode::<RefreshClaims>(token, &self.decoding_key, &validation)

@@ -39,4 +39,8 @@ impl DbError {
     pub fn rls_context(msg: impl Into<String>) -> Self {
         Self::RlsContext(msg.into())
     }
+
+    pub fn not_found(entity: impl Into<String>, id: impl std::fmt::Display) -> Self {
+        Self::NotFound(format!("{} with id {} not found", entity.into(), id))
+    }
 }

@@ -21,6 +21,7 @@ pub use repos::quota_usage_repo::QuotaUsageRepo;
 pub use repos::request_repo::RequestRepo;
 pub use repos::routing_repo::RoutingRepo;
 pub use repos::usage_repo::UsageRepo;
+pub use repos::user_repo::UserRepo;
 pub use types::{DbDecimal, JsonVec};
 
 use sqlx::PgPool;
