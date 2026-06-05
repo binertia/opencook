@@ -57,7 +57,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0022 | Implement Anthropic, Gemini, and Ollama Adapters | Epic-04 | Critical | 2d | TASK-0021, TASK-0020 | done |
 | TASK-0023 | Implement Provider Config Encryption and Storage | Epic-04 | Critical | 1d | TASK-0008, TASK-0019 | done |
 | TASK-0024 | Implement Model Registry with Pricing and Capabilities | Epic-04 | Critical | 1d | TASK-0023, TASK-0006 | done |
-| TASK-0025 | Implement Provider Health Check Framework | Epic-04 | High | 1d | TASK-0021, TASK-0022, TASK-0006 | todo |
+| TASK-0025 | Implement Provider Health Check Framework | Epic-04 | High | 1d | TASK-0021, TASK-0022, TASK-0006 | done |
 | TASK-0026 | Set Up Axum HTTP Server with Middleware Stack | Epic-05 | Critical | 1d | TASK-0015, TASK-0013, TASK-0006 | done |
 | TASK-0027 | Implement POST /v1/chat/completions (Non-Streaming) | Epic-05 | Critical | 1.5d | TASK-0026, TASK-0021, TASK-0024, TASK-0015 | done |
 | TASK-0028 | Implement SSE Streaming for /v1/chat/completions | Epic-05 | Critical | 1.5d | TASK-0027, TASK-0021 | done |
@@ -67,7 +67,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0032 | Implement Rule Evaluation Engine | Epic-06 | Critical | 1d | TASK-0031, TASK-0025, TASK-0020 | done |
 | TASK-0033 | Integrate Routing Engine into Request Orchestrator | Epic-06 | Critical | 1d | TASK-0032, TASK-0027, TASK-0021 | done |
 | TASK-0034 | Implement Weighted and Conditional Routing Strategies | Epic-06 | High | 1d | TASK-0032, TASK-0033 | done |
-| TASK-0035 | Implement Routing Admin API and Cache Invalidation | Epic-06 | High | 1d | TASK-0031, TASK-0034, TASK-0016 | todo |
+| TASK-0035 | Implement Routing Admin API and Cache Invalidation | Epic-06 | High | 1d | TASK-0031, TASK-0034, TASK-0016 | done |
 | TASK-0036 | Implement Cache Key Builder and Cacheability Rules | Epic-07 | Critical | 1d | TASK-0020, TASK-0006 | done |
 | TASK-0037 | Implement L1 In-Process Cache with moka | Epic-07 | Critical | 1d | TASK-0036, TASK-0001 | done |
 | TASK-0038 | Implement L2 Redis Cache and Two-Tier Integration | Epic-07 | Critical | 1d | TASK-0037, TASK-0006 | done |

@@ -228,6 +228,52 @@ impl RoutingRepo {
         Ok(rows)
     }
 
+    /// Get a single rule by name within an organization.
+    pub async fn get_by_name(
+        &self,
+        org_id: Uuid,
+        name: &str,
+    ) -> Result<Option<RoutingRule>, DbError> {
+        let row = match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query_as::<_, RoutingRule>(
+                    r#"
+                    SELECT
+                        id, org_id, name, description, strategy::text, priority,
+                        match_model, match_tags, conditions, targets,
+                        timeout_ms, retries, status::text,
+                        created_at, updated_at, deleted_at
+                    FROM routing_rules
+                    WHERE org_id = $1 AND name = $2 AND deleted_at IS NULL
+                    "#,
+                )
+                .bind(org_id)
+                .bind(name)
+                .fetch_optional(pg)
+                .await?
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query_as::<_, RoutingRule>(
+                    r#"
+                    SELECT
+                        id, org_id, name, description, strategy, priority,
+                        match_model, match_tags, conditions, targets,
+                        timeout_ms, retries, status,
+                        created_at, updated_at, deleted_at
+                    FROM routing_rules
+                    WHERE org_id = $1 AND name = $2 AND deleted_at IS NULL
+                    "#,
+                )
+                .bind(org_id)
+                .bind(name)
+                .fetch_optional(sqlite)
+                .await?
+            }
+        };
+
+        Ok(row)
+    }
+
     /// Get a single rule by ID.
     pub async fn get_by_id(
         &self,
