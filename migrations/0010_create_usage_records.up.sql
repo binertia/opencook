@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE usage_records (
+CREATE TABLE IF NOT EXISTS usage_records (
     id              UUID NOT NULL DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     api_key_id      UUID REFERENCES api_keys(id) ON DELETE SET NULL,
@@ -39,8 +39,8 @@ CREATE TABLE usage_records (
     UNIQUE(org_id, api_key_id, provider_config_id, provider_model_id, period, period_start)
 ) PARTITION BY RANGE (period_start);
 
-CREATE INDEX idx_usage_org_period ON usage_records(org_id, period, period_start DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_usage_org_model ON usage_records(org_id, provider_model_id, period_start DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_usage_period_start ON usage_records(period_start DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_usage_org_period ON usage_records(org_id, period, period_start DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_usage_org_model ON usage_records(org_id, provider_model_id, period_start DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_usage_period_start ON usage_records(period_start DESC) WHERE deleted_at IS NULL;
 
 

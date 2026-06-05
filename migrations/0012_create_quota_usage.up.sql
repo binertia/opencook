@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE quota_usage (
+CREATE TABLE IF NOT EXISTS quota_usage (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     quota_id        UUID NOT NULL REFERENCES quotas(id) ON DELETE CASCADE,
@@ -26,7 +26,7 @@ CREATE TABLE quota_usage (
     UNIQUE(org_id, quota_id, api_key_id, period_start)
 );
 
-CREATE INDEX idx_quota_usage_org_quota ON quota_usage(org_id, quota_id, period_start) WHERE deleted_at IS NULL;
-CREATE INDEX idx_quota_usage_api_key ON quota_usage(api_key_id) WHERE deleted_at IS NULL AND api_key_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_quota_usage_org_quota ON quota_usage(org_id, quota_id, period_start) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_quota_usage_api_key ON quota_usage(api_key_id) WHERE deleted_at IS NULL AND api_key_id IS NOT NULL;
 
 

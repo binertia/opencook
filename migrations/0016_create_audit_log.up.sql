@@ -12,7 +12,7 @@ CREATE TYPE audit_action AS ENUM (
     'settings.updated', 'billing.updated'
 );
 
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
     id              UUID NOT NULL DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -34,8 +34,8 @@ CREATE TABLE audit_log (
     deleted_at      TIMESTAMPTZ
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_audit_org_created ON audit_log(org_id, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_audit_action ON audit_log(org_id, action, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_audit_entity ON audit_log(entity_type, entity_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_audit_org_created ON audit_log(org_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(org_id, action, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id) WHERE deleted_at IS NULL;
 
 

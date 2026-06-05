@@ -6,7 +6,7 @@ CREATE TYPE routing_strategy AS ENUM (
     'fallback', 'weighted', 'conditional', 'single'
 );
 
-CREATE TABLE routing_rules (
+CREATE TABLE IF NOT EXISTS routing_rules (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
@@ -26,9 +26,9 @@ CREATE TABLE routing_rules (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_routing_rules_org_name ON routing_rules(org_id, name) WHERE deleted_at IS NULL;
-CREATE INDEX idx_routing_rules_org_priority ON routing_rules(org_id, priority) WHERE deleted_at IS NULL AND status = 'active';
-CREATE INDEX idx_routing_rules_match_model ON routing_rules(org_id, match_model) WHERE deleted_at IS NULL AND status = 'active';
-CREATE INDEX idx_routing_rules_conditions ON routing_rules USING GIN (conditions) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_routing_rules_org_name ON routing_rules(org_id, name) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_routing_rules_org_priority ON routing_rules(org_id, priority) WHERE deleted_at IS NULL AND status = 'active';
+CREATE INDEX IF NOT EXISTS idx_routing_rules_match_model ON routing_rules(org_id, match_model) WHERE deleted_at IS NULL AND status = 'active';
+CREATE INDEX IF NOT EXISTS idx_routing_rules_conditions ON routing_rules USING GIN (conditions) WHERE deleted_at IS NULL;
 
 

@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE api_keys (
+CREATE TABLE IF NOT EXISTS api_keys (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id         UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -20,8 +20,8 @@ CREATE TABLE api_keys (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_api_keys_key_hash ON api_keys(key_hash) WHERE deleted_at IS NULL;
-CREATE INDEX idx_api_keys_org_id ON api_keys(org_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_api_keys_key_hash ON api_keys(key_hash) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_org_id ON api_keys(org_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix) WHERE deleted_at IS NULL;
 
 

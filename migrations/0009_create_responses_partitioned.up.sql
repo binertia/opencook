@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE responses (
+CREATE TABLE IF NOT EXISTS responses (
     id              UUID NOT NULL DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     request_id      UUID NOT NULL,
@@ -25,9 +25,9 @@ CREATE TABLE responses (
     deleted_at      TIMESTAMPTZ
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_responses_request_id ON responses(request_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_responses_org_created ON responses(org_id, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_responses_status ON responses(status_code) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_responses_request_id ON responses(request_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_responses_org_created ON responses(org_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_responses_status ON responses(status_code) WHERE deleted_at IS NULL;
 
 -- Create initial partitions for current and next month
 DO $$
@@ -38,11 +38,11 @@ DECLARE
     part_name TEXT;
 BEGIN
     part_name := 'responses_y' || to_char(this_month, 'YYYY') || 'm' || to_char(this_month, 'MM');
-    EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
+    EXECUTE format('CREATE TABLE IF NOT EXISTS IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
         part_name, this_month, next_month);
 
     part_name := 'responses_y' || to_char(next_month, 'YYYY') || 'm' || to_char(next_month, 'MM');
-    EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
+    EXECUTE format('CREATE TABLE IF NOT EXISTS IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
         part_name, next_month, next2_month);
 END;
 $$;

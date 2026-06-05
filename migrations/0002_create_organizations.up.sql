@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name            TEXT NOT NULL,
     slug            TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE organizations (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_organizations_slug ON organizations(slug) WHERE deleted_at IS NULL;
-CREATE INDEX idx_organizations_status ON organizations(status) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_organizations_slug ON organizations(slug) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status) WHERE deleted_at IS NULL;
 
 

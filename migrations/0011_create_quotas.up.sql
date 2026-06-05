@@ -5,7 +5,7 @@
 CREATE TYPE quota_period AS ENUM ('minute', 'hour', 'day', 'month', 'total');
 CREATE TYPE quota_metric AS ENUM ('requests', 'tokens', 'cost_usd');
 
-CREATE TABLE quotas (
+CREATE TABLE IF NOT EXISTS quotas (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     api_key_id      UUID REFERENCES api_keys(id) ON DELETE CASCADE,
@@ -34,8 +34,8 @@ CREATE TABLE quotas (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE INDEX idx_quotas_org ON quotas(org_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_quotas_org_metric_period ON quotas(org_id, metric, period) WHERE deleted_at IS NULL AND status = 'active';
-CREATE INDEX idx_quotas_api_key ON quotas(api_key_id) WHERE deleted_at IS NULL AND api_key_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_quotas_org ON quotas(org_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_quotas_org_metric_period ON quotas(org_id, metric, period) WHERE deleted_at IS NULL AND status = 'active';
+CREATE INDEX IF NOT EXISTS idx_quotas_api_key ON quotas(api_key_id) WHERE deleted_at IS NULL AND api_key_id IS NOT NULL;
 
 

@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE cache_metadata (
+CREATE TABLE IF NOT EXISTS cache_metadata (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -27,8 +27,8 @@ CREATE TABLE cache_metadata (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_cache_metadata_org_hash ON cache_metadata(org_id, cache_key_hash) WHERE deleted_at IS NULL;
-CREATE INDEX idx_cache_metadata_expires ON cache_metadata(expires_at) WHERE deleted_at IS NULL;
-CREATE INDEX idx_cache_metadata_org_model ON cache_metadata(org_id, model_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_cache_metadata_org_hash ON cache_metadata(org_id, cache_key_hash) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_cache_metadata_expires ON cache_metadata(expires_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_cache_metadata_org_model ON cache_metadata(org_id, model_id) WHERE deleted_at IS NULL;
 
 

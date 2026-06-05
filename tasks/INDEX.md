@@ -123,7 +123,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0088 | Create Kubernetes Deployment Manifests | Epic-18 | Critical | 1d | TASK-0087 | done |
 | TASK-0089 | Implement Zero-Downtime Deployment with Signal Handling | Epic-18 | Critical | 1d | TASK-0087 | done |
 | TASK-0090 | Create Terraform/Helm Infrastructure Definition | Epic-18 | Medium | 1.5d | TASK-0088 | done |
-| TASK-0091 | Create Database Backup and Migration Strategy | Epic-18 | High | 1d | TASK-0011 | todo |
+| TASK-0091 | Create Database Backup and Migration Strategy | Epic-18 | High | 1d | TASK-0011 | done |
 | TASK-0092 | Implement Per-Model Pricing and Cost-Optimized Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0024, TASK-0049 | todo |
 | TASK-0093 | Implement Provider Latency Tracking and Latency-Based Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0078 | todo |
 | TASK-0094 | Implement Quality and Balanced Routing Strategies | Epic-19 | Low | 1d | TASK-0092, TASK-0093 | todo |

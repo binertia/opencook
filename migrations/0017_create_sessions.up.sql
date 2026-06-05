@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     user_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -20,8 +20,8 @@ CREATE TABLE sessions (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_sessions_token ON sessions(token_hash) WHERE deleted_at IS NULL;
-CREATE INDEX idx_sessions_user ON sessions(user_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_sessions_expires ON sessions(expires_at) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_sessions_token ON sessions(token_hash) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at) WHERE deleted_at IS NULL;
 
 

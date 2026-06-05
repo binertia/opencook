@@ -8,7 +8,7 @@ CREATE TYPE webhook_event AS ENUM (
     'provider.error', 'provider.recovered'
 );
 
-CREATE TABLE webhooks (
+CREATE TABLE IF NOT EXISTS webhooks (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
@@ -36,8 +36,8 @@ CREATE TABLE webhooks (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE INDEX idx_webhooks_org ON webhooks(org_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_webhooks_status ON webhooks(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_webhooks_events ON webhooks USING GIN (events);
+CREATE INDEX IF NOT EXISTS idx_webhooks_org ON webhooks(org_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_webhooks_status ON webhooks(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_webhooks_events ON webhooks USING GIN (events);
 
 

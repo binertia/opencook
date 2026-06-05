@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE provider_models (
+CREATE TABLE IF NOT EXISTS provider_models (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id              UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     provider_config_id  UUID NOT NULL REFERENCES provider_configs(id) ON DELETE CASCADE,
@@ -24,8 +24,8 @@ CREATE TABLE provider_models (
     deleted_at          TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_provider_models_provider_model ON provider_models(provider_config_id, model_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_provider_models_org_id ON provider_models(org_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_provider_models_alias ON provider_models USING GIN (aliases) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_provider_models_provider_model ON provider_models(provider_config_id, model_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_provider_models_org_id ON provider_models(org_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_provider_models_alias ON provider_models USING GIN (aliases) WHERE deleted_at IS NULL;
 
 

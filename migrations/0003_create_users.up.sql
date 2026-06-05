@@ -2,7 +2,7 @@
 
 -- Add migration script here
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     email           TEXT NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE users (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_users_org_email ON users(org_id, email) WHERE deleted_at IS NULL;
-CREATE INDEX idx_users_org_id ON users(org_id) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uk_users_org_email ON users(org_id, email) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_users_org_id ON users(org_id) WHERE deleted_at IS NULL;
 
 

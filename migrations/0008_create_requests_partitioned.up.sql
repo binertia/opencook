@@ -6,7 +6,7 @@ CREATE TYPE request_status AS ENUM (
     'pending', 'processing', 'success', 'error', 'timeout', 'cancelled'
 );
 
-CREATE TABLE requests (
+CREATE TABLE IF NOT EXISTS requests (
     id                  UUID NOT NULL DEFAULT gen_random_uuid(),
     org_id              UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     api_key_id          UUID REFERENCES api_keys(id) ON DELETE SET NULL,
@@ -59,13 +59,13 @@ CREATE TABLE requests (
     deleted_at          TIMESTAMPTZ
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_requests_org_created ON requests(org_id, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_requests_api_key_created ON requests(api_key_id, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_requests_trace_id ON requests(trace_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_requests_status ON requests(status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_requests_model ON requests(org_id, model_routed, created_at DESC) WHERE deleted_at IS NULL;
-CREATE INDEX idx_requests_cache ON requests(org_id, cache_key_hash) WHERE cache_hit = true AND deleted_at IS NULL;
-CREATE INDEX idx_requests_metadata ON requests USING GIN (metadata) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_org_created ON requests(org_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_api_key_created ON requests(api_key_id, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_trace_id ON requests(trace_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_model ON requests(org_id, model_routed, created_at DESC) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_cache ON requests(org_id, cache_key_hash) WHERE cache_hit = true AND deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_requests_metadata ON requests USING GIN (metadata) WHERE deleted_at IS NULL;
 
 -- Create initial partitions for current and next month
 DO $$
@@ -76,11 +76,11 @@ DECLARE
     part_name TEXT;
 BEGIN
     part_name := 'requests_y' || to_char(this_month, 'YYYY') || 'm' || to_char(this_month, 'MM');
-    EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF requests FOR VALUES FROM (%L) TO (%L)',
+    EXECUTE format('CREATE TABLE IF NOT EXISTS IF NOT EXISTS %I PARTITION OF requests FOR VALUES FROM (%L) TO (%L)',
         part_name, this_month, next_month);
 
     part_name := 'requests_y' || to_char(next_month, 'YYYY') || 'm' || to_char(next_month, 'MM');
-    EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF requests FOR VALUES FROM (%L) TO (%L)',
+    EXECUTE format('CREATE TABLE IF NOT EXISTS IF NOT EXISTS %I PARTITION OF requests FOR VALUES FROM (%L) TO (%L)',
         part_name, next_month, next2_month);
 END;
 $$;

@@ -7,7 +7,7 @@ CREATE TYPE provider_kind AS ENUM (
     'cohere', 'mistral', 'groq', 'custom', 'bedrock'
 );
 
-CREATE TABLE provider_configs (
+CREATE TABLE IF NOT EXISTS provider_configs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id          UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     name            TEXT NOT NULL,
@@ -26,8 +26,8 @@ CREATE TABLE provider_configs (
     deleted_at      TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX uk_provider_configs_org_name ON provider_configs(org_id, name) WHERE deleted_at IS NULL;
-CREATE INDEX idx_provider_configs_org_id ON provider_configs(org_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_provider_configs_kind ON provider_configs(kind);
+CREATE UNIQUE INDEX IF NOT EXISTS uk_provider_configs_org_name ON provider_configs(org_id, name) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_provider_configs_org_id ON provider_configs(org_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_provider_configs_kind ON provider_configs(kind);
 
 
