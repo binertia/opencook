@@ -9,6 +9,8 @@ pub mod key_rotation;
 pub mod models;
 pub mod password;
 pub mod rbac;
+pub mod scim;
+pub mod sso;
 pub mod tenant;
 
 pub use api_key::{generate_api_key, sha256_hex, validate_key_format, verify_key_hash};

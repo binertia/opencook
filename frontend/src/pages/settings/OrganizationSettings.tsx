@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { MultiSelect } from '@/components/ui/multi-select'
+import SemanticCacheSettings, { type SemanticCacheConfig } from '@/components/settings/SemanticCacheSettings'
 
 const orgSchema = z.object({
   name: z.string().min(1, 'Name is required').max(128, 'Max 128 characters'),
@@ -24,6 +25,9 @@ const orgSchema = z.object({
   default_routing_strategy: z.enum(['cost', 'latency', 'quality', 'fallback']),
   allowed_providers: z.array(z.string()),
   blocked_models: z.array(z.string()),
+  semantic_cache_enabled: z.boolean().optional(),
+  semantic_cache_threshold: z.number().min(0.9).max(0.99).optional(),
+  semantic_cache_max_entries: z.number().min(1000).max(1000000).optional(),
 })
 
 type OrgForm = z.infer<typeof orgSchema>
@@ -78,6 +82,9 @@ export default function OrganizationSettings() {
       default_routing_strategy: 'quality',
       allowed_providers: [],
       blocked_models: [],
+      semantic_cache_enabled: false,
+      semantic_cache_threshold: 0.97,
+      semantic_cache_max_entries: 100_000,
     },
   })
 
@@ -92,6 +99,9 @@ export default function OrganizationSettings() {
         default_routing_strategy: org.settings?.default_routing_strategy || 'quality',
         allowed_providers: org.settings?.allowed_providers || [],
         blocked_models: org.settings?.blocked_models || [],
+        semantic_cache_enabled: org.settings?.semantic_cache?.enabled ?? false,
+        semantic_cache_threshold: org.settings?.semantic_cache?.threshold ?? 0.97,
+        semantic_cache_max_entries: org.settings?.semantic_cache?.max_entries_per_org ?? 100_000,
       })
     }
   }, [org, reset])
@@ -105,6 +115,23 @@ export default function OrganizationSettings() {
         default_routing_strategy: data.default_routing_strategy,
         allowed_providers: data.allowed_providers,
         blocked_models: data.blocked_models,
+        semantic_cache: {
+          enabled: data.semantic_cache_enabled ?? false,
+          threshold: data.semantic_cache_threshold ?? 0.97,
+          max_entries_per_org: data.semantic_cache_max_entries ?? 100_000,
+        },
+      },
+    })
+  }
+
+  const handleSemanticCacheSave = async (config: SemanticCacheConfig) => {
+    await updateOrg.mutateAsync({
+      settings: {
+        semantic_cache: {
+          enabled: config.enabled,
+          threshold: config.threshold,
+          max_entries_per_org: config.max_entries_per_org,
+        },
       },
     })
   }
@@ -251,6 +278,18 @@ export default function OrganizationSettings() {
           )}
         </div>
       </form>
+
+      <SemanticCacheSettings
+        orgId={orgId || ''}
+        config={{
+          enabled: watch('semantic_cache_enabled') ?? false,
+          threshold: watch('semantic_cache_threshold') ?? 0.97,
+          embedding_model: 'text-embedding-3-small',
+          max_entries_per_org: watch('semantic_cache_max_entries') ?? 100_000,
+        }}
+        onSave={handleSemanticCacheSave}
+        isSaving={updateOrg.isPending}
+      />
     </div>
   )
 }

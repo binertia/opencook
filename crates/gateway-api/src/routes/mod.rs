@@ -15,6 +15,8 @@ pub mod providers;
 pub mod quotas;
 pub mod requests;
 pub mod routing;
+pub mod scim;
+pub mod sso;
 pub mod usage;
 pub mod users;
 pub mod webhooks;

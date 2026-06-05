@@ -53,6 +53,13 @@ pub struct CacheStatsResponse {
 }
 
 #[derive(Debug, Serialize)]
+pub struct SemanticCacheStatsResponse {
+    pub org_id: String,
+    pub total_entries: i64,
+    pub newest_entry: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
 pub struct TopModelStats {
     pub model_id: String,
     pub entry_count: i64,
@@ -106,5 +113,35 @@ pub async fn get_cache_stats(
                 avg_hits: m.avg_hits,
             })
             .collect(),
+    }))
+}
+
+pub async fn get_semantic_cache_stats(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
+) -> Result<Json<SemanticCacheStatsResponse>, ApiError> {
+    require_permission(&auth, Permission::UsageRead)?;
+
+    let stats = match &state.pgvector_semantic_cache {
+        Some(cache) => cache.stats(auth.org_id).await.map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?,
+        None => {
+            return Err(ApiError::new(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "semantic_cache_unavailable",
+                "Semantic cache is not enabled or not available in SQLite mode",
+            ));
+        }
+    };
+
+    Ok(Json(SemanticCacheStatsResponse {
+        org_id: auth.org_id.to_string(),
+        total_entries: stats.total_entries,
+        newest_entry: stats.newest_entry.map(|d| d.to_rfc3339()),
     }))
 }

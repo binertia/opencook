@@ -31,3 +31,23 @@ pub fn record_hit_by_model(model: &str) {
 pub fn record_cost_saved(cost_usd: f64) {
     gateway_observability::metrics::record_cache_cost_saved(cost_usd);
 }
+
+/// Record a semantic cache hit.
+pub fn record_semantic_hit() {
+    gateway_observability::metrics::record_semantic_cache_hit();
+}
+
+/// Record a semantic cache miss.
+pub fn record_semantic_miss() {
+    gateway_observability::metrics::record_semantic_cache_miss();
+}
+
+/// Set semantic cache entry count gauge.
+pub fn set_semantic_entries(count: usize) {
+    gateway_observability::metrics::set_semantic_cache_entries(count);
+}
+
+/// Record semantic cache embedding generation latency (ms).
+pub fn record_semantic_embedding_latency(latency_ms: f64) {
+    gateway_observability::metrics::record_semantic_cache_embedding_latency(latency_ms);
+}

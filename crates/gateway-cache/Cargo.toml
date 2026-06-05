@@ -27,3 +27,4 @@ gateway-auth = { path = "../gateway-auth" }
 gateway-db = { path = "../gateway-db" }
 gateway-observability = { path = "../gateway-observability" }
 sqlx = { workspace = true }
+pgvector = { workspace = true }

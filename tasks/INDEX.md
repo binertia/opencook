@@ -35,9 +35,9 @@ Master index of all implementation tasks for the AI Gateway project.
 |------|-------|------|----------|--------|--------------|--------|
 | TASK-0001 | Initialize Rust Workspace with Root Cargo.toml | Epic-01 | Critical | 0.5d | — | done |
 | TASK-0002 | Set Up Docker Compose Development Environment | Epic-01 | Critical | 1d | TASK-0001 | done |
-| TASK-0003 | Set Up CI/CD Pipeline with GitHub Actions | Epic-01 | Critical | 1d | TASK-0001 | todo |
-| TASK-0004 | Configure Linting, Formatting, and Pre-Commit Hooks | Epic-01 | Critical | 1d | TASK-0001, TASK-0003 | todo |
-| TASK-0005 | Create README.md and GitHub Issue Templates | Epic-01 | High | 0.5d | TASK-0001, TASK-0002 | todo |
+| TASK-0003 | Set Up CI/CD Pipeline with GitHub Actions | Epic-01 | Critical | 1d | TASK-0001 | done |
+| TASK-0004 | Configure Linting, Formatting, and Pre-Commit Hooks | Epic-01 | Critical | 1d | TASK-0001, TASK-0003 | done |
+| TASK-0005 | Create README.md and GitHub Issue Templates | Epic-01 | High | 0.5d | TASK-0001, TASK-0002 | done |
 | TASK-0006 | Create Database Migration Framework and Connection Pool | Epic-02 | Critical | 1d | TASK-0001, TASK-0002 | done |
 | TASK-0007 | Create Organizations and Users Migrations (0001-0003) | Epic-02 | Critical | 1d | TASK-0006 | done |
 | TASK-0008 | Create API Keys, Provider Configs, and Models Migrations (0004-0006) | Epic-02 | Critical | 1d | TASK-0007 | done |
@@ -100,10 +100,10 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0065 | Implement Circuit Breaker Pattern | Epic-13 | Critical | 1d | TASK-0064, TASK-0032, TASK-0006 | done |
 | TASK-0066 | Implement Request Cancellation and Fallback Chain | Epic-13 | Critical | 1d | TASK-0064, TASK-0065, TASK-0033 | done |
 | TASK-0067 | Implement Health Check Background Worker | Epic-13 | High | 1d | TASK-0065, TASK-0025, TASK-0006 | done |
-| TASK-0068 | Implement Vector Similarity Cache with pgvector | Epic-14 | Medium | 1.5d | TASK-0038, TASK-0021, TASK-0007 | todo |
-| TASK-0069 | Integrate Semantic Cache into Request Orchestrator | Epic-14 | Medium | 1d | TASK-0068, TASK-0039 | todo |
-| TASK-0070 | Implement Semantic Cache Background Maintenance | Epic-14 | Medium | 1d | TASK-0068, TASK-0069 | todo |
-| TASK-0071 | Add Semantic Cache Configuration UI | Epic-14 | Low | 1d | TASK-0068, TASK-0049 | todo |
+| TASK-0068 | Implement Vector Similarity Cache with pgvector | Epic-14 | Medium | 1.5d | TASK-0038, TASK-0021, TASK-0007 | done |
+| TASK-0069 | Integrate Semantic Cache into Request Orchestrator | Epic-14 | Medium | 1d | TASK-0068, TASK-0039 | done |
+| TASK-0070 | Implement Semantic Cache Background Maintenance | Epic-14 | Medium | 1d | TASK-0068, TASK-0069 | done |
+| TASK-0071 | Add Semantic Cache Configuration UI | Epic-14 | Low | 1d | TASK-0068, TASK-0049 | done |
 | TASK-0072 | Implement Webhook CRUD and Delivery System | Epic-15 | Medium | 1.5d | TASK-0013, TASK-0023, TASK-0016 | done |
 | TASK-0073 | Implement Webhook Event Publisher and Retry Logic | Epic-15 | Medium | 1d | TASK-0072, TASK-0006 | done |
 | TASK-0074 | Implement Quota and Budget Alert Webhooks | Epic-15 | Medium | 1d | TASK-0073, TASK-0042, TASK-0067 | done |
@@ -128,8 +128,8 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0093 | Implement Provider Latency Tracking and Latency-Based Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0078 | done |
 | TASK-0094 | Implement Quality and Balanced Routing Strategies | Epic-19 | Low | 1d | TASK-0092, TASK-0093 | done |
 | TASK-0095 | Implement Multi-Organization Support and Org Switching | Epic-20 | Medium | 1.5d | TASK-0007, TASK-0013, TASK-0019 | done |
-| TASK-0096 | Implement SAML 2.0 and OIDC SSO Integration | Epic-20 | Medium | 2d | TASK-0095, TASK-0013 | todo |
-| TASK-0097 | Implement SCIM 2.0 User Provisioning | Epic-20 | Low | 1.5d | TASK-0096, TASK-0084 | todo |
+| TASK-0096 | Implement SAML 2.0 and OIDC SSO Integration | Epic-20 | Medium | 2d | TASK-0095, TASK-0013 | done |
+| TASK-0097 | Implement SCIM 2.0 User Provisioning | Epic-20 | Low | 1.5d | TASK-0096, TASK-0084 | done |
 | TASK-0098 | Implement Audit Log Dashboard and Admin Actions Log | Epic-20 | Medium | 1d | TASK-0084, TASK-0047, TASK-0048 | done |
 | TASK-0099 | Implement End-to-End Integration Tests | Cross-Cutting | Critical | 2d | All backend tasks | done |
 | TASK-0100 | Final Documentation and Release Checklist | Cross-Cutting | High | 1.5d | All tasks | done |

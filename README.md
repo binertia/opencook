@@ -1,5 +1,9 @@
 # OpenCook
 
+![CI](https://github.com/ai-gateway/ai-gateway/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)
+![Rust](https://img.shields.io/badge/rust-1.78%2B-orange?logo=rust)
+
 > Cook locally. GPT when the stacktrace speaking Thai.
 
 A lightweight, self-hosted AI gateway that unifies access to 11+ LLM providers through a single OpenAI-compatible API. Built in Rust for performance and reliability.

@@ -11,6 +11,8 @@ pub mod quota_repo;
 pub mod quota_usage_repo;
 pub mod request_repo;
 pub mod routing_repo;
+pub mod scim_token_repo;
+pub mod sso_config_repo;
 pub mod usage_repo;
 pub mod user_repo;
 pub mod webhook_repo;

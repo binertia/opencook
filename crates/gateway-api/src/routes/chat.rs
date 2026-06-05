@@ -267,6 +267,13 @@ async fn non_stream_chat_completions(
     // ── Cache check (before provider call) ─────────────────────────────
     let cache_key = gateway_cache::build_cache_key(&request, auth.org_id);
     let is_cacheable = gateway_cache::is_cacheable(&request, false);
+    let prompt_text = request
+        .messages
+        .iter()
+        .filter_map(|m| m.content.as_ref())
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("\n");
 
     if is_cacheable {
         // Exact match first
@@ -329,67 +336,73 @@ async fn non_stream_chat_completions(
             return Ok(resp);
         }
 
-        // Semantic match second
-        if let Some(ref semantic) = state.semantic_cache {
-            if let Some(cached) = semantic.get(&request, auth.org_id).await {
-                let mut response: gateway_core::types::ChatCompletionResponse =
-                    serde_json::from_str(&cached.body)
-                        .map_err(|e| ApiError::new(
-                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                            "cache_deserialize_error",
-                            e.to_string(),
-                        ))?;
+        // Semantic match second (pgvector preferred, Redis fallback)
+        let semantic_hit = if let Some(ref semantic) = state.pgvector_semantic_cache {
+            semantic.find_similar_text(auth.org_id, &request.model, &prompt_text).await.ok().flatten()
+        } else if let Some(ref semantic) = state.semantic_cache {
+            semantic.get(&request, auth.org_id).await
+        } else {
+            None
+        };
 
-                response.gateway = Some(gateway_core::types::GatewayMetadata {
-                    provider: cached.provider.clone(),
-                    latency_ms: 0,
-                    cache_hit: Some(true),
-                    quota_warning: None,
-                });
+        if let Some(cached) = semantic_hit {
+            let mut response: gateway_core::types::ChatCompletionResponse =
+                serde_json::from_str(&cached.body)
+                    .map_err(|e| ApiError::new(
+                        axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                        "cache_deserialize_error",
+                        e.to_string(),
+                    ))?;
 
-                let db_pool = state.db_pool.clone();
-                let org_id = auth.org_id;
-                let key_id = auth.key_id;
-                let model = request.model.clone();
-                let trace_id = request_id.clone();
-                tokio::spawn(async move {
-                    let repo = RequestRepo::new(db_pool);
-                    let _ = repo.insert(
-                        org_id,
-                        key_id,
-                        &trace_id,
-                        "POST",
-                        "/v1/chat/completions",
-                        Some(&model),
-                        serde_json::json!({"x-cache": "SEMANTIC_HIT"}),
-                        None,
-                    ).await;
-                });
+            response.gateway = Some(gateway_core::types::GatewayMetadata {
+                provider: cached.provider.clone(),
+                latency_ms: 0,
+                cache_hit: Some(true),
+                quota_warning: None,
+            });
 
-                // Record cache metadata hit for semantic cache (fire-and-forget)
-                let db_pool_meta = state.db_pool.clone();
-                let org_id_meta = auth.org_id;
-                let key_hash_meta = cache_key.request_hash.clone();
-                tokio::spawn(async move {
-                    let repo = CacheMetaRepo::new(db_pool_meta);
-                    let _ = repo.record_hit(org_id_meta, &key_hash_meta).await;
-                });
+            let db_pool = state.db_pool.clone();
+            let org_id = auth.org_id;
+            let key_id = auth.key_id;
+            let model = request.model.clone();
+            let trace_id = request_id.clone();
+            tokio::spawn(async move {
+                let repo = RequestRepo::new(db_pool);
+                let _ = repo.insert(
+                    org_id,
+                    key_id,
+                    &trace_id,
+                    "POST",
+                    "/v1/chat/completions",
+                    Some(&model),
+                    serde_json::json!({"x-cache": "SEMANTIC_HIT"}),
+                    None,
+                ).await;
+            });
 
-                gateway_observability::metrics::record_cache_hit_by_model(&request.model);
+            // Record cache metadata hit for semantic cache (fire-and-forget)
+            let db_pool_meta = state.db_pool.clone();
+            let org_id_meta = auth.org_id;
+            let key_hash_meta = cache_key.request_hash.clone();
+            tokio::spawn(async move {
+                let repo = CacheMetaRepo::new(db_pool_meta);
+                let _ = repo.record_hit(org_id_meta, &key_hash_meta).await;
+            });
 
-                let mut resp = axum::Json(response).into_response();
-                resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("SEMANTIC_HIT"));
-                gateway_observability::metrics::record_cache_hit_semantic();
-                log_request(
-                    &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
-                        .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
-                        .with_success(200)
-                        .with_latency_breakdown(0, 0, 0)
-                        .with_provider(&cached.provider)
-                        .with_cache_hit(),
-                );
-                return Ok(resp);
-            }
+            gateway_observability::metrics::record_cache_hit_by_model(&request.model);
+
+            let mut resp = axum::Json(response).into_response();
+            resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("SEMANTIC_HIT"));
+            gateway_observability::metrics::record_cache_hit_semantic();
+            log_request(
+                &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                    .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                    .with_success(200)
+                    .with_latency_breakdown(0, 0, 0)
+                    .with_provider(&cached.provider)
+                    .with_cache_hit(),
+            );
+            return Ok(resp);
         }
     }
 
@@ -643,8 +656,32 @@ async fn non_stream_chat_completions(
             ).await;
         });
 
-        // Also store in semantic cache
-        if let Some(ref semantic) = state.semantic_cache {
+        // Also store in semantic cache (pgvector preferred, Redis fallback)
+        if let Some(ref semantic) = state.pgvector_semantic_cache {
+            let semantic_clone = semantic.clone();
+            let org_id = auth.org_id;
+            let model = request.model.clone();
+            let prompt_text_clone = prompt_text.clone();
+            let response_hash = cache_key.request_hash.clone();
+            let cached_clone = gateway_cache::CachedResponse {
+                body: body.clone(),
+                provider: response.gateway.as_ref().map(|g| g.provider.clone()).unwrap_or_else(|| "unknown".to_string()),
+                prompt_tokens: response.usage.prompt_tokens,
+                completion_tokens: response.usage.completion_tokens,
+                total_tokens: response.usage.total_tokens,
+                cached_at: chrono::Utc::now(),
+            };
+            tokio::spawn(async move {
+                let _ = semantic_clone.store_text(
+                    org_id,
+                    &model,
+                    &prompt_text_clone,
+                    &response_hash,
+                    &cached_clone,
+                    std::time::Duration::from_secs(3600),
+                ).await;
+            });
+        } else if let Some(ref semantic) = state.semantic_cache {
             let semantic_clone = semantic.clone();
             let request_clone = request.clone();
             let org_id = auth.org_id;

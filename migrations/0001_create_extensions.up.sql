@@ -3,6 +3,7 @@
 -- Add migration script here
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS "vector";
 
 -- pg_uuidv7 may not be available in all distributions; if missing, we fall back to gen_random_uuid()
 DO $$

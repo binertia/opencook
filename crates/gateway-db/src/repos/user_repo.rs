@@ -243,6 +243,73 @@ impl UserRepo {
             .ok_or_else(|| DbError::not_found("user", user_id))
     }
 
+    /// Create a new SSO user (no password, sso status).
+    pub async fn create_sso_user(
+        &self,
+        org_id: Uuid,
+        email: &str,
+        display_name: Option<&str>,
+    ) -> Result<User, DbError> {
+        let user_id = Uuid::new_v4();
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO users (id, org_id, email, password_hash, display_name, role, status)
+                    VALUES ($1, $2, $3, NULL, $4, 'member', 'active')
+                    "#,
+                )
+                .bind(user_id)
+                .bind(org_id)
+                .bind(email)
+                .bind(display_name)
+                .execute(pg)
+                .await?;
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO users (id, org_id, email, password_hash, display_name, role, status)
+                    VALUES (?1, ?2, ?3, NULL, ?4, 'member', 'active')
+                    "#,
+                )
+                .bind(user_id)
+                .bind(org_id)
+                .bind(email)
+                .bind(display_name)
+                .execute(sqlite)
+                .await?;
+            }
+        };
+
+        self.find_by_id(user_id)
+            .await?
+            .ok_or_else(|| DbError::not_found("user", user_id))
+    }
+
+    /// Update a user's status.
+    pub async fn update_status(&self, user_id: Uuid, status: &str) -> Result<(), DbError> {
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query("UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2")
+                    .bind(status)
+                    .bind(user_id)
+                    .execute(pg)
+                    .await?;
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE users SET status = ?1, updated_at = datetime('now') WHERE id = ?2",
+                )
+                .bind(status)
+                .bind(user_id)
+                .execute(sqlite)
+                .await?;
+            }
+        };
+        Ok(())
+    }
+
     /// Update a user's role.
     pub async fn update_role(&self, user_id: Uuid, role: &str) -> Result<(), DbError> {
         match &self.pool {

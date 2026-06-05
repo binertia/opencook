@@ -9,6 +9,7 @@ use gateway_core::profiles::RoutingProfile;
 use gateway_db::pool::create_pool;
 use gateway_db::DbBackend;
 use redis::aio::ConnectionManager;
+use sqlx::PgPool;
 
 /// Shared state available to all request handlers.
 #[derive(Clone)]
@@ -17,6 +18,7 @@ pub struct AppState {
     pub redis: ConnectionManager,
     pub cache: TwoTierCache,
     pub semantic_cache: Option<gateway_cache::SemanticCache>,
+    pub pgvector_semantic_cache: Option<gateway_cache::PgvectorSemanticCache>,
     pub circuit_breaker: CircuitBreaker,
     pub config: Arc<AppConfig>,
     pub jwt: Arc<JwtService>,
@@ -270,22 +272,54 @@ impl AppState {
         let circuit_breaker = CircuitBreaker::new(BreakerConfig::default());
 
         // Semantic cache (optional)
+        let embedding_client = gateway_cache::EmbeddingClient::new(
+            config.embedding_base_url.clone(),
+            config.embedding_api_key.clone(),
+            config.embedding_model.clone(),
+        );
+
         let semantic_cache = if config.semantic_cache_enabled {
-            let embedding_client = gateway_cache::EmbeddingClient::new(
-                config.embedding_base_url.clone(),
-                config.embedding_api_key.clone(),
-                config.embedding_model.clone(),
-            );
             tracing::info!(
                 model = %config.embedding_model,
                 threshold = config.semantic_cache_threshold,
-                "Semantic cache enabled"
+                "Semantic cache enabled (Redis)"
             );
             Some(gateway_cache::SemanticCache::new(
                 redis.clone(),
-                embedding_client,
+                embedding_client.clone(),
                 config.semantic_cache_threshold,
             ))
+        } else {
+            None
+        };
+
+        let pgvector_semantic_cache = if config.semantic_cache_enabled {
+            match &db_pool {
+                DbBackend::Postgres(pg) => {
+                    tracing::info!(
+                        model = %config.embedding_model,
+                        threshold = config.semantic_cache_threshold,
+                        "Semantic cache enabled (pgvector)"
+                    );
+                    let cache = gateway_cache::PgvectorSemanticCache::new(
+                        pg.clone(),
+                        redis.clone(),
+                        embedding_client,
+                        config.semantic_cache_threshold,
+                    );
+                    // Spawn background maintenance task
+                    let _ = gateway_cache::semantic_pg::spawn_maintenance(
+                        cache.clone(),
+                        std::time::Duration::from_secs(300),
+                        100_000,
+                    );
+                    Some(cache)
+                }
+                DbBackend::Sqlite(_) => {
+                    tracing::debug!("pgvector semantic cache unavailable in SQLite mode");
+                    None
+                }
+            }
         } else {
             None
         };
@@ -333,6 +367,7 @@ impl AppState {
             redis,
             cache,
             semantic_cache,
+            pgvector_semantic_cache,
             circuit_breaker,
             config: Arc::new(config),
             jwt: Arc::new(jwt),

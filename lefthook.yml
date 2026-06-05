@@ -1,0 +1,17 @@
+pre-commit:
+  parallel: true
+  commands:
+    cargo-fmt:
+      glob: "*.rs"
+      run: cargo fmt --all -- --check
+    cargo-clippy:
+      glob: "*.rs"
+      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+    frontend-lint:
+      root: "frontend/"
+      glob: "*.{ts,tsx}"
+      run: npx eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+    frontend-format:
+      root: "frontend/"
+      glob: "*.{ts,tsx,js,jsx,json,css,md}"
+      run: npx prettier --check .

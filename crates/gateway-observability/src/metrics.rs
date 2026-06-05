@@ -68,6 +68,26 @@ pub fn record_cache_miss() {
     metrics::counter!("gateway_cache_miss_total").increment(1);
 }
 
+/// Record a semantic cache hit.
+pub fn record_semantic_cache_hit() {
+    metrics::counter!("gateway_semantic_cache_hit_total").increment(1);
+}
+
+/// Record a semantic cache miss.
+pub fn record_semantic_cache_miss() {
+    metrics::counter!("gateway_semantic_cache_miss_total").increment(1);
+}
+
+/// Set semantic cache entry count gauge.
+pub fn set_semantic_cache_entries(count: usize) {
+    metrics::gauge!("gateway_semantic_cache_entries").set(count as f64);
+}
+
+/// Record semantic cache embedding generation latency (ms).
+pub fn record_semantic_cache_embedding_latency(latency_ms: f64) {
+    metrics::histogram!("gateway_semantic_cache_embedding_latency_ms").record(latency_ms);
+}
+
 /// Record a cache hit for a specific model.
 pub fn record_cache_hit_by_model(model: &str) {
     let model = sanitize_label(model);

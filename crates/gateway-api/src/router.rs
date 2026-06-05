@@ -24,7 +24,7 @@ use crate::{
     middleware::rate_limit::rate_limit_middleware,
     middleware::security_headers::SecurityHeadersLayer,
     middleware::timing::TimingLayer,
-    routes::{analytics, api_keys, audit, auth, cache, chat, dashboard, health, metrics, models, organizations, providers, quotas, requests, routing, usage, users, webhooks},
+    routes::{analytics, api_keys, audit, auth, cache, chat, dashboard, health, metrics, models, organizations, providers, quotas, requests, routing, scim, sso, usage, users, webhooks},
     state::AppState,
     static_files::build_static_router,
 };
@@ -92,6 +92,19 @@ pub fn build_router(state: AppState) -> Router {
         .route("/ready", get(health::readiness_check))
         .route("/metrics", get(metrics::metrics_handler));
 
+    // SCIM routes (SCIM token auth, no standard auth)
+    let scim_routes = Router::new()
+        .route("/scim/v2/ServiceProviderConfig", get(scim::service_provider_config))
+        .route("/scim/v2/ResourceTypes", get(scim::resource_types))
+        .route("/scim/v2/Schemas", get(scim::schemas))
+        .route("/scim/v2/Users", get(scim::list_users).post(scim::create_user))
+        .route("/scim/v2/Users/:user_id", get(scim::get_user).put(scim::update_user).patch(scim::patch_user).delete(scim::delete_user))
+        .route("/scim/v2/Groups", get(scim::list_groups))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            scim::scim_auth_middleware,
+        ));
+
     // Auth routes: public, but with strict per-IP rate limiting.
     let auth_routes = Router::new()
         .route("/v1/auth/login", post(auth::login))
@@ -146,6 +159,12 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/routing-rules/:rule_id", get(routing::get_rule).put(routing::update_rule).delete(routing::delete_rule))
         // Cache stats
         .route("/api/v1/cache/stats", get(cache::get_cache_stats))
+        .route("/api/v1/cache/semantic-stats", get(cache::get_semantic_cache_stats))
+        // SSO public endpoints
+        .route("/api/v1/auth/sso/providers", get(sso::list_sso_providers))
+        .route("/api/v1/auth/saml/acs", post(sso::saml_acs))
+        .route("/api/v1/auth/oidc/authorize", get(sso::oidc_authorize))
+        .route("/api/v1/auth/oidc/callback", get(sso::oidc_callback))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,
@@ -166,6 +185,9 @@ pub fn build_router(state: AppState) -> Router {
         // Audit log routes
         .route("/api/v1/organizations/:org_id/audit-log", get(audit::list_audit_entries))
         .route("/api/v1/organizations/:org_id/audit-log/:entry_id", get(audit::get_audit_entry))
+        // SSO admin routes
+        .route("/api/v1/organizations/:org_id/sso", get(sso::get_sso_config).post(sso::create_sso_config))
+        .route("/api/v1/organizations/:org_id/sso/:provider_type", axum::routing::delete(sso::delete_sso_config))
         .layer(middleware::from_fn(csrf_middleware))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
@@ -185,6 +207,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(auth_routes)
         .merge(api_routes)
         .merge(admin_api_routes)
+        .merge(scim_routes)
         .layer(CookieManagerLayer::default())
         .layer(trace)
         .layer(body_limit)
