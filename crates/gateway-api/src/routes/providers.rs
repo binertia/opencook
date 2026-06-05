@@ -36,6 +36,7 @@ pub struct CreateProviderRequest {
     pub kind: String,
     pub api_key: Option<String>,
     #[validate(url(message = "Base URL must be a valid URL"))]
+    #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub base_url: Option<String>,
     pub models: Option<Vec<String>>,
     #[validate(range(min = 10, max = 86400, message = "Health check interval must be 10-86400 seconds"))]
@@ -756,6 +757,7 @@ pub struct TestConnectionRequest {
     pub kind: String,
     pub api_key: Option<String>,
     #[validate(url(message = "Base URL must be a valid URL"))]
+    #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub base_url: Option<String>,
 }
 

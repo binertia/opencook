@@ -336,6 +336,7 @@ fn db_to_item(key: &DbApiKey) -> ApiKeyItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Utc;
 
     #[test]
     fn test_db_to_item_maps_correctly() {

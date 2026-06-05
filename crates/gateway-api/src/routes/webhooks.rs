@@ -87,6 +87,7 @@ pub struct CreateWebhookRequest {
     #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: String,
     #[validate(url(message = "URL must be a valid URL"))]
+    #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub url: String,
     #[validate(length(min = 1, message = "At least one event is required"))]
     pub events: Vec<String>,
@@ -108,6 +109,7 @@ pub struct UpdateWebhookRequest {
     #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: Option<String>,
     #[validate(url(message = "URL must be a valid URL"))]
+    #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub url: Option<String>,
     pub events: Option<Vec<String>>,
     pub custom_headers: Option<serde_json::Value>,

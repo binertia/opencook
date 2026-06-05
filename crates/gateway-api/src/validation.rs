@@ -92,6 +92,100 @@ pub fn contains_sql_injection(input: &str) -> bool {
     patterns.iter().any(|p| lower.contains(p))
 }
 
+/// Validate that a URL does not point to private/internal addresses.
+/// Blocks loopback, link-local, multicast, and RFC 1918 / RFC 4193 ranges.
+/// Also blocks well-known internal hostnames like localhost.
+pub fn validate_url_not_internal(url: &str) -> Result<(), ValidationError> {
+    let parsed = match url.parse::<reqwest::Url>() {
+        Ok(u) => u,
+        Err(_) => {
+            let mut err = ValidationError::new("invalid_url");
+            err.message = Some("Invalid URL format".into());
+            return Err(err);
+        }
+    };
+
+    // Only allow http and https schemes
+    let scheme = parsed.scheme();
+    if scheme != "http" && scheme != "https" {
+        let mut err = ValidationError::new("invalid_url_scheme");
+        err.message = Some("URL scheme must be http or https".into());
+        return Err(err);
+    }
+
+    let host = match parsed.host_str() {
+        Some(h) => h,
+        None => {
+            let mut err = ValidationError::new("invalid_url_host");
+            err.message = Some("URL must have a host".into());
+            return Err(err);
+        }
+    };
+
+    // Check if host is an IP address (strip brackets for IPv6)
+    let host_for_ip = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
+    if let Ok(ip) = host_for_ip.parse::<std::net::IpAddr>() {
+        if is_internal_ip(ip) {
+            let mut err = ValidationError::new("url_internal_ip");
+            err.message = Some("URL points to a private or internal IP address".into());
+            return Err(err);
+        }
+        return Ok(());
+    }
+
+    // Block well-known internal hostnames (case-insensitive)
+    let lower_host = host.to_lowercase();
+    let blocked_hostnames = [
+        "localhost",
+        "localhost.localdomain",
+        "ip6-localhost",
+        "ip6-loopback",
+    ];
+    if blocked_hostnames.iter().any(|&h| lower_host == h) {
+        let mut err = ValidationError::new("url_internal_host");
+        err.message = Some("URL points to an internal hostname".into());
+        return Err(err);
+    }
+
+    Ok(())
+}
+
+fn is_internal_ip(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V4(v4) => {
+            v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_multicast()
+                || v4.is_broadcast()
+                || v4.is_documentation()
+                // 0.0.0.0/8
+                || v4.octets()[0] == 0
+                // 169.254.0.0/16 (link-local, already covered)
+                // 127.0.0.0/8 (loopback, already covered)
+                // 198.18.0.0/15 (benchmark)
+                || (v4.octets()[0] == 198 && v4.octets()[1] == 18)
+                || (v4.octets()[0] == 198 && v4.octets()[1] == 19)
+                // 192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24 (documentation)
+                // 192.88.99.0/24 (6to4 relay anycast)
+                || (v4.octets()[0] == 192 && v4.octets()[1] == 88 && v4.octets()[2] == 99)
+                // 240.0.0.0/4 (reserved)
+                || v4.octets()[0] >= 240
+        }
+        std::net::IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || v6.is_multicast()
+                || v6.is_unspecified()
+                // Unique local addresses (fc00::/7)
+                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                // Link-local (fe80::/10, already covered by is_loopback for ::1)
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+                // IPv4-mapped IPv6 addresses that are internal
+                || v6.to_ipv4_mapped().is_some_and(|v4| is_internal_ip(std::net::IpAddr::V4(v4)))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,5 +248,44 @@ mod tests {
         assert!(contains_sql_injection("'; DROP TABLE users; --"));
         assert!(contains_sql_injection("1' OR '1'='1"));
         assert!(!contains_sql_injection("Hello, world!"));
+    }
+
+    #[test]
+    fn test_validate_url_not_internal_blocks_private_ips() {
+        assert!(validate_url_not_internal("http://127.0.0.1/webhook").is_err());
+        assert!(validate_url_not_internal("http://10.0.0.1/webhook").is_err());
+        assert!(validate_url_not_internal("http://192.168.1.1/webhook").is_err());
+        assert!(validate_url_not_internal("http://172.16.0.1/webhook").is_err());
+        assert!(validate_url_not_internal("http://169.254.169.254/latest/meta-data/").is_err());
+        assert!(validate_url_not_internal("http://0.0.0.0/").is_err());
+        assert!(validate_url_not_internal("http://[::1]/webhook").is_err());
+        assert!(validate_url_not_internal("http://[fc00::1]/webhook").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_not_internal_blocks_localhost() {
+        assert!(validate_url_not_internal("http://localhost/webhook").is_err());
+        assert!(validate_url_not_internal("http://localhost:8080/webhook").is_err());
+        assert!(validate_url_not_internal("http://LOCALHOST/webhook").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_not_internal_allows_public_urls() {
+        assert!(validate_url_not_internal("https://hooks.example.com/webhook").is_ok());
+        assert!(validate_url_not_internal("https://example.com:8443/webhook").is_ok());
+        assert!(validate_url_not_internal("http://1.2.3.4/webhook").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_not_internal_blocks_non_http_schemes() {
+        assert!(validate_url_not_internal("ftp://example.com/file").is_err());
+        assert!(validate_url_not_internal("file:///etc/passwd").is_err());
+        assert!(validate_url_not_internal("gopher://example.com").is_err());
+    }
+
+    #[test]
+    fn test_validate_url_not_internal_blocks_ipv6_mapped_ipv4() {
+        assert!(validate_url_not_internal("http://[::ffff:127.0.0.1]/webhook").is_err());
+        assert!(validate_url_not_internal("http://[::ffff:192.168.1.1]/webhook").is_err());
     }
 }
