@@ -22,6 +22,12 @@ use crate::{
     state::AppState,
     validation::sanitize_display_text,
 };
+
+/// Redis cache key prefix for API key lookups.
+const APIKEY_CACHE_PREFIX: &str = "auth:apikey";
+/// Redis pub/sub channel for API key revocation events.
+const APIKEY_REVOKE_CHANNEL: &str = "apikey:revoked";
+use chrono::Utc;
 use validator::Validate;
 
 // ── Request / Response Types ─────────────────────────────────────────
@@ -157,6 +163,32 @@ pub async fn create_api_key(
     }))
 }
 
+/// Invalidate an API key from Redis cache and publish revocation event.
+async fn invalidate_api_key_cache(state: &AppState, key_hash: &str, key_id: Uuid) {
+    let cache_key = format!("{APIKEY_CACHE_PREFIX}:{key_hash}");
+    let mut conn = state.redis.clone();
+
+    // Delete from Redis cache.
+    let _: () = redis::cmd("DEL")
+        .arg(&cache_key)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(());
+
+    // Publish revocation event for multi-instance cache invalidation.
+    let payload = serde_json::json!({
+        "key_hash": key_hash,
+        "key_id": key_id.to_string(),
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    });
+    let _: i64 = redis::cmd("PUBLISH")
+        .arg(APIKEY_REVOKE_CHANNEL)
+        .arg(payload.to_string())
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+}
+
 pub async fn update_api_key(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
@@ -175,6 +207,15 @@ pub async fn update_api_key(
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found"))?;
 
+    // Prevent revoking an already-revoked key.
+    if existing.status == "revoked" && body.status.as_deref() == Some("revoked") {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "already_revoked",
+            "API key is already revoked",
+        ));
+    }
+
     let name = body.name.as_deref().map(sanitize_display_text);
     let name_ref = name.as_deref();
     repo
@@ -188,6 +229,12 @@ pub async fn update_api_key(
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found"))?;
 
+    // If status changed to revoked/inactive, invalidate cache immediately.
+    let is_revocation = body.status.as_deref() == Some("revoked") || body.status.as_deref() == Some("inactive");
+    if is_revocation {
+        invalidate_api_key_cache(&state, &key.key_hash, key.id).await;
+    }
+
     let old_values = json!({
         "name": existing.name,
         "status": existing.status,
@@ -196,7 +243,7 @@ pub async fn update_api_key(
         "name": key.name,
         "status": key.status,
     });
-    let action = if body.status.as_deref() == Some("revoked") || body.status.as_deref() == Some("inactive") {
+    let action = if is_revocation {
         AuditAction::ApiKeyRevoked
     } else {
         AuditAction::Update
@@ -234,16 +281,28 @@ pub async fn delete_api_key(
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found"))?;
 
+    // Prevent deleting an already-revoked key.
+    if existing.status == "revoked" {
+        return Err(ApiError::new(
+            StatusCode::CONFLICT,
+            "already_revoked",
+            "API key is already revoked",
+        ));
+    }
+
     repo
         .delete(auth.org_id, key_uuid)
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
 
+    // Invalidate cache and broadcast revocation.
+    invalidate_api_key_cache(&state, &existing.key_hash, existing.id).await;
+
     audit::record(
         &state,
         &auth,
         &ctx,
-        AuditAction::Delete,
+        AuditAction::ApiKeyRevoked,
         "api_key",
         Some(&existing.id.to_string()),
         Some(json!({
@@ -252,7 +311,7 @@ pub async fn delete_api_key(
             "status": existing.status,
         })),
         None,
-        "API key deleted",
+        "API key revoked",
     )
     .await;
 
@@ -272,5 +331,60 @@ fn db_to_item(key: &DbApiKey) -> ApiKeyItem {
         expires_at: key.expires_at.map(|t| t.to_rfc3339()),
         last_used_at: key.last_used_at.map(|t| t.to_rfc3339()),
         created_at: key.created_at.to_rfc3339(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_db_to_item_maps_correctly() {
+        let key = DbApiKey {
+            id: Uuid::new_v4(),
+            org_id: Uuid::new_v4(),
+            user_id: None,
+            name: "test-key".to_string(),
+            key_hash: "abc123".to_string(),
+            key_prefix: "sk_gw_".to_string(),
+            scopes: gateway_db::types::JsonVec(vec!["chat".to_string()]),
+            rate_limit_rps: 100,
+            status: "active".to_string(),
+            expires_at: None,
+            last_used_at: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deleted_at: None,
+        };
+
+        let item = db_to_item(&key);
+        assert_eq!(item.id, key.id.to_string());
+        assert_eq!(item.name, "test-key");
+        assert_eq!(item.status, "active");
+        assert_eq!(item.rate_limit_rps, 100);
+        assert_eq!(item.scopes, vec!["chat"]);
+    }
+
+    #[test]
+    fn test_db_to_item_revoked_status() {
+        let key = DbApiKey {
+            id: Uuid::new_v4(),
+            org_id: Uuid::new_v4(),
+            user_id: None,
+            name: "revoked-key".to_string(),
+            key_hash: "def456".to_string(),
+            key_prefix: "sk_gw_".to_string(),
+            scopes: gateway_db::types::JsonVec(vec![]),
+            rate_limit_rps: 10,
+            status: "revoked".to_string(),
+            expires_at: None,
+            last_used_at: None,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+            deleted_at: None,
+        };
+
+        let item = db_to_item(&key);
+        assert_eq!(item.status, "revoked");
     }
 }

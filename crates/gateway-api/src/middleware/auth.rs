@@ -12,10 +12,15 @@ use axum::{
     response::Response,
 };
 use gateway_auth::{sha256_hex, validate_key_format, verify_key_hash, AuthContext, AuthType};
-use gateway_db::ApiKeyRepo;
+use gateway_db::{models::ApiKey, ApiKeyRepo};
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
+
+/// Redis cache TTL for API key entries (5 minutes).
+const APIKEY_CACHE_TTL: i64 = 300;
+/// Redis pub/sub channel for API key revocation events.
+const APIKEY_REVOKE_CHANNEL: &str = "apikey:revoked";
 
 /// Public routes that skip authentication.
 const PUBLIC_ROUTES: &[&str] = &[
@@ -76,7 +81,7 @@ pub async fn auth_middleware(
     Ok(next.run(req).await)
 }
 
-/// Validate an API key against the database and build auth context.
+/// Validate an API key against the cache or database and build auth context.
 async fn api_key_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiError> {
     if !validate_key_format(token) {
         return Err(ApiError::new(
@@ -87,21 +92,48 @@ async fn api_key_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiE
     }
 
     let key_hash = sha256_hex(token);
-    let repo = ApiKeyRepo::new(state.db_pool.clone());
+    let cache_key = format!("auth:apikey:{key_hash}");
 
-    let api_key = repo
-        .find_by_key_hash(&key_hash)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| {
-            ApiError::new(
-                StatusCode::UNAUTHORIZED,
-                "invalid_api_key",
-                "Invalid API key.",
-            )
-        })?;
+    // 1. Try Redis cache first.
+    let cached: Option<String> = {
+        let mut conn = state.redis.clone();
+        redis::cmd("GET")
+            .arg(&cache_key)
+            .query_async(&mut conn)
+            .await
+            .unwrap_or(None)
+    };
 
-    // Constant-time hash verification (defense in depth even after DB lookup)
+    let api_key = if let Some(json_str) = cached {
+        match serde_json::from_str::<ApiKey>(&json_str) {
+            Ok(key) => {
+                tracing::debug!(key_id = %key.id, "API key auth cache hit");
+                key
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "API key cache deserialization failed, falling back to DB");
+                fetch_api_key_from_db(state, &key_hash).await?
+            }
+        }
+    } else {
+        let key = fetch_api_key_from_db(state, &key_hash).await?;
+
+        // Populate cache asynchronously (best-effort).
+        if let Ok(json) = serde_json::to_string(&key) {
+            let mut conn = state.redis.clone();
+            let _: () = redis::cmd("SETEX")
+                .arg(&cache_key)
+                .arg(APIKEY_CACHE_TTL)
+                .arg(json)
+                .query_async(&mut conn)
+                .await
+                .unwrap_or(());
+        }
+
+        key
+    };
+
+    // Constant-time hash verification (defense in depth even after cache/DB lookup)
     if !verify_key_hash(token, &api_key.key_hash) {
         return Err(ApiError::new(
             StatusCode::UNAUTHORIZED,
@@ -119,6 +151,21 @@ async fn api_key_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiE
         permissions: api_key.scopes.0.clone(),
         rate_limit_rps: Some(api_key.rate_limit_rps),
     })
+}
+
+/// Fetch API key from DB (fallback when cache misses).
+async fn fetch_api_key_from_db(state: &AppState, key_hash: &str) -> Result<ApiKey, ApiError> {
+    let repo = ApiKeyRepo::new(state.db_pool.clone());
+    repo.find_by_key_hash(key_hash)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_api_key",
+                "Invalid API key.",
+            )
+        })
 }
 
 /// Verify a JWT access token and build auth context.
