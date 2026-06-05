@@ -49,6 +49,11 @@ async fn test_state(shutdown: ShutdownState) -> AppState {
         tls_key: None,
         allowed_origins: vec![],
         environment: "test".to_string(),
+        smtp_host: None,
+        smtp_port: 587,
+        smtp_user: None,
+        smtp_password: None,
+        smtp_from: None,
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
@@ -61,6 +66,7 @@ async fn test_state(shutdown: ShutdownState) -> AppState {
         circuit_breaker,
         config: Arc::new(config),
         jwt,
+        email: None,
         shutdown,
     }
 }
@@ -136,6 +142,11 @@ async fn spawn_test_server() -> (SocketAddr, ShutdownState) {
         tls_key: None,
         allowed_origins: vec![],
         environment: "test".to_string(),
+        smtp_host: None,
+        smtp_port: 587,
+        smtp_user: None,
+        smtp_password: None,
+        smtp_from: None,
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
@@ -149,6 +160,7 @@ async fn spawn_test_server() -> (SocketAddr, ShutdownState) {
         circuit_breaker,
         config: Arc::new(config),
         jwt,
+        email: None,
         shutdown: shutdown.clone(),
     };
 

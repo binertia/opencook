@@ -98,6 +98,11 @@ pub async fn spawn_test_app() -> TestApp {
         tls_key: None,
         allowed_origins: vec![],
         environment: "test".to_string(),
+        smtp_host: None,
+        smtp_port: 587,
+        smtp_user: None,
+        smtp_password: None,
+        smtp_from: None,
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
@@ -110,6 +115,7 @@ pub async fn spawn_test_app() -> TestApp {
         circuit_breaker,
         config: Arc::new(config),
         jwt,
+        email: None,
         shutdown: gateway_api::shutdown::ShutdownState::new(),
     };
 
