@@ -197,8 +197,7 @@ mod tests {
             }
 
             fn call(&mut self, _req: Request<Body>) -> Self::Future {
-                Box::pin(ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                Box::pin(ready(Err(std::io::Error::other(
                     "boom",
                 ))))
             }

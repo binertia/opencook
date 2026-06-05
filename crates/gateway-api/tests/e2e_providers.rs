@@ -44,7 +44,7 @@ async fn test_provider_crud_flow() {
     assert_eq!(list_response.status(), 200);
     let list_body: serde_json::Value = list_response.json().await.expect("failed to parse list");
     let data = list_body["data"].as_array().unwrap();
-    assert!(data.len() >= 1);
+    assert!(!data.is_empty());
     assert!(data.iter().any(|p| p["name"] == "Test OpenAI"));
 
     // 3. Get provider detail

@@ -3,7 +3,7 @@
 use axum::{
     http::Method,
     middleware,
-    routing::{get, post, put, delete},
+    routing::{get, post},
     Router,
 };
 use tower_http::{

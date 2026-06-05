@@ -283,7 +283,7 @@ fn build_model_breakdown(requests: &[Request]) -> Vec<BreakdownItem> {
     }
 
     let mut items: Vec<_> = map.into_values().collect();
-    items.sort_by(|a, b| b.requests.cmp(&a.requests));
+    items.sort_by_key(|b| std::cmp::Reverse(b.requests));
     items.into_iter().take(10).collect()
 }
 
@@ -390,11 +390,13 @@ fn build_cache_breakdown(requests: &[Request]) -> Vec<CacheBreakdownItem> {
         })
         .collect();
 
-    items.sort_by(|a, b| b.cache_hits.cmp(&a.cache_hits));
+    items.sort_by_key(|b| std::cmp::Reverse(b.cache_hits));
     items.into_iter().take(10).collect()
 }
 
 // ── Key Usage Handler ────────────────────────────────────────────────
+
+type KeyUsageAggregate = (i64, i64, i64, i64, f64, f64, i64);
 
 pub async fn get_key_usage(
     State(state): State<AppState>,
@@ -416,7 +418,7 @@ pub async fn get_key_usage(
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
 
     // Aggregate by api_key_id
-    let mut aggregates: std::collections::HashMap<uuid::Uuid, (i64, i64, i64, i64, f64, f64, i64)> =
+    let mut aggregates: std::collections::HashMap<uuid::Uuid, KeyUsageAggregate> =
         std::collections::HashMap::new();
 
     for r in &requests {

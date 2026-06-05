@@ -24,7 +24,7 @@ async fn test_chat_completion_non_streaming_returns_200() {
 
     let body: serde_json::Value = response.json().await.expect("failed to parse response");
     assert_eq!(body["object"], "chat.completion");
-    assert!(body["choices"].as_array().unwrap().len() > 0);
+    assert!(!body["choices"].as_array().unwrap().is_empty());
     assert!(body["usage"]["total_tokens"].as_i64().unwrap() > 0);
 }
 

@@ -8,7 +8,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 
 use gateway_api::router::build_router;
-use gateway_api::routes::health::{readiness_check, HealthResponse};
+use gateway_api::routes::health::readiness_check;
 use gateway_api::shutdown::ShutdownState;
 use gateway_api::state::{AppConfig, AppState};
 use gateway_cache::TwoTierCache;

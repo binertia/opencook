@@ -92,7 +92,7 @@ async fn test_user_list_with_search_and_status() {
     assert!(search_resp.status().is_success());
     let body: serde_json::Value = search_resp.json().await.expect("Failed to parse");
     let data = body["data"].as_array().unwrap();
-    assert!(data.len() >= 1);
+    assert!(!data.is_empty());
 
     // Filter by status
     let status_resp = app

@@ -2,7 +2,6 @@
 
 mod helpers;
 
-use axum::http::StatusCode;
 use gateway_core::strategies::cost_optimized::{
     build_cost_fallback_chain, estimate_cost, select_cheapest, HealthStatus, ProviderCandidate,
 };

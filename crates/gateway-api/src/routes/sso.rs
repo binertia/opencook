@@ -18,7 +18,6 @@ use uuid::Uuid;
 use crate::{error::ApiError, state::AppState};
 use gateway_auth::rbac::{check_permission, Permission, Role};
 use gateway_auth::AuthContext;
-use std::str::FromStr;
 
 // ── Request / Response Types ─────────────────────────────────────────
 

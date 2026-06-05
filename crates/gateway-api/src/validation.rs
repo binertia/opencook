@@ -12,11 +12,6 @@ fn model_id_re() -> &'static Regex {
     RE.get_or_init(|| Regex::new(r"^[A-Za-z0-9_./:-]{1,128}$").unwrap())
 }
 
-fn safe_string_re() -> &'static Regex {
-    static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"^[\x20-\x7E]{0,4096}$").unwrap())
-}
-
 fn provider_kind_re() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| {

@@ -75,8 +75,7 @@ fn test_insufficient_samples_returns_none() {
 
 #[test]
 fn test_sla_penalty_changes_selection() {
-    let _candidates = vec![
-        LatencyCandidate {
+    let _candidates = [LatencyCandidate {
             target: Target {
                 provider_config_id: Uuid::new_v4(),
                 model_id: "within-sla".to_string(),
@@ -105,8 +104,7 @@ fn test_sla_penalty_changes_selection() {
                 p99_ms: 500,
                 ema_ms: 310,
             },
-        },
-    ];
+        }];
 
     // SLA = 350
     // within-sla: p50=300, score=300
