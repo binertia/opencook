@@ -16,6 +16,15 @@ use tracing::{debug, warn};
 
 use crate::{error::ApiError, state::AppState};
 
+fn publish_quota_webhook(state: &AppState, org_id: uuid::Uuid, event: gateway_db::WebhookEvent, data: serde_json::Value) {
+    if let Some(ref publisher) = state.webhook_publisher {
+        let publisher = publisher.clone();
+        tokio::spawn(async move {
+            publisher.publish(org_id, event, data).await;
+        });
+    }
+}
+
 /// Quota middleware: checks budget caps and usage quotas.
 ///
 /// Uses `State<AppState>` to access the database pool.
@@ -75,6 +84,15 @@ pub async fn quota_middleware(
                 remaining = remaining,
                 "Quota warning"
             );
+            publish_quota_webhook(
+                &state,
+                auth.org_id,
+                gateway_db::WebhookEvent::QuotaWarning,
+                serde_json::json!({
+                    "threshold": threshold,
+                    "remaining": remaining,
+                }),
+            );
             let mut response = next.run(req).await;
             if let Ok(header_value) = format!(
                 "Usage above {}% threshold. Remaining: {}.",
@@ -92,6 +110,15 @@ pub async fn quota_middleware(
                 metric = %metric,
                 limit = limit,
                 "Quota exceeded"
+            );
+            publish_quota_webhook(
+                &state,
+                auth.org_id,
+                gateway_db::WebhookEvent::QuotaExceeded,
+                serde_json::json!({
+                    "metric": metric,
+                    "limit": limit,
+                }),
             );
             Err(ApiError::new(
                 StatusCode::FORBIDDEN,

@@ -104,10 +104,10 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0069 | Integrate Semantic Cache into Request Orchestrator | Epic-14 | Medium | 1d | TASK-0068, TASK-0039 | todo |
 | TASK-0070 | Implement Semantic Cache Background Maintenance | Epic-14 | Medium | 1d | TASK-0068, TASK-0069 | todo |
 | TASK-0071 | Add Semantic Cache Configuration UI | Epic-14 | Low | 1d | TASK-0068, TASK-0049 | todo |
-| TASK-0072 | Implement Webhook CRUD and Delivery System | Epic-15 | Medium | 1.5d | TASK-0013, TASK-0023, TASK-0016 | todo |
-| TASK-0073 | Implement Webhook Event Publisher and Retry Logic | Epic-15 | Medium | 1d | TASK-0072, TASK-0006 | todo |
-| TASK-0074 | Implement Quota and Budget Alert Webhooks | Epic-15 | Medium | 1d | TASK-0073, TASK-0042, TASK-0067 | todo |
-| TASK-0075 | Implement Webhook Management UI | Epic-15 | Medium | 1d | TASK-0072, TASK-0047 | todo |
+| TASK-0072 | Implement Webhook CRUD and Delivery System | Epic-15 | Medium | 1.5d | TASK-0013, TASK-0023, TASK-0016 | done |
+| TASK-0073 | Implement Webhook Event Publisher and Retry Logic | Epic-15 | Medium | 1d | TASK-0072, TASK-0006 | done |
+| TASK-0074 | Implement Quota and Budget Alert Webhooks | Epic-15 | Medium | 1d | TASK-0073, TASK-0042, TASK-0067 | done |
+| TASK-0075 | Implement Webhook Management UI | Epic-15 | Medium | 1d | TASK-0072, TASK-0047 | done |
 | TASK-0076 | Implement Webhook Delivery Retry UI | Epic-15 | Low | 1d | TASK-0075 | done |
 | TASK-0077 | Implement Structured Request Logging with tracing | Epic-16 | Critical | 1d | TASK-0029, TASK-0001 | done |
 | TASK-0078 | Implement Prometheus Metrics and /metrics Endpoint | Epic-16 | Critical | 1d | TASK-0026, TASK-0029 | done |

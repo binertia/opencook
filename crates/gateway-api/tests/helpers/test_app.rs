@@ -116,6 +116,7 @@ pub async fn spawn_test_app() -> TestApp {
         config: Arc::new(config),
         jwt,
         email: None,
+        webhook_publisher: None,
         shutdown: gateway_api::shutdown::ShutdownState::new(),
     };
 

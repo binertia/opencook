@@ -67,6 +67,7 @@ async fn test_state(shutdown: ShutdownState) -> AppState {
         config: Arc::new(config),
         jwt,
         email: None,
+        webhook_publisher: None,
         shutdown,
     }
 }
@@ -161,6 +162,7 @@ async fn spawn_test_server() -> (SocketAddr, ShutdownState) {
         config: Arc::new(config),
         jwt,
         email: None,
+        webhook_publisher: None,
         shutdown: shutdown.clone(),
     };
 

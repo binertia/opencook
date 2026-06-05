@@ -21,6 +21,7 @@ pub struct AppState {
     pub config: Arc<AppConfig>,
     pub jwt: Arc<JwtService>,
     pub email: Option<gateway_auth::EmailService>,
+    pub webhook_publisher: Option<gateway_core::webhook_publisher::WebhookPublisher>,
     pub shutdown: crate::shutdown::ShutdownState,
 }
 
@@ -304,6 +305,12 @@ impl AppState {
             gateway_auth::EmailService::new(email_config)
         });
 
+        // Webhook publisher (always available, but optional if no webhooks configured)
+        let webhook_publisher = Some(gateway_core::webhook_publisher::WebhookPublisher::new(
+            db_pool.clone(),
+            config.master_key,
+        ));
+
         Ok(Self {
             db_pool,
             redis,
@@ -313,6 +320,7 @@ impl AppState {
             config: Arc::new(config),
             jwt: Arc::new(jwt),
             email,
+            webhook_publisher,
             shutdown: crate::shutdown::ShutdownState::new(),
         })
     }
