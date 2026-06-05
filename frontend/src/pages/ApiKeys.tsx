@@ -9,6 +9,8 @@ import {
 } from '@/hooks/useApiKeys'
 import { CreateKeyModal } from '@/components/keys/CreateKeyModal'
 import { KeyDisplayModal } from '@/components/keys/KeyDisplayModal'
+import { RevokeKeyDialog } from '@/components/keys/RevokeKeyDialog'
+import { EditKeyModal } from '@/components/keys/EditKeyModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -37,27 +39,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import type { CreateApiKeyRequest } from '@/hooks/useApiKeys'
+import type { ApiKey, CreateApiKeyRequest } from '@/hooks/useApiKeys'
 
 function formatDate(date: string | null) {
   if (!date) return 'Never'
   return new Date(date).toLocaleDateString()
-}
-
-function formatRelativeTime(date: string | null) {
-  if (!date) return 'Never'
-  const d = new Date(date)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHours / 24)
-
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  return d.toLocaleDateString()
 }
 
 function isExpired(expiresAt: string | null): boolean {
@@ -77,8 +63,8 @@ export default function ApiKeys() {
   const [showCreate, setShowCreate] = useState(false)
   const [displayedKey, setDisplayedKey] = useState<string | null>(null)
   const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null)
-  const [editKeyId, setEditKeyId] = useState<string | null>(null)
-  const [editKeyName, setEditKeyName] = useState('')
+  const [editKey, setEditKey] = useState<ApiKey | null>(null)
+  const [revokeKey, setRevokeKey] = useState<ApiKey | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
@@ -122,20 +108,21 @@ export default function ApiKeys() {
     })
   }
 
-  const handleEdit = (keyId: string, name: string) => {
-    setEditKeyId(keyId)
-    setEditKeyName(name)
+  const handleRevoke = () => {
+    if (!revokeKey) return
+    updateKey.mutate(
+      { keyId: revokeKey.id, status: 'revoked' },
+      {
+        onSuccess: () => setRevokeKey(null),
+      }
+    )
   }
 
-  const handleSaveEdit = () => {
-    if (!editKeyId || !editKeyName.trim()) return
+  const handleEdit = (keyId: string, data: { name?: string; scopes?: string[]; rate_limit_rps?: number; expires_at?: string }) => {
     updateKey.mutate(
-      { keyId: editKeyId, name: editKeyName.trim() },
+      { keyId, ...data },
       {
-        onSuccess: () => {
-          setEditKeyId(null)
-          setEditKeyName('')
-        },
+        onSuccess: () => setEditKey(null),
       }
     )
   }
@@ -149,6 +136,8 @@ export default function ApiKeys() {
     }
     return <Badge variant="default">Active</Badge>
   }
+
+  const isReadOnly = (key: ApiKey) => key.status === 'revoked' || isExpired(key.expires_at)
 
   return (
     <div className="space-y-4">
@@ -252,7 +241,7 @@ export default function ApiKeys() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {formatRelativeTime(key.last_used_at)}
+                          {key.last_used_at ? formatDate(key.last_used_at) : 'Never'}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {formatDate(key.created_at)}
@@ -271,21 +260,21 @@ export default function ApiKeys() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(key.id, key.name)}
-                              title="Edit name"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            {key.status === 'active' && !isExpired(key.expires_at) && (
+                            {!isReadOnly(key) && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() =>
-                                  updateKey.mutate({ keyId: key.id, status: 'revoked' })
-                                }
+                                onClick={() => setEditKey(key)}
+                                title="Edit key"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {!isReadOnly(key) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setRevokeKey(key)}
                               >
                                 Revoke
                               </Button>
@@ -323,37 +312,22 @@ export default function ApiKeys() {
         onOpenChange={() => setDisplayedKey(null)}
       />
 
-      {/* Edit Name Dialog */}
-      <Dialog open={!!editKeyId} onOpenChange={() => setEditKeyId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit API Key Name</DialogTitle>
-            <DialogDescription>Update the display name for this API key.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <label htmlFor="edit-key-name" className="text-sm font-medium">
-              Key Name
-            </label>
-            <Input
-              id="edit-key-name"
-              placeholder="Key name"
-              value={editKeyName}
-              onChange={(e) => setEditKeyName(e.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditKeyId(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveEdit}
-              disabled={updateKey.isPending || !editKeyName.trim()}
-            >
-              {updateKey.isPending ? 'Saving...' : 'Save'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <EditKeyModal
+        apiKey={editKey}
+        open={!!editKey}
+        onOpenChange={() => setEditKey(null)}
+        onSubmit={handleEdit}
+        isPending={updateKey.isPending}
+      />
+
+      <RevokeKeyDialog
+        open={!!revokeKey}
+        onOpenChange={() => setRevokeKey(null)}
+        keyName={revokeKey?.name || ''}
+        lastUsed={revokeKey?.last_used_at || null}
+        onConfirm={handleRevoke}
+        isPending={updateKey.isPending}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteKeyId} onOpenChange={() => setDeleteKeyId(null)}>
