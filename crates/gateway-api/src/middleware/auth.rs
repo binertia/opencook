@@ -19,8 +19,6 @@ use crate::{error::ApiError, state::AppState};
 
 /// Redis cache TTL for API key entries (5 minutes).
 const APIKEY_CACHE_TTL: i64 = 300;
-/// Redis pub/sub channel for API key revocation events.
-const APIKEY_REVOKE_CHANNEL: &str = "apikey:revoked";
 
 /// Public routes that skip authentication.
 const PUBLIC_ROUTES: &[&str] = &[
