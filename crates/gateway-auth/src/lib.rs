@@ -2,6 +2,7 @@
 
 pub mod api_key;
 pub mod crypto;
+pub mod email;
 pub mod error;
 pub mod jwt;
 pub mod models;
@@ -10,6 +11,7 @@ pub mod rbac;
 pub mod tenant;
 
 pub use api_key::{generate_api_key, sha256_hex, validate_key_format, verify_key_hash};
+pub use email::{EmailConfig, EmailError, EmailService};
 pub use error::AuthError;
 pub use jwt::{AccessClaims, JwtService, RefreshClaims};
 pub use models::*;

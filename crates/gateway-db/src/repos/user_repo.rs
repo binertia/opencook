@@ -25,6 +25,7 @@ impl UserRepo {
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
                            role, status, last_login_at,
+                           failed_login_attempts, locked_until,
                            created_at, updated_at, deleted_at
                     FROM users
                     WHERE email = $1
@@ -41,6 +42,7 @@ impl UserRepo {
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
                            role, status, last_login_at,
+                           failed_login_attempts, locked_until,
                            created_at, updated_at, deleted_at
                     FROM users
                     WHERE email = ?1
@@ -64,6 +66,7 @@ impl UserRepo {
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
                            role, status, last_login_at,
+                           failed_login_attempts, locked_until,
                            created_at, updated_at, deleted_at
                     FROM users
                     WHERE id = $1
@@ -79,6 +82,7 @@ impl UserRepo {
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
                            role, status, last_login_at,
+                           failed_login_attempts, locked_until,
                            created_at, updated_at, deleted_at
                     FROM users
                     WHERE id = ?1
@@ -125,6 +129,7 @@ impl UserRepo {
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
                            role, status, last_login_at,
+                           failed_login_attempts, locked_until,
                            created_at, updated_at, deleted_at
                     FROM users
                     WHERE org_id = $1
@@ -155,6 +160,7 @@ impl UserRepo {
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
                            role, status, last_login_at,
+                           failed_login_attempts, locked_until,
                            created_at, updated_at, deleted_at
                     FROM users
                     WHERE org_id = ?1
@@ -260,6 +266,109 @@ impl UserRepo {
         Ok(())
     }
 
+    /// Increment failed login attempts and return the new count.
+    pub async fn increment_failed_login(&self, user_id: Uuid) -> Result<i32, DbError> {
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                let row: (i32,) = sqlx::query_as(
+                    "UPDATE users SET failed_login_attempts = failed_login_attempts + 1, updated_at = NOW() WHERE id = $1 RETURNING failed_login_attempts",
+                )
+                .bind(user_id)
+                .fetch_one(pg)
+                .await?;
+                Ok(row.0)
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE users SET failed_login_attempts = failed_login_attempts + 1, updated_at = datetime('now') WHERE id = ?1",
+                )
+                .bind(user_id)
+                .execute(sqlite)
+                .await?;
+                let row: (i32,) = sqlx::query_as(
+                    "SELECT failed_login_attempts FROM users WHERE id = ?1",
+                )
+                .bind(user_id)
+                .fetch_one(sqlite)
+                .await?;
+                Ok(row.0)
+            }
+        }
+    }
+
+    /// Reset failed login attempts to 0 on successful login.
+    pub async fn reset_failed_login(&self, user_id: Uuid) -> Result<(), DbError> {
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query(
+                    "UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $1",
+                )
+                .bind(user_id)
+                .execute(pg)
+                .await?;
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = datetime('now') WHERE id = ?1",
+                )
+                .bind(user_id)
+                .execute(sqlite)
+                .await?;
+            }
+        };
+        Ok(())
+    }
+
+    /// Lock an account for a specified duration.
+    pub async fn lock_account(&self, user_id: Uuid, minutes: i64) -> Result<(), DbError> {
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query(
+                    "UPDATE users SET locked_until = NOW() + INTERVAL '1 minute' * $1, updated_at = NOW() WHERE id = $2",
+                )
+                .bind(minutes)
+                .bind(user_id)
+                .execute(pg)
+                .await?;
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE users SET locked_until = datetime('now', '+' || ?1 || ' minutes'), updated_at = datetime('now') WHERE id = ?2",
+                )
+                .bind(minutes)
+                .bind(user_id)
+                .execute(sqlite)
+                .await?;
+            }
+        };
+        Ok(())
+    }
+
+    /// Update a user's password hash.
+    pub async fn update_password(&self, user_id: Uuid, password_hash: &str) -> Result<(), DbError> {
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query(
+                    "UPDATE users SET password_hash = $1, failed_login_attempts = 0, locked_until = NULL, updated_at = NOW() WHERE id = $2",
+                )
+                .bind(password_hash)
+                .bind(user_id)
+                .execute(pg)
+                .await?;
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE users SET password_hash = ?1, failed_login_attempts = 0, locked_until = NULL, updated_at = datetime('now') WHERE id = ?2",
+                )
+                .bind(password_hash)
+                .bind(user_id)
+                .execute(sqlite)
+                .await?;
+            }
+        };
+        Ok(())
+    }
+
     /// Soft-delete a user.
     pub async fn delete(&self, user_id: Uuid) -> Result<(), DbError> {
         match &self.pool {
@@ -281,5 +390,81 @@ impl UserRepo {
             }
         };
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pool::create_pool;
+    use tempfile::TempDir;
+
+    async fn setup_sqlite() -> (DbBackend, TempDir) {
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("test.db");
+        let pool = create_pool(&db_path.to_string_lossy()).await.expect("sqlite pool creation failed");
+        (pool, tmp)
+    }
+
+    #[tokio::test]
+    async fn test_increment_and_reset_failed_login() {
+        let (pool, _tmp) = setup_sqlite().await;
+        let repo = UserRepo::new(pool.clone());
+        let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool);
+
+        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
+        let user = repo.create(org.id, "test@example.com", Some("hash"), Some("Test"), "member", "active").await.unwrap();
+
+        // Initially 0
+        assert_eq!(user.failed_login_attempts, 0);
+
+        // Increment
+        let attempts = repo.increment_failed_login(user.id).await.unwrap();
+        assert_eq!(attempts, 1);
+
+        let attempts = repo.increment_failed_login(user.id).await.unwrap();
+        assert_eq!(attempts, 2);
+
+        // Reset
+        repo.reset_failed_login(user.id).await.unwrap();
+        let user = repo.find_by_id(user.id).await.unwrap().unwrap();
+        assert_eq!(user.failed_login_attempts, 0);
+        assert!(user.locked_until.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_lock_account() {
+        let (pool, _tmp) = setup_sqlite().await;
+        let repo = UserRepo::new(pool.clone());
+        let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool);
+
+        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
+        let user = repo.create(org.id, "test@example.com", Some("hash"), Some("Test"), "member", "active").await.unwrap();
+
+        // Lock for 30 minutes
+        repo.lock_account(user.id, 30).await.unwrap();
+        let user = repo.find_by_id(user.id).await.unwrap().unwrap();
+        assert!(user.locked_until.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_update_password_clears_lockout() {
+        let (pool, _tmp) = setup_sqlite().await;
+        let repo = UserRepo::new(pool.clone());
+        let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool);
+
+        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
+        let user = repo.create(org.id, "test@example.com", Some("old_hash"), Some("Test"), "member", "active").await.unwrap();
+
+        // Set some failed attempts and lock
+        repo.increment_failed_login(user.id).await.unwrap();
+        repo.lock_account(user.id, 30).await.unwrap();
+
+        // Update password
+        repo.update_password(user.id, "new_hash").await.unwrap();
+        let user = repo.find_by_id(user.id).await.unwrap().unwrap();
+        assert_eq!(user.password_hash, Some("new_hash".to_string()));
+        assert_eq!(user.failed_login_attempts, 0);
+        assert!(user.locked_until.is_none());
     }
 }

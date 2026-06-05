@@ -20,6 +20,7 @@ pub struct AppState {
     pub circuit_breaker: CircuitBreaker,
     pub config: Arc<AppConfig>,
     pub jwt: Arc<JwtService>,
+    pub email: Option<gateway_auth::EmailService>,
     pub shutdown: crate::shutdown::ShutdownState,
 }
 
@@ -58,6 +59,16 @@ struct RawConfig {
     allowed_origins: Option<String>,
     #[serde(default = "default_environment")]
     environment: String,
+    #[serde(default)]
+    smtp_host: Option<String>,
+    #[serde(default)]
+    smtp_port: Option<u16>,
+    #[serde(default)]
+    smtp_user: Option<String>,
+    #[serde(default)]
+    smtp_password: Option<String>,
+    #[serde(default)]
+    smtp_from: Option<String>,
 }
 
 fn default_environment() -> String {
@@ -92,6 +103,11 @@ pub struct AppConfig {
     pub tls_key: Option<String>,
     pub allowed_origins: Vec<String>,
     pub environment: String,
+    pub smtp_host: Option<String>,
+    pub smtp_port: u16,
+    pub smtp_user: Option<String>,
+    pub smtp_password: Option<String>,
+    pub smtp_from: Option<String>,
 }
 
 impl AppConfig {
@@ -129,6 +145,11 @@ impl AppConfig {
                 tls_key: None,
                 allowed_origins: None,
                 environment: default_environment(),
+                smtp_host: None,
+                smtp_port: None,
+                smtp_user: None,
+                smtp_password: None,
+                smtp_from: None,
             }
         });
 
@@ -205,6 +226,11 @@ impl AppConfig {
                 .map(|s| s.split(',').map(|o| o.trim().to_string()).collect())
                 .unwrap_or_default(),
             environment: raw.environment,
+            smtp_host: raw.smtp_host,
+            smtp_port: raw.smtp_port.unwrap_or(587),
+            smtp_user: raw.smtp_user,
+            smtp_password: raw.smtp_password,
+            smtp_from: raw.smtp_from,
         }
     }
 }
@@ -259,6 +285,19 @@ impl AppState {
             JwtService::from_secret(&secret)
         };
 
+        // Email service (optional)
+        let email = config.smtp_host.as_ref().map(|host| {
+            let from = config.smtp_from.clone().unwrap_or_else(|| "noreply@localhost".to_string());
+            let email_config = gateway_auth::EmailConfig {
+                host: host.clone(),
+                port: config.smtp_port,
+                user: config.smtp_user.clone(),
+                password: config.smtp_password.clone(),
+                from,
+            };
+            gateway_auth::EmailService::new(email_config)
+        });
+
         Ok(Self {
             db_pool,
             redis,
@@ -267,6 +306,7 @@ impl AppState {
             circuit_breaker,
             config: Arc::new(config),
             jwt: Arc::new(jwt),
+            email,
             shutdown: crate::shutdown::ShutdownState::new(),
         })
     }

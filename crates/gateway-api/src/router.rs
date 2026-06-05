@@ -97,6 +97,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/auth/login", post(auth::login))
         .route("/v1/auth/logout", post(auth::logout))
         .route("/v1/auth/refresh", post(auth::refresh))
+        .route("/v1/auth/forgot-password", post(auth::forgot_password))
+        .route("/v1/auth/reset-password", post(auth::reset_password))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             auth_rate_limit_middleware,

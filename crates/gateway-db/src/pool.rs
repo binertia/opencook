@@ -163,6 +163,8 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
             role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
             status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'pending')),
             last_login_at TEXT,
+            failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+            locked_until TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             deleted_at TEXT

@@ -41,6 +41,8 @@ pub struct User {
     pub role: String,
     pub status: String,
     pub last_login_at: Option<DateTime<Utc>>,
+    pub failed_login_attempts: i32,
+    pub locked_until: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,

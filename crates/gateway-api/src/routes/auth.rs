@@ -1,4 +1,5 @@
-//! Authentication routes — login, logout, refresh, current user, and org switching.
+//! Authentication routes — login, logout, refresh, current user, org switching,
+//! password reset, and account lockout.
 
 use axum::{
     extract::State,
@@ -80,6 +81,20 @@ pub struct SwitchOrgResponse {
     pub user: MeResponse,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+pub struct ForgotPasswordRequest {
+    #[validate(email(message = "Invalid email address"))]
+    pub email: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+pub struct ResetPasswordRequest {
+    #[validate(length(min = 1, message = "Reset token is required"))]
+    pub token: String,
+    #[validate(length(min = 8, message = "Password must be at least 8 characters"))]
+    pub password: String,
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
 async fn build_user_response(
@@ -116,6 +131,63 @@ async fn build_user_response(
     })
 }
 
+/// Check per-email login rate limit (10 attempts per hour via Redis).
+async fn check_login_rate_limit(
+    state: &AppState,
+    email: &str,
+) -> Result<(), ApiError> {
+    let key = format!("rate_limit:login:{}", email);
+    let mut conn = state.redis.clone();
+
+    let count: i64 = redis::cmd("GET")
+        .arg(&key)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+
+    if count >= 10 {
+        return Err(ApiError::new(
+            StatusCode::TOO_MANY_REQUESTS,
+            "rate_limit_exceeded",
+            "Too many login attempts. Please try again later.",
+        ));
+    }
+
+    let _: () = redis::cmd("INCR")
+        .arg(&key)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(());
+
+    let _: i32 = redis::cmd("EXPIRE")
+        .arg(&key)
+        .arg(3600)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(0);
+
+    Ok(())
+}
+
+/// Record a failed login attempt. If 5 consecutive failures, lock the account for 30 minutes.
+async fn record_failed_login(
+    repo: &UserRepo,
+    user: &gateway_db::models::User,
+) -> Result<(), ApiError> {
+    let attempts = repo
+        .increment_failed_login(user.id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
+    if attempts >= 5 {
+        repo.lock_account(user.id, 30)
+            .await
+            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    }
+
+    Ok(())
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────
 
 /// POST /v1/auth/login
@@ -132,6 +204,9 @@ pub async fn login(
     let email = sanitize_input(&body.email).to_lowercase();
     let password = sanitize_input(&body.password);
 
+    // Rate limit login attempts per email.
+    check_login_rate_limit(&state, &email).await?;
+
     // Find user by email
     let user = repo
         .find_by_email(&email)
@@ -145,6 +220,19 @@ pub async fn login(
             )
         })?;
 
+    // Check account lockout.
+    if let Some(locked_until) = user.locked_until {
+        let now = chrono::Utc::now();
+        if locked_until > now {
+            return Err(ApiError::new(
+                StatusCode::LOCKED,
+                "account_locked",
+                format!("Account is locked until {}", locked_until.to_rfc3339()),
+            ));
+        }
+        // Lock has expired; the failed_login_attempts counter will be reset on successful login.
+    }
+
     // Verify password
     let password_hash = user.password_hash.as_deref().ok_or_else(|| {
         ApiError::new(
@@ -155,22 +243,49 @@ pub async fn login(
     })?;
 
     let hasher = PasswordHasherService::new();
-    hasher
-        .verify_password(&password, password_hash)
-        .map_err(|_| {
-            ApiError::new(
-                StatusCode::UNAUTHORIZED,
-                "invalid_credentials",
-                "Invalid email or password",
-            )
-        })?;
+    if let Err(_) = hasher.verify_password(&password, password_hash) {
+        // Record failed attempt and possibly lock account.
+        let _ = record_failed_login(&repo, &user).await;
+
+        // Audit log failed login attempt.
+        let auth = AuthContext {
+            auth_type: gateway_auth::AuthType::Session,
+            org_id: user.org_id,
+            user_id: Some(user.id),
+            key_id: None,
+            role: Some(user.role.clone()),
+            permissions: vec![],
+            rate_limit_rps: None,
+        };
+        audit::record(
+            &state,
+            &auth,
+            &ctx,
+            AuditAction::SecurityViolation,
+            "user",
+            Some(&user.id.to_string()),
+            None,
+            Some(json!({"email": user.email.clone(), "reason": "invalid_password" })),
+            "Failed login attempt",
+        )
+        .await;
+
+        return Err(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_credentials",
+            "Invalid email or password",
+        ));
+    }
+
+    // Successful login: reset failed attempts.
+    repo.reset_failed_login(user.id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
 
     // Update last login
     let _ = repo.update_last_login(user.id).await;
 
     // Determine active org: use user's legacy org_id for backward compatibility.
-    // In a full multi-org flow, the frontend may present an org picker if the
-    // user belongs to more than one organization.
     let active_org_id = user.org_id;
 
     // Issue tokens
@@ -409,4 +524,176 @@ pub async fn switch_org(
         csrf_token,
         user: user_resp,
     }))
+}
+
+/// POST /v1/auth/forgot-password
+///
+/// Generates a secure password reset token and stores it in Redis with a 1-hour TTL.
+/// If email service is configured, sends a password reset email.
+pub async fn forgot_password(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<AuditRequestContext>,
+    ValidatedJson(body): ValidatedJson<ForgotPasswordRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let email = sanitize_input(&body.email).to_lowercase();
+    let repo = UserRepo::new(state.db_pool.clone());
+
+    let user = match repo.find_by_email(&email).await {
+        Ok(Some(u)) => u,
+        Ok(None) | Err(_) => {
+            // SECURITY: Return success even if email not found to prevent user enumeration.
+            return Ok(Json(json!({ "status": "ok" })));
+        }
+    };
+
+    // Generate a 32-byte random token (64 hex chars).
+    use rand::Rng;
+    let token_bytes: Vec<u8> = (0..32).map(|_| rand::thread_rng().gen::<u8>()).collect();
+    let token = hex::encode(&token_bytes);
+
+    // Store token in Redis with 1-hour TTL.
+    let mut conn = state.redis.clone();
+    let redis_key = format!("password_reset:{}", token);
+    let _: () = redis::cmd("SETEX")
+        .arg(&redis_key)
+        .arg(3600)
+        .arg(user.id.to_string())
+        .query_async(&mut conn)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+
+    // Send email if configured.
+    if let Some(ref email_svc) = state.email {
+        let reset_url = format!("{}/reset-password?token={}", state.config.allowed_origins.first().unwrap_or(&"".to_string()), token);
+        if let Err(e) = email_svc.send_password_reset(&user.email, &reset_url).await {
+            tracing::warn!(error = %e, user_id = %user.id, "Failed to send password reset email");
+        }
+    } else {
+        tracing::info!(user_id = %user.id, "Email not configured; password reset token generated but not sent");
+    }
+
+    // Audit log.
+    let auth = AuthContext {
+        auth_type: gateway_auth::AuthType::Session,
+        org_id: user.org_id,
+        user_id: Some(user.id),
+        key_id: None,
+        role: Some(user.role.clone()),
+        permissions: vec![],
+        rate_limit_rps: None,
+    };
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::Update,
+        "user",
+        Some(&user.id.to_string()),
+        None,
+        None,
+        "Password reset requested",
+    )
+    .await;
+
+    // Always return generic success to prevent enumeration.
+    Ok(Json(json!({ "status": "ok" })))
+}
+
+/// POST /v1/auth/reset-password
+///
+/// Validates a password reset token from Redis, updates the user's password,
+/// and clears the token (single-use).
+pub async fn reset_password(
+    State(state): State<AppState>,
+    Extension(ctx): Extension<AuditRequestContext>,
+    ValidatedJson(body): ValidatedJson<ResetPasswordRequest>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    let token = sanitize_input(&body.token);
+    let new_password = sanitize_input(&body.password);
+
+    // Validate password strength.
+    gateway_auth::validate_password_strength(&new_password).map_err(|e| {
+        ApiError::new(StatusCode::BAD_REQUEST, "weak_password", e.to_string())
+    })?;
+
+    // Look up token in Redis.
+    let mut conn = state.redis.clone();
+    let redis_key = format!("password_reset:{}", token);
+    let user_id_str: Option<String> = redis::cmd("GET")
+        .arg(&redis_key)
+        .query_async(&mut conn)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+
+    let user_id_str = user_id_str.ok_or_else(|| {
+        ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid or expired reset token")
+    })?;
+
+    let user_id = Uuid::parse_str(&user_id_str).map_err(|_| {
+        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "invalid_token", "Invalid user ID in token")
+    })?;
+
+    let repo = UserRepo::new(state.db_pool.clone());
+    let user = repo
+        .find_by_id(user_id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::UNAUTHORIZED, "user_not_found", "User not found")
+        })?;
+
+    // SECURITY: New password must not match old password.
+    if let Some(ref old_hash) = user.password_hash {
+        let hasher = PasswordHasherService::new();
+        if hasher.verify_password(&new_password, old_hash).is_ok() {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "same_password",
+                "New password cannot be the same as the old password",
+            ));
+        }
+    }
+
+    // Hash new password.
+    let hasher = PasswordHasherService::new();
+    let new_hash = hasher
+        .hash_password(&new_password)
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "hash_error", e.to_string()))?;
+
+    // Update password and clear lockout/failed attempts.
+    repo.update_password(user_id, &new_hash)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
+    // Delete token from Redis (single-use).
+    let _: () = redis::cmd("DEL")
+        .arg(&redis_key)
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(());
+
+    // Audit log.
+    let auth = AuthContext {
+        auth_type: gateway_auth::AuthType::Session,
+        org_id: user.org_id,
+        user_id: Some(user.id),
+        key_id: None,
+        role: Some(user.role.clone()),
+        permissions: vec![],
+        rate_limit_rps: None,
+    };
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::Update,
+        "user",
+        Some(&user.id.to_string()),
+        None,
+        None,
+        "Password reset completed",
+    )
+    .await;
+
+    Ok(Json(json!({ "status": "ok" })))
 }

@@ -33,6 +33,7 @@ async-trait = { workspace = true }
 http = { workspace = true }
 hex = { workspace = true }
 rand = { workspace = true }
+lettre = { workspace = true }
 
 [dev-dependencies]
 rsa = { workspace = true }

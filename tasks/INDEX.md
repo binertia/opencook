@@ -49,7 +49,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0014 | Implement API Key Generation and Storage | Epic-03 | Critical | 1d | TASK-0008, TASK-0012 | done |
 | TASK-0015 | Implement API Key Validation Middleware | Epic-03 | Critical | 1.5d | TASK-0014, TASK-0006 | done |
 | TASK-0016 | Implement RBAC Permission System | Epic-03 | Critical | 1d | TASK-0013, TASK-0015 | done |
-| TASK-0017 | Implement Account Lockout and Password Reset | Epic-03 | High | 1d | TASK-0013, TASK-0012 | todo |
+| TASK-0017 | Implement Account Lockout and Password Reset | Epic-03 | High | 1d | TASK-0013, TASK-0012 | done |
 | TASK-0018 | Implement Key Revocation and Cache Invalidation | Epic-03 | High | 1d | TASK-0015, TASK-0016 | todo |
 | TASK-0019 | Implement Tenant Isolation Enforcement | Epic-03 | Critical | 1d | TASK-0015, TASK-0016, TASK-0006 | done |
 | TASK-0020 | Define Provider Trait and Canonical Request/Response Types | Epic-04 | Critical | 1d | TASK-0001 | done |
