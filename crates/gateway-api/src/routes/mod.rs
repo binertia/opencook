@@ -13,6 +13,7 @@ pub mod models;
 pub mod organizations;
 pub mod providers;
 pub mod quotas;
+pub mod requests;
 pub mod routing;
 pub mod usage;
 pub mod users;

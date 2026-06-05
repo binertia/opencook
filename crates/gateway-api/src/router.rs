@@ -24,7 +24,7 @@ use crate::{
     middleware::rate_limit::rate_limit_middleware,
     middleware::security_headers::SecurityHeadersLayer,
     middleware::timing::TimingLayer,
-    routes::{analytics, api_keys, audit, auth, cache, chat, dashboard, health, metrics, models, organizations, providers, quotas, routing, usage, users, webhooks},
+    routes::{analytics, api_keys, audit, auth, cache, chat, dashboard, health, metrics, models, organizations, providers, quotas, requests, routing, usage, users, webhooks},
     state::AppState,
     static_files::build_static_router,
 };
@@ -122,6 +122,8 @@ pub fn build_router(state: AppState) -> Router {
         // Analytics routes
         .route("/v1/analytics", get(analytics::get_analytics))
         .route("/v1/analytics/keys", get(analytics::get_key_usage))
+        // Request logs
+        .route("/v1/requests", get(requests::list_requests))
         // Webhook routes
         .route("/v1/webhooks", get(webhooks::list_webhooks).post(webhooks::create_webhook))
         .route("/v1/webhooks/:webhook_id", get(webhooks::get_webhook).put(webhooks::update_webhook).delete(webhooks::delete_webhook))
