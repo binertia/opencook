@@ -19,6 +19,23 @@ export interface ApiKeysListResponse {
   data: ApiKey[]
 }
 
+export interface KeyUsageItem {
+  api_key_id: string
+  key_name: string
+  key_prefix: string
+  key_status: string
+  requests: number
+  tokens: number
+  prompt_tokens: number
+  completion_tokens: number
+  cost_usd: number
+  avg_latency_ms: number
+}
+
+export interface KeyUsageResponse {
+  data: KeyUsageItem[]
+}
+
 export interface CreateApiKeyRequest {
   name: string
   scopes?: string[]
@@ -79,6 +96,18 @@ export function useDeleteApiKey() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: API_KEYS_QUERY_KEY })
+    },
+  })
+}
+
+export function useKeyUsage(range = '30d') {
+  return useQuery<KeyUsageResponse, ApiError>({
+    queryKey: ['key-usage', range],
+    queryFn: async () => {
+      const response = await api.get('v1/analytics/keys', {
+        searchParams: { range },
+      })
+      return response.json<KeyUsageResponse>()
     },
   })
 }
