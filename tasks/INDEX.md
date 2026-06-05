@@ -98,7 +98,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0063 | Implement Budget Configuration and Alert UI | Epic-12 | Medium | 1d | TASK-0049, TASK-0060 | done |
 | TASK-0064 | Implement Retry Logic with Exponential Backoff | Epic-13 | Critical | 1d | TASK-0033, TASK-0021 | done |
 | TASK-0065 | Implement Circuit Breaker Pattern | Epic-13 | Critical | 1d | TASK-0064, TASK-0032, TASK-0006 | done |
-| TASK-0066 | Implement Request Cancellation and Fallback Chain | Epic-13 | Critical | 1d | TASK-0064, TASK-0065, TASK-0033 | todo |
+| TASK-0066 | Implement Request Cancellation and Fallback Chain | Epic-13 | Critical | 1d | TASK-0064, TASK-0065, TASK-0033 | done |
 | TASK-0067 | Implement Health Check Background Worker | Epic-13 | High | 1d | TASK-0065, TASK-0025, TASK-0006 | done |
 | TASK-0068 | Implement Vector Similarity Cache with pgvector | Epic-14 | Medium | 1.5d | TASK-0038, TASK-0021, TASK-0007 | todo |
 | TASK-0069 | Integrate Semantic Cache into Request Orchestrator | Epic-14 | Medium | 1d | TASK-0068, TASK-0039 | todo |

@@ -91,6 +91,19 @@ where
     });
 }
 
+/// A guard that cancels a [`CancellationToken`] when dropped.
+///
+/// Place this in the Axum handler scope; when the client disconnects
+/// the handler future is dropped, which triggers cancellation of
+/// upstream provider requests.
+pub struct CancelOnDrop(pub CancellationToken);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.cancel();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,5 +171,18 @@ mod tests {
         .await;
 
         assert!(matches!(result, Err(CancellationError::Cancelled)));
+    }
+
+    #[test]
+    fn test_cancel_on_drop_cancels_token() {
+        let token = CancellationToken::new();
+        assert!(!token.is_cancelled());
+
+        {
+            let _guard = CancelOnDrop(token.clone());
+            assert!(!token.is_cancelled());
+        }
+
+        assert!(token.is_cancelled());
     }
 }

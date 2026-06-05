@@ -8,7 +8,9 @@ use axum::{
 };
 use futures::StreamExt;
 use gateway_auth::AuthContext;
+use gateway_core::cancellation::CancelOnDrop;
 use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError};
+use gateway_core::retry::{retry, RetryConfig};
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
 use gateway_db::RequestRepo;
@@ -402,6 +404,9 @@ async fn non_stream_chat_completions(
 
     // ── Cancellation token for client disconnect detection ────────────
     let cancel_token = CancellationToken::new();
+    let _cancel_guard = CancelOnDrop(cancel_token.clone());
+    // When the handler future is dropped (client disconnect), CancelOnDrop
+    // cancels the token, aborting upstream provider requests within 500ms.
 
     // ── Provider call (with circuit breaker + retry + fallback) ────────
     let provider_call: gateway_core::orchestrator::ProviderCall = {
@@ -494,8 +499,11 @@ async fn non_stream_chat_completions(
                         }
                     };
 
-                    // Call provider with circuit breaker tracking
-                    match provider.chat_completion(req.clone()).await {
+                    // Call provider with retry + circuit breaker tracking
+                    let retry_config = RetryConfig::default();
+                    let provider_result = retry(retry_config, || provider.chat_completion(req.clone())).await;
+
+                    match provider_result {
                         Ok(mut resp) => {
                             resp.gateway = Some(gateway_core::types::GatewayMetadata {
                                 provider: provider.name().to_string(),
@@ -511,7 +519,7 @@ async fn non_stream_chat_completions(
                         }
                         Err(e) => {
                             last_error = e.to_string();
-                            tracing::warn!(provider = %config.provider_id, error = %last_error, "Provider call failed, trying fallback");
+                            tracing::warn!(provider = %config.provider_id, error = %last_error, "Provider call failed after retries, trying fallback");
                             cb.record_failure(&provider_key);
                             continue;
                         }
