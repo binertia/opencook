@@ -126,6 +126,36 @@ pub fn record_routing_decision_latency(latency_ms: f64) {
     metrics::histogram!("gateway_routing_latency_ms").record(latency_ms);
 }
 
+// ── Strategy Effectiveness Metrics ───────────────────────────────────────────
+
+/// Record cost per 1K tokens for a strategy variant.
+pub fn record_strategy_cost(strategy: &str, variant: &str, cost_per_1k: f64) {
+    let strategy = sanitize_label(strategy);
+    let variant = sanitize_label(variant);
+    metrics::histogram!("gateway_strategy_cost_per_1k", "strategy" => strategy, "variant" => variant).record(cost_per_1k);
+}
+
+/// Record latency for a strategy variant.
+pub fn record_strategy_latency(strategy: &str, variant: &str, latency_ms: f64) {
+    let strategy = sanitize_label(strategy);
+    let variant = sanitize_label(variant);
+    metrics::histogram!("gateway_strategy_latency_ms", "strategy" => strategy, "variant" => variant).record(latency_ms);
+}
+
+/// Record error for a strategy variant.
+pub fn record_strategy_error(strategy: &str, variant: &str) {
+    let strategy = sanitize_label(strategy);
+    let variant = sanitize_label(variant);
+    metrics::counter!("gateway_strategy_error_total", "strategy" => strategy, "variant" => variant).increment(1);
+}
+
+/// Record a request routed by a specific strategy.
+pub fn record_strategy_routed(strategy: &str, variant: &str) {
+    let strategy = sanitize_label(strategy);
+    let variant = sanitize_label(variant);
+    metrics::counter!("gateway_strategy_routed_total", "strategy" => strategy, "variant" => variant).increment(1);
+}
+
 // ── Connection Metrics ───────────────────────────────────────────────────────
 
 /// Increment active connections gauge.
