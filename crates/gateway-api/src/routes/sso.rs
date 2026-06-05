@@ -4,7 +4,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Redirect,
-    Json,
+    Extension, Json,
 };
 use gateway_auth::sso::SsoAuthResult;
 use gateway_auth::sso::saml::SamlProvider;
@@ -16,6 +16,9 @@ use tracing::info;
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
+use gateway_auth::rbac::{check_permission, Permission, Role};
+use gateway_auth::AuthContext;
+use std::str::FromStr;
 
 // ── Request / Response Types ─────────────────────────────────────────
 
@@ -96,6 +99,25 @@ pub async fn list_sso_providers(
         .collect();
 
     Ok(Json(providers))
+}
+
+// ── Permission helper ────────────────────────────────────────────────
+
+fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), ApiError> {
+    let role = auth
+        .role
+        .as_deref()
+        .and_then(Role::from_str)
+        .unwrap_or(Role::Viewer);
+
+    if !check_permission(role, permission) {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "insufficient_permissions",
+            "You do not have permission to perform this action",
+        ));
+    }
+    Ok(())
 }
 
 // ── SAML Authorization ───────────────────────────────────────────────
@@ -326,8 +348,10 @@ pub async fn oidc_callback(
 
 pub async fn get_sso_config(
     State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
     Path(org_id): Path<Uuid>,
 ) -> Result<Json<Vec<SsoConfigResponse>>, ApiError> {
+    require_permission(&auth, Permission::SettingsRead)?;
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let configs = repo.list_by_org(org_id).await.map_err(|e| {
         ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
@@ -357,9 +381,11 @@ pub async fn get_sso_config(
 
 pub async fn create_sso_config(
     State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
     Path(org_id): Path<Uuid>,
     Json(body): Json<CreateSsoConfig>,
 ) -> Result<Json<SsoConfigResponse>, ApiError> {
+    require_permission(&auth, Permission::SettingsWrite)?;
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
 
     let provider_type = match body.provider_type.as_str() {
@@ -406,8 +432,10 @@ pub async fn create_sso_config(
 
 pub async fn delete_sso_config(
     State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
     Path((org_id, provider_type)): Path<(Uuid, String)>,
 ) -> Result<StatusCode, ApiError> {
+    require_permission(&auth, Permission::SettingsWrite)?;
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
 
     let pt = match provider_type.as_str() {
