@@ -20,6 +20,16 @@ pub struct Organization {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
+/// Organization membership (junction table).
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct UserOrganization {
+    pub user_id: Uuid,
+    pub org_id: Uuid,
+    pub role: String,
+    pub joined_at: DateTime<Utc>,
+    pub created_by: Option<Uuid>,
+}
+
 /// Dashboard user.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct User {

@@ -12,12 +12,14 @@ pub mod types;
 pub use error::DbError;
 pub use models::{
     ApiKey, AuditAction, AuditEntry, Capabilities, ModelEntry, Organization, PricingInfo,
-    ProviderConfig, ProviderModel, Quota, QuotaUsage, Request, RoutingRule, Target, User, Webhook,
-    WebhookDelivery, WebhookEvent,
+    ProviderConfig, ProviderModel, Quota, QuotaUsage, Request, RoutingRule, Target, User,
+    UserOrganization, Webhook, WebhookDelivery, WebhookEvent,
 };
 pub use pool::{create_pool, verify_rls_context, DbBackend, DEFAULT_ORG_ID};
 pub use repos::api_key_repo::ApiKeyRepo;
 pub use repos::model_registry::ModelRegistry;
+pub use repos::org_member_repo::OrgMemberRepo;
+pub use repos::organization_repo::OrganizationRepo;
 pub use repos::quota_repo::QuotaRepo;
 pub use repos::quota_usage_repo::QuotaUsageRepo;
 pub use repos::request_repo::{RequestRepo, RequestStats};

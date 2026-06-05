@@ -17,6 +17,37 @@ impl ApiKeyRepo {
         Self { pool }
     }
 
+    /// Find an active API key by its SHA-256 hash.
+    pub async fn find_by_key_hash(&self, key_hash: &str) -> Result<Option<ApiKey>, DbError> {
+        let sql = r#"
+            SELECT id, org_id, user_id, name, key_hash, key_prefix, scopes,
+                   rate_limit_rps, status, expires_at, last_used_at,
+                   created_at, updated_at, deleted_at
+            FROM api_keys
+            WHERE key_hash = $1
+              AND status = 'active'
+              AND deleted_at IS NULL
+              AND (expires_at IS NULL OR expires_at > NOW())
+            "#;
+        match &self.pool {
+            DbBackend::Postgres(pg) => {
+                let row = sqlx::query_as::<_, ApiKey>(sql)
+                    .bind(key_hash)
+                    .fetch_optional(pg)
+                    .await?;
+                Ok(row)
+            }
+            DbBackend::Sqlite(sqlite) => {
+                let sql = sql.replace("NOW()", "datetime('now')");
+                let row = sqlx::query_as::<_, ApiKey>(&sql)
+                    .bind(key_hash)
+                    .fetch_optional(sqlite)
+                    .await?;
+                Ok(row)
+            }
+        }
+    }
+
     /// List API keys for an organization.
     pub async fn list_by_org(&self, org_id: Uuid) -> Result<Vec<ApiKey>, DbError> {
         let sql = r#"

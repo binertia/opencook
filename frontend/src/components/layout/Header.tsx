@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { OrgSwitcher } from './OrgSwitcher'
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -51,6 +52,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       </Link>
 
       <div className="ml-auto flex items-center gap-2">
+        <OrgSwitcher />
+
         <Button variant="ghost" size="icon" onClick={toggleTheme} aria-label="Toggle theme">
           {resolvedTheme === 'dark' ? (
             <Sun className="h-5 w-5" />

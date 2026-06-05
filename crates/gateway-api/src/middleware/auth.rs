@@ -11,13 +11,11 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use gateway_auth::{validate_key_format, AuthContext, AuthType};
+use gateway_auth::{sha256_hex, validate_key_format, verify_key_hash, AuthContext, AuthType};
+use gateway_db::ApiKeyRepo;
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
-
-/// Default organization ID used for stub API key auth context.
-const DEFAULT_ORG_ID: &str = "00000000-0000-0000-0000-000000000000";
 
 /// Public routes that skip authentication.
 const PUBLIC_ROUTES: &[&str] = &[
@@ -66,7 +64,7 @@ pub async fn auth_middleware(
     // Determine auth type and validate
     let auth_context = if token.starts_with("sk_gw_") {
         // API key path
-        api_key_auth(token).await?
+        api_key_auth(&state, token).await?
     } else {
         // Session JWT path
         session_auth(&state, token)?
@@ -78,8 +76,8 @@ pub async fn auth_middleware(
     Ok(next.run(req).await)
 }
 
-/// Validate an API key and build auth context.
-async fn api_key_auth(token: &str) -> Result<AuthContext, ApiError> {
+/// Validate an API key against the database and build auth context.
+async fn api_key_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiError> {
     if !validate_key_format(token) {
         return Err(ApiError::new(
             StatusCode::UNAUTHORIZED,
@@ -88,16 +86,38 @@ async fn api_key_auth(token: &str) -> Result<AuthContext, ApiError> {
         ));
     }
 
-    // TODO: Replace stub with DB-backed lookup (TASK-0015 completion).
-    // Current behavior: any valid-format key is accepted with default org context.
+    let key_hash = sha256_hex(token);
+    let repo = ApiKeyRepo::new(state.db_pool.clone());
+
+    let api_key = repo
+        .find_by_key_hash(&key_hash)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_api_key",
+                "Invalid API key.",
+            )
+        })?;
+
+    // Constant-time hash verification (defense in depth even after DB lookup)
+    if !verify_key_hash(token, &api_key.key_hash) {
+        return Err(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_api_key",
+            "Invalid API key.",
+        ));
+    }
+
     Ok(AuthContext {
         auth_type: AuthType::ApiKey,
-        org_id: Uuid::parse_str(DEFAULT_ORG_ID).expect("default org id is valid"),
-        user_id: None,
-        key_id: None,
+        org_id: api_key.org_id,
+        user_id: api_key.user_id,
+        key_id: Some(api_key.id),
         role: None,
-        permissions: vec![],
-        rate_limit_rps: Some(100),
+        permissions: api_key.scopes.0.clone(),
+        rate_limit_rps: Some(api_key.rate_limit_rps),
     })
 }
 
@@ -114,7 +134,7 @@ fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiError> 
         ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid token subject")
     })?;
 
-    let org_id = Uuid::parse_str(&claims.org_id).map_err(|_| {
+    let org_id = Uuid::parse_str(&claims.active_org_id).map_err(|_| {
         ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid token organization")
     })?;
 
@@ -141,5 +161,31 @@ fn parse_bearer_token(header: &str) -> Option<&str> {
         Some(parts[1])
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_public_route() {
+        assert!(is_public_route("/health"));
+        assert!(is_public_route("/v1/auth/login"));
+        assert!(!is_public_route("/v1/auth/me"));
+        assert!(!is_public_route("/v1/dashboard"));
+    }
+
+    #[test]
+    fn test_parse_bearer_token_valid() {
+        assert_eq!(parse_bearer_token("Bearer token123"), Some("token123"));
+        assert_eq!(parse_bearer_token("bearer token123"), Some("token123"));
+    }
+
+    #[test]
+    fn test_parse_bearer_token_invalid() {
+        assert_eq!(parse_bearer_token("Basic dXNlcjpwYXNz"), None);
+        assert_eq!(parse_bearer_token("token123"), None);
+        assert_eq!(parse_bearer_token(""), None);
     }
 }

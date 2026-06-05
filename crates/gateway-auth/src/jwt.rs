@@ -11,7 +11,11 @@ use crate::error::AuthError;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AccessClaims {
     pub sub: String,      // user_id
-    pub org_id: String,
+    #[serde(default)]
+    pub active_org_id: String,
+    /// Deprecated: kept for backward compatibility with old tokens.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
     pub email: String,
     pub role: String,
     pub jti: String,      // token ID for revocation
@@ -66,7 +70,7 @@ impl JwtService {
     pub fn issue_access(
         &self,
         user_id: Uuid,
-        org_id: Uuid,
+        active_org_id: Uuid,
         email: &str,
         role: &str,
     ) -> Result<(String, String), AuthError> {
@@ -76,7 +80,8 @@ impl JwtService {
 
         let claims = AccessClaims {
             sub: user_id.to_string(),
-            org_id: org_id.to_string(),
+            active_org_id: active_org_id.to_string(),
+            org_id: None,
             email: email.to_string(),
             role: role.to_string(),
             jti: jti.clone(),
@@ -112,6 +117,9 @@ impl JwtService {
     }
 
     /// Verify an access token.
+    ///
+    /// Backward compatibility: if `active_org_id` is missing but `org_id` is present,
+    /// the old `org_id` value is promoted into `active_org_id`.
     pub fn verify_access(&self, token: &str) -> Result<AccessClaims, AuthError> {
         let mut validation = Validation::new(self.algorithm);
         validation.set_required_spec_claims(&["exp", "sub", "jti"]);
@@ -126,7 +134,15 @@ impl JwtService {
             return Err(AuthError::InvalidToken);
         }
 
-        Ok(token_data.claims)
+        let mut claims = token_data.claims;
+        // Backward compatibility: promote old org_id to active_org_id
+        if claims.active_org_id.is_empty() {
+            if let Some(ref legacy_org_id) = claims.org_id {
+                claims.active_org_id = legacy_org_id.clone();
+            }
+        }
+
+        Ok(claims)
     }
 
     /// Verify a refresh token.
@@ -172,7 +188,7 @@ mod tests {
         let (token, _jti) = svc.issue_access(user_id, org_id, "test@example.com", "admin").unwrap();
         let claims = svc.verify_access(&token).unwrap();
         assert_eq!(claims.sub, user_id.to_string());
-        assert_eq!(claims.org_id, org_id.to_string());
+        assert_eq!(claims.active_org_id, org_id.to_string());
         assert_eq!(claims.email, "test@example.com");
         assert_eq!(claims.role, "admin");
     }
@@ -183,6 +199,39 @@ mod tests {
         // Manually create an expired token by tampering with iat/exp is hard;
         // instead, we verify that a garbage token is rejected
         assert!(svc.verify_access("invalid.token.here").is_err());
+    }
+
+    #[test]
+    fn test_legacy_org_id_backward_compat() {
+        let svc = test_keys();
+        let user_id = Uuid::new_v4();
+        let org_id = Uuid::new_v4();
+        let jti = Uuid::new_v4().to_string();
+        let now = Utc::now();
+        let exp = now + Duration::seconds(900);
+
+        // Manually encode a legacy token with `org_id` instead of `active_org_id`.
+        let legacy_claims = serde_json::json!({
+            "sub": user_id.to_string(),
+            "org_id": org_id.to_string(),
+            "email": "legacy@example.com",
+            "role": "member",
+            "jti": jti,
+            "iat": now.timestamp(),
+            "exp": exp.timestamp(),
+            "type": "access"
+        });
+
+        let token = encode(
+            &Header::new(Algorithm::RS256),
+            &legacy_claims,
+            &svc.encoding_key,
+        )
+        .unwrap();
+
+        let claims = svc.verify_access(&token).unwrap();
+        assert_eq!(claims.active_org_id, org_id.to_string());
+        assert_eq!(claims.email, "legacy@example.com");
     }
 
     #[test]

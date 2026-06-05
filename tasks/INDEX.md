@@ -127,7 +127,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0092 | Implement Per-Model Pricing and Cost-Optimized Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0024, TASK-0049 | done |
 | TASK-0093 | Implement Provider Latency Tracking and Latency-Based Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0078 | done |
 | TASK-0094 | Implement Quality and Balanced Routing Strategies | Epic-19 | Low | 1d | TASK-0092, TASK-0093 | done |
-| TASK-0095 | Implement Multi-Organization Support and Org Switching | Epic-20 | Medium | 1.5d | TASK-0007, TASK-0013, TASK-0019 | todo |
+| TASK-0095 | Implement Multi-Organization Support and Org Switching | Epic-20 | Medium | 1.5d | TASK-0007, TASK-0013, TASK-0019 | done |
 | TASK-0096 | Implement SAML 2.0 and OIDC SSO Integration | Epic-20 | Medium | 2d | TASK-0095, TASK-0013 | todo |
 | TASK-0097 | Implement SCIM 2.0 User Provisioning | Epic-20 | Low | 1.5d | TASK-0096, TASK-0084 | todo |
 | TASK-0098 | Implement Audit Log Dashboard and Admin Actions Log | Epic-20 | Medium | 1d | TASK-0084, TASK-0047, TASK-0048 | todo |

@@ -168,6 +168,19 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
             deleted_at TEXT
         );
 
+        CREATE TABLE IF NOT EXISTS user_organizations (
+            user_id         BLOB NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            org_id          BLOB NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+            role            TEXT NOT NULL DEFAULT 'member'
+                                CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+            joined_at       TEXT NOT NULL DEFAULT (datetime('now')),
+            created_by      BLOB REFERENCES users(id) ON DELETE SET NULL,
+            PRIMARY KEY (user_id, org_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_user_organizations_user_id ON user_organizations(user_id);
+        CREATE INDEX IF NOT EXISTS idx_user_organizations_org_id ON user_organizations(org_id);
+
         CREATE TABLE IF NOT EXISTS api_keys (
             id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
             org_id BLOB NOT NULL REFERENCES organizations(id),

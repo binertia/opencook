@@ -24,7 +24,7 @@ use crate::{
     middleware::rate_limit::rate_limit_middleware,
     middleware::security_headers::SecurityHeadersLayer,
     middleware::timing::TimingLayer,
-    routes::{analytics, api_keys, audit, auth, chat, dashboard, health, metrics, models, providers, quotas, usage, users, webhooks},
+    routes::{analytics, api_keys, audit, auth, chat, dashboard, health, metrics, models, organizations, providers, quotas, usage, users, webhooks},
     state::AppState,
     static_files::build_static_router,
 };
@@ -106,6 +106,9 @@ pub fn build_router(state: AppState) -> Router {
     let api_routes = Router::new()
         // Auth routes requiring authentication
         .route("/v1/auth/me", get(auth::me))
+        .route("/v1/auth/switch-org", post(auth::switch_org))
+        // Organization routes
+        .route("/v1/organizations", post(organizations::create_organization))
         // Dashboard
         .route("/v1/dashboard", get(dashboard::get_dashboard))
         // User routes

@@ -9,6 +9,7 @@ pub mod dashboard;
 pub mod health;
 pub mod metrics;
 pub mod models;
+pub mod organizations;
 pub mod providers;
 pub mod quotas;
 pub mod usage;
