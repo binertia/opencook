@@ -89,6 +89,7 @@ pub async fn spawn_test_app() -> TestApp {
         gateway_version: "test".to_string(),
         profile: gateway_core::profiles::RoutingProfile::Balanced,
         master_key: [0u8; 32],
+        master_key_previous: None,
         semantic_cache_enabled: false,
         semantic_cache_threshold: 0.95,
         embedding_base_url: "https://api.openai.com".to_string(),

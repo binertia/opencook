@@ -188,7 +188,7 @@ impl DeliveryWorker {
         delivery_id: Uuid,
     ) -> Result<(), String> {
         let secret = match &webhook.secret_enc {
-            Some(enc) => match decrypt(enc, &master_key) {
+            Some(enc) => match gateway_auth::crypto::decrypt_with_keys(enc, &gateway_auth::ActiveKeyPair::new(master_key)) {
                 Ok(s) => s,
                 Err(e) => {
                     return Err(format!("Failed to decrypt secret: {}", e));

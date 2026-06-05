@@ -414,7 +414,7 @@ pub async fn retry_webhook_delivery(
 
     // Decrypt secret
     let secret = match &webhook.secret_enc {
-        Some(enc) => gateway_auth::crypto::decrypt(enc, &state.config.master_key)
+        Some(enc) => state.config.decrypt_master(enc)
             .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "decryption_error", e.to_string()))?,
         None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "no_secret", "Webhook has no signing secret")),
     };

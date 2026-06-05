@@ -95,6 +95,7 @@ pub struct AppConfig {
     pub gateway_version: String,
     pub profile: RoutingProfile,
     pub master_key: [u8; 32],
+    pub master_key_previous: Option<[u8; 32]>,
     pub semantic_cache_enabled: bool,
     pub semantic_cache_threshold: f32,
     pub embedding_base_url: String,
@@ -155,13 +156,17 @@ impl AppConfig {
         });
 
         // Master key: fail-closed in production, dev fallback with warning
+        // Supports comma-separated rotation: "new_key,old_key"
         let master_key_hex = raw.master_key.or_else(|| {
             std::env::var("GATEWAY_MASTER_KEY").ok()
         });
 
-        let master_key = match master_key_hex {
-            Some(hex) => gateway_auth::crypto::parse_master_key(&hex)
-                .expect("GATEWAY_MASTER_KEY must be a valid 64-character hex string (32 bytes)"),
+        let (master_key, master_key_previous) = match master_key_hex {
+            Some(hex) => {
+                let pair = gateway_auth::key_rotation::parse_master_key_pair(&hex)
+                    .expect("GATEWAY_MASTER_KEY must be a valid 64-character hex string (32 bytes). Supports comma-separated rotation: new_key,old_key");
+                (pair.primary, pair.secondary)
+            }
             None => {
                 if raw.environment == "production" {
                     panic!(
@@ -181,7 +186,7 @@ impl AppConfig {
                      Provider config encryption will NOT survive restarts. \
                      Set GATEWAY_MASTER_KEY to a 64-char hex string for production."
                 );
-                dev_key
+                (dev_key, None)
             }
         };
 
@@ -221,6 +226,7 @@ impl AppConfig {
             gateway_version: env!("CARGO_PKG_VERSION").to_string(),
             profile: raw.profile.unwrap_or_default(),
             master_key,
+            master_key_previous,
             semantic_cache_enabled: raw.semantic_cache_enabled,
             semantic_cache_threshold: raw.semantic_cache_threshold,
             embedding_base_url,
@@ -239,6 +245,17 @@ impl AppConfig {
             smtp_password: raw.smtp_password,
             smtp_from: raw.smtp_from,
         }
+    }
+}
+
+impl AppConfig {
+    /// Decrypt ciphertext trying primary master key first, then previous.
+    pub fn decrypt_master(&self, ciphertext: &[u8]) -> Result<String, gateway_auth::crypto::CryptoError> {
+        let pair = gateway_auth::ActiveKeyPair {
+            primary: self.master_key,
+            secondary: self.master_key_previous,
+        };
+        gateway_auth::crypto::decrypt_with_keys(ciphertext, &pair)
     }
 }
 

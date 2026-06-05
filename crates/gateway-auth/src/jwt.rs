@@ -164,6 +164,88 @@ impl JwtService {
     }
 }
 
+/// JWT service with key rotation support.
+///
+/// Primary key is used for signing all new tokens.
+/// Secondary key is used for verifying tokens signed before rotation.
+/// After the grace period, the secondary key is removed and old tokens
+/// will be rejected.
+pub struct RotatingJwtService {
+    primary: JwtService,
+    secondary: Option<JwtService>,
+}
+
+impl RotatingJwtService {
+    /// Create from primary PEM pair, with optional secondary for grace period.
+    pub fn from_pem_pair(
+        primary_private: &[u8],
+        primary_public: &[u8],
+        secondary: Option<(&[u8], &[u8])>,
+    ) -> Result<Self, AuthError> {
+        let primary = JwtService::from_pem(primary_private, primary_public)?;
+        let secondary = secondary
+            .map(|(priv_pem, pub_pem)| JwtService::from_pem(priv_pem, pub_pem))
+            .transpose()?;
+        Ok(Self { primary, secondary })
+    }
+
+    /// Create from primary shared secret, with optional secondary.
+    pub fn from_secret_pair(
+        primary_secret: &[u8],
+        secondary_secret: Option<&[u8]>,
+    ) -> Self {
+        let primary = JwtService::from_secret(primary_secret);
+        let secondary = secondary_secret.map(|s| JwtService::from_secret(s));
+        Self { primary, secondary }
+    }
+
+    /// Issue access token using primary key.
+    pub fn issue_access(
+        &self,
+        user_id: Uuid,
+        active_org_id: Uuid,
+        email: &str,
+        role: &str,
+    ) -> Result<(String, String), AuthError> {
+        self.primary.issue_access(user_id, active_org_id, email, role)
+    }
+
+    /// Issue refresh token using primary key.
+    pub fn issue_refresh(&self, user_id: Uuid) -> Result<(String, String), AuthError> {
+        self.primary.issue_refresh(user_id)
+    }
+
+    /// Verify access token: try primary first, then secondary.
+    pub fn verify_access(&self, token: &str) -> Result<AccessClaims, AuthError> {
+        match self.primary.verify_access(token) {
+            Ok(claims) => Ok(claims),
+            Err(AuthError::InvalidToken) => {
+                if let Some(ref secondary) = self.secondary {
+                    secondary.verify_access(token)
+                } else {
+                    Err(AuthError::InvalidToken)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Verify refresh token: try primary first, then secondary.
+    pub fn verify_refresh(&self, token: &str) -> Result<RefreshClaims, AuthError> {
+        match self.primary.verify_refresh(token) {
+            Ok(claims) => Ok(claims),
+            Err(AuthError::InvalidToken) => {
+                if let Some(ref secondary) = self.secondary {
+                    secondary.verify_refresh(token)
+                } else {
+                    Err(AuthError::InvalidToken)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

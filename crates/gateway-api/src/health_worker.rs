@@ -233,8 +233,7 @@ impl HealthWorker {
         let api_key = if config.api_key_enc.is_empty() {
             String::new()
         } else {
-            gateway_auth::crypto::decrypt(&config.api_key_enc, master_key)
-                .unwrap_or_default()
+            gateway_auth::crypto::decrypt_with_keys(&config.api_key_enc, &gateway_auth::ActiveKeyPair::new(*master_key)).unwrap_or_default()
         };
 
         let provider_config = ProviderConfig {

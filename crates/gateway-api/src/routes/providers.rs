@@ -162,7 +162,7 @@ fn decrypt_api_key(api_key_enc: &[u8], master_key: &[u8; 32]) -> Option<String> 
     if api_key_enc.is_empty() {
         return Some(String::new());
     }
-    gateway_auth::crypto::decrypt(api_key_enc, master_key).ok()
+    gateway_auth::crypto::decrypt_with_keys(api_key_enc, &gateway_auth::ActiveKeyPair::new(*master_key)).ok()
 }
 
 fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {

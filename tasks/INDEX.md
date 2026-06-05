@@ -117,7 +117,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0082 | Implement Input Validation and Injection Protection | Epic-17 | Critical | 1d | TASK-0026, TASK-0041 | done |
 | TASK-0083 | Implement TLS/HTTPS Configuration and Security Headers | Epic-17 | Critical | 1d | TASK-0026 | done |
 | TASK-0084 | Implement Audit Log System | Epic-17 | Critical | 1d | TASK-0010, TASK-0016 | done |
-| TASK-0085 | Implement Secrets Rotation and Master Key Management | Epic-17 | High | 1d | TASK-0013, TASK-0023 | todo |
+| TASK-0085 | Implement Secrets Rotation and Master Key Management | Epic-17 | High | 1d | TASK-0013, TASK-0023 | done |
 | TASK-0086 | Implement CORS, CSRF Protection, and Security Audit | Epic-17 | High | 1d | TASK-0082, TASK-0083 | done |
 | TASK-0087 | Create Production Dockerfile and Docker Compose | Epic-18 | Critical | 1d | TASK-0001, TASK-0055 | done |
 | TASK-0088 | Create Kubernetes Deployment Manifests | Epic-18 | Critical | 1d | TASK-0087 | done |

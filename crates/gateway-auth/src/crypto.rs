@@ -59,6 +59,29 @@ pub fn decrypt(ciphertext: &[u8], master_key: &[u8]) -> Result<String, CryptoErr
     String::from_utf8(plaintext).map_err(|_| CryptoError::InvalidUtf8)
 }
 
+/// Encrypt with the primary key of an `ActiveKeyPair`.
+pub fn encrypt_with_keys(plaintext: &str, keys: &crate::key_rotation::ActiveKeyPair<[u8; 32]>) -> Result<Vec<u8>, CryptoError> {
+    encrypt(plaintext, &keys.primary)
+}
+
+/// Decrypt by trying the primary key first, then the secondary (grace period).
+pub fn decrypt_with_keys(
+    ciphertext: &[u8],
+    keys: &crate::key_rotation::ActiveKeyPair<[u8; 32]>,
+) -> Result<String, CryptoError> {
+    match decrypt(ciphertext, &keys.primary) {
+        Ok(plaintext) => Ok(plaintext),
+        Err(CryptoError::DecryptFailed) => {
+            if let Some(ref secondary) = keys.secondary {
+                decrypt(ciphertext, secondary)
+            } else {
+                Err(CryptoError::DecryptFailed)
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
 /// Parse a hex-encoded master key string into a 32-byte array.
 pub fn parse_master_key(hex_str: &str) -> Result<[u8; 32], CryptoError> {
     let bytes = hex::decode(hex_str.trim()).map_err(|_| CryptoError::InvalidHex)?;

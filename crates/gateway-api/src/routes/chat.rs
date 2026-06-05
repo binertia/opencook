@@ -70,8 +70,7 @@ async fn build_provider_config_from_db(
     let api_key = if db_config.api_key_enc.is_empty() {
         String::new()
     } else {
-        gateway_auth::crypto::decrypt(&db_config.api_key_enc, &state.config.master_key)
-            .unwrap_or_default()
+        state.config.decrypt_master(&db_config.api_key_enc).unwrap_or_default()
     };
 
     Some(ProviderConfig {
@@ -209,8 +208,7 @@ async fn default_provider_config(
                     let api_key = if config.api_key_enc.is_empty() {
                         String::new()
                     } else {
-                        gateway_auth::crypto::decrypt(&config.api_key_enc, &state.config.master_key)
-                            .unwrap_or_default()
+                        state.config.decrypt_master(&config.api_key_enc).unwrap_or_default()
                     };
                     return ProviderConfig {
                         kind,
