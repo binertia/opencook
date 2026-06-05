@@ -240,6 +240,74 @@ impl ModelRegistry {
         Ok(row)
     }
 
+    /// Update pricing for a specific model.
+    pub async fn update_pricing(
+        &self,
+        org_id: Uuid,
+        provider_config_id: Uuid,
+        model_id: &str,
+        input_cost_per_1k: rust_decimal::Decimal,
+        output_cost_per_1k: rust_decimal::Decimal,
+    ) -> Result<(), DbError> {
+        if input_cost_per_1k < rust_decimal::Decimal::ZERO
+            || output_cost_per_1k < rust_decimal::Decimal::ZERO
+        {
+            return Err(DbError::Unsupported(
+                "Pricing must be non-negative".to_string(),
+            ));
+        }
+        let max_price = rust_decimal::Decimal::from(1);
+        if input_cost_per_1k > max_price || output_cost_per_1k > max_price {
+            return Err(DbError::Unsupported(
+                "Pricing must be at most $1.00 per 1k tokens".to_string(),
+            ));
+        }
+
+        let sql = r#"
+            UPDATE provider_models
+            SET input_cost_per_1k = $1,
+                output_cost_per_1k = $2,
+                updated_at = NOW()
+            WHERE org_id = $3
+              AND provider_config_id = $4
+              AND model_id = $5
+              AND deleted_at IS NULL
+            "#;
+        let rows_affected = match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query(sql)
+                    .bind(DbDecimal::new(input_cost_per_1k))
+                    .bind(DbDecimal::new(output_cost_per_1k))
+                    .bind(org_id)
+                    .bind(provider_config_id)
+                    .bind(model_id)
+                    .execute(pg)
+                    .await?
+                    .rows_affected()
+            }
+            DbBackend::Sqlite(sqlite) => {
+                sqlx::query(
+                    "UPDATE provider_models SET input_cost_per_1k = $1, output_cost_per_1k = $2, updated_at = datetime('now') WHERE org_id = $3 AND provider_config_id = $4 AND model_id = $5 AND deleted_at IS NULL"
+                )
+                .bind(DbDecimal::new(input_cost_per_1k))
+                .bind(DbDecimal::new(output_cost_per_1k))
+                .bind(org_id)
+                .bind(provider_config_id)
+                .bind(model_id)
+                .execute(sqlite)
+                .await?
+                .rows_affected()
+            }
+        };
+
+        if rows_affected == 0 {
+            return Err(DbError::NotFound("provider model".to_string()));
+        }
+
+        debug!(org_id = %org_id, model_id = %model_id, "Updated model pricing");
+        Ok(())
+    }
+
     /// Delete all models for a provider config.
     pub async fn delete_models_by_provider(
         &self,

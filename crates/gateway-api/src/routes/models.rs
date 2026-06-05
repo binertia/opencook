@@ -3,7 +3,9 @@
 use axum::{extract::{Path, State}, http::{HeaderMap, StatusCode}, Extension, Json};
 use gateway_auth::AuthContext;
 use gateway_db::ModelRegistry;
-use serde::Serialize;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 
@@ -135,6 +137,65 @@ pub async fn get_model(
                 }
             }
             Err(ApiError::new(StatusCode::NOT_FOUND, "model_not_found", "Model not found"))
+        }
+    }
+}
+
+/// Pricing update request body.
+#[derive(Deserialize)]
+pub struct UpdatePricingRequest {
+    pub input_cost_per_1k: Decimal,
+    pub output_cost_per_1k: Decimal,
+}
+
+/// Update pricing for a specific model on a provider.
+///
+/// Requires admin privileges (Owner or Admin).
+pub async fn update_pricing(
+    State(state): State<AppState>,
+    Extension(auth): Extension<AuthContext>,
+    Path((provider_id, model_id)): Path<(Uuid, String)>,
+    Json(body): Json<UpdatePricingRequest>,
+) -> Result<StatusCode, ApiError> {
+    // Only owners and admins can update pricing
+    let role = auth.role.as_deref().unwrap_or("viewer");
+    if !matches!(role, "owner" | "admin") {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "insufficient_permissions",
+            "Only organization owners and admins can update model pricing",
+        ));
+    }
+
+    let registry = ModelRegistry::new(state.db_pool);
+    match registry
+        .update_pricing(
+            auth.org_id,
+            provider_id,
+            &model_id,
+            body.input_cost_per_1k,
+            body.output_cost_per_1k,
+        )
+        .await
+    {
+        Ok(()) => Ok(StatusCode::NO_CONTENT),
+        Err(gateway_db::DbError::NotFound(_)) => Err(ApiError::new(
+            StatusCode::NOT_FOUND,
+            "model_not_found",
+            "Model not found for this provider",
+        )),
+        Err(gateway_db::DbError::Unsupported(msg)) => Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_pricing",
+            &msg,
+        )),
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to update pricing");
+            Err(ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "pricing_update_failed",
+                "Failed to update model pricing",
+            ))
         }
     }
 }

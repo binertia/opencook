@@ -133,6 +133,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
         .route("/v1/models/:model_id", get(models::get_model))
+        .route("/v1/providers/:provider_id/models/:model_id/pricing", put(models::update_pricing))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,

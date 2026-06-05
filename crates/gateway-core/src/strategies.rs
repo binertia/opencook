@@ -1,5 +1,7 @@
 //! Routing strategies — determines how providers are selected from rule targets.
 
+pub mod cost_optimized;
+
 use gateway_db::{RoutingRule, Target};
 use tracing::warn;
 use uuid::Uuid;
@@ -46,6 +48,19 @@ pub fn build_decision(rule: &RoutingRule) -> RoutingDecision {
         }
         "weighted" => {
             let primary = pick_weighted(&targets);
+            RoutingDecision {
+                rule_id: Some(rule.id),
+                primary,
+                fallback_chain: vec![],
+            }
+        }
+        "cost" => {
+            // Cost-optimized selection requires runtime pricing/health data.
+            // When no context is available, fall back to the first target.
+            // The caller should use `gateway_core::strategies::cost_optimized`
+            // directly when pricing data is available.
+            warn!(strategy = %rule.strategy, "Cost routing requires candidate pricing data; falling back to first target");
+            let primary = targets.into_iter().next().unwrap_or_else(empty_target);
             RoutingDecision {
                 rule_id: Some(rule.id),
                 primary,
