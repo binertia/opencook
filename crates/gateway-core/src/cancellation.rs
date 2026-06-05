@@ -11,6 +11,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, warn};
 
 /// Maximum time allowed to abort an upstream request after cancellation.
+#[allow(dead_code)]
 const ABORT_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// Error returned when a request is cancelled.

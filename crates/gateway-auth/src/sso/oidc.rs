@@ -1,6 +1,6 @@
 //! OpenID Connect client implementation.
 
-use tracing::{debug, warn};
+use tracing::debug;
 
 use super::{SsoAuthResult, SsoError, SsoProviderType};
 

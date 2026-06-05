@@ -122,8 +122,6 @@ pub enum AggregationError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_aggregation_worker_new() {
         // Compile-time check only; real tests need a DbBackend.

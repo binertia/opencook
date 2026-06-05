@@ -164,7 +164,7 @@ impl PgvectorSemanticCache {
     ) -> Result<Option<CachedResponse>, Box<dyn std::error::Error + Send + Sync>> {
         let embedding = self.embedding.embed(text).await.map_err(|e| {
             warn!(error = %e, "Embedding generation failed");
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
+            Box::new(std::io::Error::other(e))
                 as Box<dyn std::error::Error + Send + Sync>
         })?;
 
@@ -184,7 +184,7 @@ impl PgvectorSemanticCache {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let embedding = self.embedding.embed(text).await.map_err(|e| {
             warn!(error = %e, "Embedding generation failed during store");
-            Box::new(std::io::Error::new(std::io::ErrorKind::Other, e))
+            Box::new(std::io::Error::other(e))
                 as Box<dyn std::error::Error + Send + Sync>
         })?;
 
@@ -318,7 +318,7 @@ pub struct SemanticCacheStats {
 pub fn spawn_maintenance(
     cache: PgvectorSemanticCache,
     interval: std::time::Duration,
-    max_entries_per_org_model: i64,
+    _max_entries_per_org_model: i64,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(interval);

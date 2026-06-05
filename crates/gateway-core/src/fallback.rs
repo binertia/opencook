@@ -7,7 +7,7 @@
 use crate::circuit_breaker::CircuitBreaker;
 use crate::retry::{retry, RetryConfig};
 use std::future::Future;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
@@ -121,7 +121,7 @@ where
         // Try the provider with retries and cancellation
         let attempt_result = crate::cancellation::with_cancellation(
             cancellation,
-            retry(config.retry.clone(), || call(&provider)),
+            retry(config.retry, || call(&provider)),
         )
         .await;
         let latency_ms = start.elapsed().as_millis() as u64;
@@ -206,6 +206,7 @@ mod tests {
     use crate::circuit_breaker::{BreakerConfig, CircuitBreaker};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::time::Duration;
 
     #[tokio::test]
     async fn test_fallback_chain_first_succeeds() {

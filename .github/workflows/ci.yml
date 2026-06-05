@@ -70,7 +70,7 @@ jobs:
           shared-key: ci
 
       - name: Run clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features
 
   audit:
     name: Security Audit

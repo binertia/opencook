@@ -1,6 +1,6 @@
 //! SSO configuration repository.
 
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::DbError;

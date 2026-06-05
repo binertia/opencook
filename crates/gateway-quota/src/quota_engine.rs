@@ -70,8 +70,6 @@ impl QuotaEngine {
                         if *remaining < best {
                             most_restrictive = Some(result);
                         }
-                    } else if matches!(most_restrictive, Some(QuotaResult::Allowed { .. })) {
-                        most_restrictive = Some(result);
                     } else {
                         most_restrictive = Some(result);
                     }

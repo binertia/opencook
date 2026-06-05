@@ -5,7 +5,6 @@
 
 use gateway_db::Target;
 use rust_decimal::Decimal;
-use uuid::Uuid;
 
 /// Health status of a provider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +122,7 @@ pub fn build_cost_fallback_chain(
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
 
     fn make_candidate(

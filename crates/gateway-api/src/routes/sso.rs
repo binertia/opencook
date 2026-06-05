@@ -4,14 +4,14 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Redirect,
-    Extension, Json,
+    Json,
 };
-use gateway_auth::sso::{SsoAuthResult, SsoError, SsoProviderType};
+use gateway_auth::sso::SsoAuthResult;
 use gateway_auth::sso::saml::SamlProvider;
 use gateway_auth::sso::oidc::OidcProvider;
 use gateway_db::{SsoConfigRepo, SsoProviderType as DbSsoProviderType, UserRepo, OrgMemberRepo};
 use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};

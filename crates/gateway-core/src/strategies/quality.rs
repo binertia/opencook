@@ -4,7 +4,6 @@
 //! out providers that exceed the SLA.
 
 use gateway_db::Target;
-use uuid::Uuid;
 
 /// Hardcoded quality score per model (0.0 – 1.0, higher is better).
 pub fn model_quality_score(model_id: &str) -> f64 {
@@ -101,6 +100,7 @@ pub fn build_quality_fallback_chain(
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
 
     fn make_candidate(model_id: &str, latency_ms: u64) -> QualityCandidate {

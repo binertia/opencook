@@ -1,6 +1,6 @@
 //! SAML 2.0 Service Provider implementation.
 
-use tracing::{debug, warn};
+use tracing::debug;
 use uuid::Uuid;
 
 use super::{SsoAuthResult, SsoError, SsoProviderType};

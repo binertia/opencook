@@ -94,7 +94,7 @@ impl Provider for OllamaProvider {
             .await
             .map_err(|e| ProviderError::Deserialization(e.to_string()))?;
 
-        Ok(ollama_resp.to_canonical(self.name(), &body.model))
+        Ok(ollama_resp.into_canonical(self.name(), &body.model))
     }
 
     async fn chat_completion_stream(
@@ -257,6 +257,7 @@ struct OllamaOptions {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct OllamaChatResponse {
     model: String,
     message: OllamaMessage,
@@ -318,7 +319,7 @@ impl OllamaChatRequest {
 }
 
 impl OllamaChatResponse {
-    fn to_canonical(self, provider_name: &str, model: &str) -> ChatCompletionResponse {
+    fn into_canonical(self, provider_name: &str, model: &str) -> ChatCompletionResponse {
         let finish_reason = self.done_reason.map(|r| match r.as_str() {
             "stop" => "stop".to_string(),
             "length" => "length".to_string(),
@@ -425,7 +426,7 @@ mod tests {
             eval_count: Some(5),
         };
 
-        let canonical = ollama_resp.to_canonical("ollama", "llama3.2");
+        let canonical = ollama_resp.into_canonical("ollama", "llama3.2");
 
         assert_eq!(canonical.choices[0].message.content, Some("Hello there!".to_string()));
         assert_eq!(canonical.choices[0].finish_reason, Some("stop".to_string()));

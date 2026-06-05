@@ -11,7 +11,6 @@ use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use tokio_stream::wrappers::ReceiverStream;
 use tracing::warn;
-use uuid::Uuid;
 
 use crate::{
     error::ProviderError,
@@ -107,7 +106,7 @@ impl Provider for GeminiProvider {
             .await
             .map_err(|e| ProviderError::Deserialization(e.to_string()))?;
 
-        Ok(gemini_resp.to_canonical(self.name(), &request.model))
+        Ok(gemini_resp.into_canonical(self.name(), &request.model))
     }
 
     async fn chat_completion_stream(
@@ -327,7 +326,7 @@ impl GeminiRequest {
 }
 
 impl GeminiResponse {
-    fn to_canonical(self, provider_name: &str, model: &str) -> ChatCompletionResponse {
+    fn into_canonical(self, provider_name: &str, model: &str) -> ChatCompletionResponse {
         let candidate = self.candidates.into_iter().next().unwrap_or_else(|| {
             // Fallback empty candidate
             GeminiCandidate {
@@ -469,7 +468,7 @@ mod tests {
         }"#;
 
         let gemini: GeminiResponse = serde_json::from_str(raw).unwrap();
-        let canonical = gemini.to_canonical("gemini", "gemini-1.5-flash");
+        let canonical = gemini.into_canonical("gemini", "gemini-1.5-flash");
 
         assert_eq!(canonical.choices[0].message.content, Some("Hello there!".to_string()));
         assert_eq!(canonical.choices[0].finish_reason, Some("stop".to_string()));

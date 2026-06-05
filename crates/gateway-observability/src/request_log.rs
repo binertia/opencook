@@ -271,7 +271,7 @@ mod tests {
         assert_eq!(entry.status_code, Some(200));
         assert_eq!(entry.latency_ms, 420);
         assert_eq!(entry.prompt_tokens, Some(10));
-        assert_eq!(entry.cache_hit, true);
+        assert!(entry.cache_hit);
         assert_eq!(entry.cost_usd, Some(0.001));
     }
 

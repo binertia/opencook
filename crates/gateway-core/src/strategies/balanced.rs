@@ -10,7 +10,6 @@
 use gateway_db::Target;
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
-use uuid::Uuid;
 
 use super::quality::model_quality_score;
 
@@ -196,6 +195,7 @@ fn compute_score(
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
 
     fn make_candidate(

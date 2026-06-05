@@ -195,7 +195,7 @@ impl RotatingJwtService {
         secondary_secret: Option<&[u8]>,
     ) -> Self {
         let primary = JwtService::from_secret(primary_secret);
-        let secondary = secondary_secret.map(|s| JwtService::from_secret(s));
+        let secondary = secondary_secret.map(JwtService::from_secret);
         Self { primary, secondary }
     }
 

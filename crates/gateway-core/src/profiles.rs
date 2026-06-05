@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// A pre-configured routing profile that auto-configures the gateway.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum RoutingProfile {
     /// Privacy-first: route to local LLM, fallback to cloud on failure.
@@ -25,6 +25,7 @@ pub enum RoutingProfile {
 
     /// Balanced: classifier routes simple queries locally, complex ones to cloud.
     /// Best cost/quality tradeoff (~70% savings vs cloud-only).
+    #[default]
     Balanced,
 
     /// Speed: always use the fastest available provider (typically cloud).
@@ -223,12 +224,6 @@ impl RoutingProfile {
             RoutingProfile::Offline => "offline",
             RoutingProfile::Custom => "custom",
         }
-    }
-}
-
-impl Default for RoutingProfile {
-    fn default() -> Self {
-        RoutingProfile::Balanced
     }
 }
 

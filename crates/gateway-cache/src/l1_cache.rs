@@ -40,6 +40,7 @@ impl L1Cache {
     }
 
     /// Create with default settings (10K entries, 60s TTL).
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         Self::new(10_000, 60)
     }

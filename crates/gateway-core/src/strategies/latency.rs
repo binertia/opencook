@@ -5,7 +5,6 @@
 //! samples are available.
 
 use gateway_db::Target;
-use uuid::Uuid;
 
 use crate::latency_tracker::LatencyStats;
 
@@ -80,6 +79,7 @@ fn routing_score(p50_ms: u64, sla_ms: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
+    use uuid::Uuid;
     use super::*;
 
     fn make_candidate(model_id: &str, p50_ms: u64, sample_count: usize) -> LatencyCandidate {

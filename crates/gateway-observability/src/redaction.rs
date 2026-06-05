@@ -4,32 +4,32 @@
 //! credit cards, and SSNs from strings before they are written to logs
 //! or sent to clients.
 
-use std::sync::LazyLock;
+use once_cell::sync::Lazy;
 
 // ── Pre-compiled regexes ─────────────────────────────────────────────────────
 
-static API_KEY_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"sk_gw_[A-Za-z0-9]{38,}").unwrap());
+static API_KEY_RE: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"sk_gw_[A-Za-z0-9]{38,}").unwrap());
 
-static EMAIL_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+static EMAIL_RE: Lazy<regex::Regex> = Lazy::new(|| {
     regex::Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap()
 });
 
-static PHONE_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+static PHONE_RE: Lazy<regex::Regex> = Lazy::new(|| {
     // US/international phone patterns: +1-xxx-xxx-xxxx, (xxx) xxx-xxxx, xxx-xxx-xxxx, xxxxxxxxxx
     regex::Regex::new(r"(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}").unwrap()
 });
 
-static CREDIT_CARD_RE: LazyLock<regex::Regex> = LazyLock::new(|| {
+static CREDIT_CARD_RE: Lazy<regex::Regex> = Lazy::new(|| {
     // 13–19 digit sequences with optional spaces or hyphens
     regex::Regex::new(r"\b(?:\d[ -]*?){13,19}\b").unwrap()
 });
 
-static SSN_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").unwrap());
+static SSN_RE: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").unwrap());
 
-static BEARER_RE: LazyLock<regex::Regex> =
-    LazyLock::new(|| regex::Regex::new(r"Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap());
+static BEARER_RE: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap());
 
 // ── Redaction level ──────────────────────────────────────────────────────────
 
@@ -50,7 +50,8 @@ impl RedactionLevel {
         match std::env::var("GATEWAY_PII_REDACTION_LEVEL").as_deref() {
             Ok("none") => RedactionLevel::None,
             Ok("keys_only") => RedactionLevel::KeysOnly,
-            Ok("full") | _ => RedactionLevel::Full,
+            Ok("full") => RedactionLevel::Full,
+            _ => RedactionLevel::Full,
         }
     }
 }

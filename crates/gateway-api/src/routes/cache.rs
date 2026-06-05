@@ -8,7 +8,6 @@ use axum::{
 use gateway_auth::{AuthContext, rbac::{check_permission, Permission, Role}};
 use gateway_cache::analytics::CacheAnalytics;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{error::ApiError, state::AppState};
 

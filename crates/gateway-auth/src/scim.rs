@@ -1,7 +1,6 @@
 //! SCIM 2.0 types and authentication.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 // ── SCIM Resource Types ──────────────────────────────────────────────
 

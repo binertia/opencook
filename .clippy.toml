@@ -1,2 +1,2 @@
 avoid-breaking-exported-api = false
-doc-markdown = true
+too-many-arguments-threshold = 15

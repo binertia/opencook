@@ -8,11 +8,11 @@ use axum::{
 };
 use gateway_auth::scim::*;
 use gateway_db::{ScimTokenRepo, UserRepo, OrgMemberRepo, DbBackend};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::{error::ApiError, state::AppState};
+use crate::state::AppState;
 
 // ── Auth Extension ───────────────────────────────────────────────────
 

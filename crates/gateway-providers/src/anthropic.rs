@@ -96,7 +96,7 @@ impl Provider for AnthropicProvider {
             .await
             .map_err(|e| ProviderError::Deserialization(e.to_string()))?;
 
-        Ok(anthropic_resp.to_canonical(self.name()))
+        Ok(anthropic_resp.into_canonical(self.name()))
     }
 
     async fn chat_completion_stream(
@@ -140,8 +140,7 @@ impl Provider for AnthropicProvider {
                     Ok(bytes) => {
                         let text = String::from_utf8_lossy(&bytes);
                         for line in text.lines() {
-                            if line.starts_with("data: ") {
-                                let data = &line[6..];
+                            if let Some(data) = line.strip_prefix("data: ") {
                                 // Anthropic stream events are wrapped in data: lines
                                 if tx.send(Ok(Event::default().data(data))).await.is_err() {
                                     return;
@@ -223,6 +222,7 @@ struct AnthropicMessage {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AnthropicResponse {
     id: String,
     #[serde(rename = "type")]
@@ -309,7 +309,7 @@ impl AnthropicRequest {
 }
 
 impl AnthropicResponse {
-    fn to_canonical(self, provider_name: &str) -> ChatCompletionResponse {
+    fn into_canonical(self, provider_name: &str) -> ChatCompletionResponse {
         let text = self
             .content
             .into_iter()
@@ -421,7 +421,7 @@ mod tests {
         }"#;
 
         let anthropic: AnthropicResponse = serde_json::from_str(raw).unwrap();
-        let canonical = anthropic.to_canonical("anthropic");
+        let canonical = anthropic.into_canonical("anthropic");
 
         assert_eq!(canonical.id, "msg_01ABC");
         assert_eq!(canonical.choices[0].message.content, Some("Hello there!".to_string()));

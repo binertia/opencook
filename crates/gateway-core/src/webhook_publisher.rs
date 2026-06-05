@@ -3,7 +3,7 @@
 //! Events are queued via an async channel and processed by a background
 //! worker that delivers signed HTTP POSTs with exponential backoff retries.
 
-use gateway_auth::crypto::{decrypt, hmac_sha256_hex};
+use gateway_auth::crypto::hmac_sha256_hex;
 use gateway_db::{
     pool::DbBackend,
     repos::{webhook_delivery_repo::WebhookDeliveryRepo, webhook_repo::WebhookRepo},
@@ -18,6 +18,7 @@ use uuid::Uuid;
 /// Internal queue capacity.
 const QUEUE_CAPACITY: usize = 1000;
 /// Max concurrent deliveries per organization.
+#[allow(dead_code)]
 const MAX_CONCURRENT_PER_ORG: usize = 5;
 /// Truncate response body preview at this many bytes.
 const RESPONSE_PREVIEW_LEN: usize = 200;

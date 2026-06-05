@@ -9,7 +9,7 @@ use gateway_core::profiles::RoutingProfile;
 use gateway_db::pool::create_pool;
 use gateway_db::DbBackend;
 use redis::aio::ConnectionManager;
-use sqlx::PgPool;
+
 
 /// Shared state available to all request handlers.
 #[derive(Clone)]

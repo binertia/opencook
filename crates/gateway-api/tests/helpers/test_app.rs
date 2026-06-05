@@ -113,6 +113,7 @@ pub async fn spawn_test_app() -> TestApp {
         redis: redis.clone(),
         cache,
         semantic_cache: None,
+        pgvector_semantic_cache: None,
         circuit_breaker,
         config: Arc::new(config),
         jwt,
