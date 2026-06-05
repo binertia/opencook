@@ -8,7 +8,7 @@ use axum::{
 use chrono::{DateTime, Timelike, Utc};
 use gateway_auth::AuthContext;
 use gateway_db::{
-    repos::{api_key_repo::ApiKeyRepo, request_repo::RequestRepo},
+    repos::{api_key_repo::ApiKeyRepo, provider_config_repo::ProviderConfigRepo, request_repo::RequestRepo},
     Request,
 };
 use serde::{Deserialize, Serialize};
@@ -92,6 +92,7 @@ pub struct AnalyticsResponse {
     pub error_rate: f64,
     pub time_series: Vec<TimeSeriesPoint>,
     pub by_model: Vec<BreakdownItem>,
+    pub by_provider: Vec<BreakdownItem>,
     pub by_status: Vec<BreakdownItem>,
     pub top_cached_models: Vec<CacheBreakdownItem>,
 }
@@ -116,8 +117,17 @@ pub async fn get_analytics(
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
 
+    // Fetch providers for lookup
+    let provider_repo = ProviderConfigRepo::new(state.db_pool.clone());
+    let providers = provider_repo.list_by_org(auth.org_id).await.ok().unwrap_or_default();
+    let provider_map: std::collections::HashMap<uuid::Uuid, String> = providers
+        .into_iter()
+        .map(|p| (p.id, p.kind))
+        .collect();
+
     let time_series = build_time_series(&requests, start, end, &query.range);
     let by_model = build_model_breakdown(&requests);
+    let by_provider = build_provider_breakdown(&requests, &provider_map);
     let by_status = build_status_breakdown(&requests);
     let top_cached_models = build_cache_breakdown(&requests);
 
@@ -155,6 +165,7 @@ pub async fn get_analytics(
         error_rate,
         time_series,
         by_model,
+        by_provider,
         by_status,
         top_cached_models,
     }))
@@ -306,6 +317,41 @@ fn build_status_breakdown(requests: &[Request]) -> Vec<BreakdownItem> {
     }
 
     map.into_values().collect()
+}
+
+fn build_provider_breakdown(
+    requests: &[Request],
+    provider_map: &std::collections::HashMap<uuid::Uuid, String>,
+) -> Vec<BreakdownItem> {
+    let mut map: std::collections::HashMap<String, BreakdownItem> = std::collections::HashMap::new();
+
+    for r in requests {
+        let provider_name = r
+            .provider_config_id
+            .and_then(|id| provider_map.get(&id))
+            .cloned()
+            .unwrap_or_else(|| "unknown".to_string());
+
+        let entry = map.entry(provider_name.clone()).or_insert(BreakdownItem {
+            dimension: "provider".to_string(),
+            value: provider_name,
+            requests: 0,
+            tokens: 0,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            cost_usd: 0.0,
+        });
+
+        entry.requests += 1;
+        entry.tokens += r.total_tokens as i64;
+        entry.prompt_tokens += r.prompt_tokens as i64;
+        entry.completion_tokens += r.completion_tokens as i64;
+        entry.cost_usd += f64::try_from(r.total_cost).unwrap_or(0.0);
+    }
+
+    let mut items: Vec<BreakdownItem> = map.into_values().collect();
+    items.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+    items
 }
 
 fn build_cache_breakdown(requests: &[Request]) -> Vec<CacheBreakdownItem> {

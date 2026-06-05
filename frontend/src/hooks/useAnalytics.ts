@@ -44,6 +44,7 @@ export interface AnalyticsData {
   error_rate: number
   time_series: TimeSeriesPoint[]
   by_model: BreakdownItem[]
+  by_provider: BreakdownItem[]
   by_status: BreakdownItem[]
   top_cached_models: CacheBreakdownItem[]
 }

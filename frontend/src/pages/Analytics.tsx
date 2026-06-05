@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, DollarSign, Zap, AlertTriangle } from 'lucide-react'
+import { Activity, DollarSign, Zap, AlertTriangle, TrendingUp, Clock } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { CostByProviderChart } from '@/components/analytics/CostByProviderChart'
+import { CostOverTimeChart } from '@/components/analytics/CostOverTimeChart'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
 
 const TIME_RANGES = [
   { value: 'today', label: 'Today' },
@@ -73,6 +75,7 @@ export default function Analytics() {
         </div>
       )}
 
+      {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Total Requests"
@@ -82,20 +85,12 @@ export default function Analytics() {
           isLoading={isLoading}
         />
         <KpiCard
-          title="Total Tokens"
-          value={data ? new Intl.NumberFormat('en-US').format(data.total_tokens) : '0'}
-          icon={Zap}
-          iconColor="text-yellow-500"
-          isLoading={isLoading}
-        />
-        <KpiCard
           title="Total Cost"
           value={
             data
-              ? new Intl.NumberFormat('en-US', {
-                  style: 'currency',
-                  currency: 'USD',
-                }).format(data.total_cost_usd)
+              ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                  data.total_cost_usd
+                )
               : '$0.00'
           }
           icon={DollarSign}
@@ -103,98 +98,81 @@ export default function Analytics() {
           isLoading={isLoading}
         />
         <KpiCard
-          title="Error Rate"
-          value={data ? `${data.error_rate.toFixed(1)}%` : '0%'}
-          icon={AlertTriangle}
-          iconColor="text-red-500"
+          title="Cache Hit Rate"
+          value={data ? `${data.cache_hit_rate.toFixed(1)}%` : '0%'}
+          icon={TrendingUp}
+          iconColor="text-purple-500"
+          isLoading={isLoading}
+        />
+        <KpiCard
+          title="Avg Latency"
+          value={data ? `${data.avg_latency_ms.toFixed(0)}ms` : '0ms'}
+          icon={Clock}
+          iconColor="text-orange-500"
           isLoading={isLoading}
         />
       </div>
 
+      {/* Charts Row 1 */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Cache Hit Rate</CardTitle>
-            <CardDescription>
-              {data ? `${data.cache_hit_rate.toFixed(1)}%` : '—'}
-            </CardDescription>
+            <CardTitle>Cost Over Time</CardTitle>
+            <CardDescription>Daily cost and request volume.</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-full" />
-            ) : (
-              <div className="flex items-center gap-4">
-                <div className="h-4 flex-1 rounded-full bg-muted overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 transition-all"
-                    style={{ width: `${Math.min(data?.cache_hit_rate || 0, 100)}%` }}
-                  />
-                </div>
-                <span className="text-sm font-medium w-16 text-right">
-                  {data?.cache_hit_rate.toFixed(1)}%
-                </span>
-              </div>
-            )}
+            {isLoading ? <Skeleton className="h-72 w-full" /> : <CostOverTimeChart data={data?.time_series || []} />}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Avg Latency</CardTitle>
-            <CardDescription>
-              {data ? `${data.avg_latency_ms.toFixed(0)}ms` : '—'}
-            </CardDescription>
+            <CardTitle>Cost by Provider</CardTitle>
+            <CardDescription>Cost distribution across providers.</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? (
-              <Skeleton className="h-8 w-full" />
-            ) : (
-              <p className="text-3xl font-bold">{data?.avg_latency_ms.toFixed(0)}ms</p>
-            )}
+            {isLoading ? <Skeleton className="h-72 w-full" /> : <CostByProviderChart data={data?.by_provider || []} />}
           </CardContent>
         </Card>
       </div>
 
+      {/* Charts Row 2 */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>By Model</CardTitle>
-            <CardDescription>Top models by request volume.</CardDescription>
+            <CardTitle>Cost by Model</CardTitle>
+            <CardDescription>Top models by cost.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             {isLoading ? (
-              <>
+              <div className="space-y-2">
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
-              </>
+              </div>
             ) : data?.by_model.length === 0 ? (
               <p className="text-sm text-muted-foreground">No data available.</p>
             ) : (
-              data?.by_model.map((item) => (
-                <div
-                  key={item.value}
-                  className="flex items-center justify-between rounded-md border p-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{item.value}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Intl.NumberFormat('en-US').format(item.tokens)} tokens
-                    </p>
+              <div className="space-y-3">
+                {data?.by_model.map((item) => (
+                  <div key={item.value} className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <p className="text-sm font-medium">{item.value}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Intl.NumberFormat('en-US').format(item.tokens)} tokens
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        {new Intl.NumberFormat('en-US').format(item.requests)} reqs
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.cost_usd)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      {new Intl.NumberFormat('en-US').format(item.requests)} reqs
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Intl.NumberFormat('en-US', {
-                        style: 'currency',
-                        currency: 'USD',
-                      }).format(item.cost_usd)}
-                    </p>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -204,83 +182,44 @@ export default function Analytics() {
             <CardTitle>By Status</CardTitle>
             <CardDescription>Request breakdown by outcome.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent>
             {isLoading ? (
-              <>
+              <div className="space-y-2">
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
-              </>
+              </div>
             ) : data?.by_status.length === 0 ? (
               <p className="text-sm text-muted-foreground">No data available.</p>
             ) : (
-              data?.by_status.map((item) => (
-                <div
-                  key={item.value}
-                  className="flex items-center justify-between rounded-md border p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant={
-                        item.value === 'success'
-                          ? 'default'
-                          : item.value === 'cached'
-                            ? 'secondary'
-                            : 'destructive'
-                      }
-                    >
-                      {item.value}
-                    </Badge>
+              <div className="space-y-3">
+                {data?.by_status.map((item) => (
+                  <div key={item.value} className="flex items-center justify-between rounded-md border p-3">
+                    <div className="flex items-center gap-3">
+                      <Badge
+                        variant={
+                          item.value === 'success'
+                            ? 'default'
+                            : item.value === 'cached'
+                              ? 'secondary'
+                              : 'destructive'
+                        }
+                      >
+                        {item.value}
+                      </Badge>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        {new Intl.NumberFormat('en-US').format(item.requests)} reqs
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      {new Intl.NumberFormat('en-US').format(item.requests)} reqs
-                    </p>
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Time Series</CardTitle>
-          <CardDescription>Requests over time.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-48 w-full" />
-          ) : data?.time_series.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No data available.</p>
-          ) : (
-            <div className="space-y-2">
-              {data?.time_series.map((point) => (
-                <div key={point.timestamp} className="flex items-center gap-4 text-sm">
-                  <span className="w-32 text-muted-foreground">
-                    {new Date(point.timestamp).toLocaleDateString()}
-                  </span>
-                  <div className="flex-1 h-4 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500"
-                      style={{
-                        width: `${Math.min(
-                          (point.requests / (data?.time_series.reduce((max, p) => Math.max(max, p.requests), 0) || 1)) * 100,
-                          100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="w-16 text-right font-medium">
-                    {point.requests}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }
