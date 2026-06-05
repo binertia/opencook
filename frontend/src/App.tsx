@@ -14,6 +14,7 @@ import BudgetPage from '@/pages/analytics/BudgetPage'
 import RequestsPage from '@/pages/Requests'
 import Settings from '@/pages/Settings'
 import UsersPage from '@/pages/settings/UsersPage'
+import AuditLogPage from '@/pages/settings/AuditLogPage'
 import ProviderDetailPage from '@/pages/providers/ProviderDetailPage'
 import WebhooksPage from '@/pages/webhooks/WebhooksPage'
 
@@ -72,6 +73,7 @@ function App() {
         <Route path="/requests" element={<RequestsPage />} />
         <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/settings/audit-log" element={<AuditLogPage />} />
         <Route path="/users" element={<UsersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Plug,
   Settings,
+  Shield,
   Users,
   WebhookIcon,
   X,
@@ -36,6 +37,7 @@ const monitorItems: NavItem[] = [
 
 const configureItems: NavItem[] = [
   { label: 'Settings', href: '/settings', icon: Settings },
+  { label: 'Audit Log', href: '/settings/audit-log', icon: Shield },
 ]
 
 interface SidebarProps {
