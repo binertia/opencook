@@ -6,6 +6,7 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
+use tower_cookies::CookieManagerLayer;
 use tower_http::{
     cors::{Any, CorsLayer},
     limit::RequestBodyLimitLayer,
@@ -14,22 +15,68 @@ use tower_http::{
 use tracing::Level;
 
 use crate::{
+    middleware::audit_context::audit_context_middleware,
     middleware::auth::auth_middleware,
+    middleware::auth_rate_limit::auth_rate_limit_middleware,
+    middleware::connections::ConnectionLayer,
+    middleware::csrf::csrf_middleware,
     middleware::error_handler::ErrorHandlerLayer,
     middleware::rate_limit::rate_limit_middleware,
+    middleware::security_headers::SecurityHeadersLayer,
     middleware::timing::TimingLayer,
-    routes::{analytics, api_keys, auth, chat, dashboard, health, metrics, models, providers, quotas, usage, users},
+    routes::{analytics, api_keys, audit, auth, chat, dashboard, health, metrics, models, providers, quotas, usage, users, webhooks},
     state::AppState,
     static_files::build_static_router,
 };
 
 /// Build the application router with middleware stack.
 pub fn build_router(state: AppState) -> Router {
-    // CORS layer
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
-        .allow_headers(Any);
+    let is_production = state.config.environment == "production";
+
+    // CORS layer: explicit origins required in production.
+    let allowed_origins: Vec<axum::http::HeaderValue> = if state.config.allowed_origins.is_empty() {
+        if is_production {
+            tracing::error!(
+                "GATEWAY_ALLOWED_ORIGINS must be set in production. \
+                 CORS will deny all cross-origin requests."
+            );
+            vec![]
+        } else {
+            vec![axum::http::HeaderValue::from_static("*")]
+        }
+    } else {
+        state
+            .config
+            .allowed_origins
+            .iter()
+            .filter_map(|o| axum::http::HeaderValue::from_str(o).ok())
+            .collect()
+    };
+
+    let has_wildcard = allowed_origins.iter().any(|h| h == axum::http::HeaderValue::from_static("*"));
+    if is_production && has_wildcard {
+        tracing::error!("Wildcard '*' is not allowed in GATEWAY_ALLOWED_ORIGINS in production.");
+    }
+
+    let cors = if allowed_origins.is_empty() {
+        // Deny all cross-origin requests (safe default for production misconfig)
+        CorsLayer::new()
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .max_age(std::time::Duration::from_secs(86400))
+    } else if has_wildcard && !is_production {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_headers(Any)
+            .max_age(std::time::Duration::from_secs(86400))
+    } else {
+        CorsLayer::new()
+            .allow_origin(allowed_origins)
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_headers(Any)
+            .allow_credentials(true)
+            .max_age(std::time::Duration::from_secs(86400))
+    };
 
     // Body limit: 10MB
     let body_limit = RequestBodyLimitLayer::new(10 * 1024 * 1024);
@@ -45,14 +92,19 @@ pub fn build_router(state: AppState) -> Router {
         .route("/ready", get(health::readiness_check))
         .route("/metrics", get(metrics::metrics_handler));
 
-    // API routes (auth + rate limit required)
-    // Middleware order (outer → inner): rate_limit → auth → handler
-    // The auth middleware skips /v1/auth/login and /v1/auth/refresh as public routes.
-    let api_routes = Router::new()
-        // Auth routes
+    // Auth routes: public, but with strict per-IP rate limiting.
+    let auth_routes = Router::new()
         .route("/v1/auth/login", post(auth::login))
         .route("/v1/auth/logout", post(auth::logout))
         .route("/v1/auth/refresh", post(auth::refresh))
+        .layer(middleware::from_fn_with_state(
+            state.redis.clone(),
+            auth_rate_limit_middleware,
+        ));
+
+    // Standard API routes (auth + rate limit required, no CSRF)
+    let api_routes = Router::new()
+        // Auth routes requiring authentication
         .route("/v1/auth/me", get(auth::me))
         // Dashboard
         .route("/v1/dashboard", get(dashboard::get_dashboard))
@@ -65,6 +117,11 @@ pub fn build_router(state: AppState) -> Router {
         // Analytics routes
         .route("/v1/analytics", get(analytics::get_analytics))
         .route("/v1/analytics/keys", get(analytics::get_key_usage))
+        // Webhook routes
+        .route("/v1/webhooks", get(webhooks::list_webhooks).post(webhooks::create_webhook))
+        .route("/v1/webhooks/:webhook_id", get(webhooks::get_webhook).put(webhooks::update_webhook).delete(webhooks::delete_webhook))
+        .route("/v1/webhooks/:webhook_id/deliveries", get(webhooks::list_webhook_deliveries))
+        .route("/v1/webhooks/:webhook_id/deliveries/:delivery_id/retry", post(webhooks::retry_webhook_delivery))
         // Provider routes
         .route("/v1/providers", get(providers::list_providers).post(providers::create_provider))
         .route("/v1/providers/test", post(providers::test_connection))
@@ -76,12 +133,27 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
         .route("/v1/models/:model_id", get(models::get_model))
+        .layer(middleware::from_fn_with_state(
+            state.redis.clone(),
+            rate_limit_middleware,
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth_middleware,
+        ));
+
+    // Admin API routes (auth + rate limit + CSRF required)
+    let admin_api_routes = Router::new()
         // Quota admin routes
         .route("/api/v1/organizations/:org_id/quotas", get(quotas::list_quotas).post(quotas::create_quota))
         .route("/api/v1/organizations/:org_id/quotas/:quota_id", get(quotas::get_quota).put(quotas::update_quota).delete(quotas::delete_quota))
         // Usage analytics routes
         .route("/api/v1/organizations/:org_id/usage", get(usage::get_usage))
         .route("/api/v1/organizations/:org_id/costs", get(usage::get_costs))
+        // Audit log routes
+        .route("/api/v1/organizations/:org_id/audit-log", get(audit::list_audit_entries))
+        .route("/api/v1/organizations/:org_id/audit-log/:entry_id", get(audit::get_audit_entry))
+        .layer(middleware::from_fn(csrf_middleware))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,
@@ -97,11 +169,17 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .merge(static_routes)
         .merge(public_routes)
+        .merge(auth_routes)
         .merge(api_routes)
+        .merge(admin_api_routes)
+        .layer(CookieManagerLayer::default())
         .layer(trace)
         .layer(body_limit)
+        .layer(axum::middleware::from_fn(audit_context_middleware))
         .layer(TimingLayer)
+        .layer(ConnectionLayer)
         .layer(ErrorHandlerLayer)
+        .layer(SecurityHeadersLayer)
         .layer(cors)
         .with_state(state)
 }

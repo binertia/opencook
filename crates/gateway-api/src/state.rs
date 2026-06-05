@@ -20,6 +20,7 @@ pub struct AppState {
     pub circuit_breaker: CircuitBreaker,
     pub config: Arc<AppConfig>,
     pub jwt: Arc<JwtService>,
+    pub shutdown: crate::shutdown::ShutdownState,
 }
 
 /// Raw configuration loaded from file + env.
@@ -49,6 +50,18 @@ struct RawConfig {
     embedding_api_key: Option<String>,
     #[serde(default = "default_embedding_model")]
     embedding_model: String,
+    #[serde(default)]
+    tls_cert: Option<String>,
+    #[serde(default)]
+    tls_key: Option<String>,
+    #[serde(default)]
+    allowed_origins: Option<String>,
+    #[serde(default = "default_environment")]
+    environment: String,
+}
+
+fn default_environment() -> String {
+    "development".to_string()
 }
 
 fn default_semantic_threshold() -> f32 {
@@ -75,6 +88,10 @@ pub struct AppConfig {
     pub embedding_base_url: String,
     pub embedding_api_key: String,
     pub embedding_model: String,
+    pub tls_cert: Option<String>,
+    pub tls_key: Option<String>,
+    pub allowed_origins: Vec<String>,
+    pub environment: String,
 }
 
 impl AppConfig {
@@ -108,6 +125,10 @@ impl AppConfig {
                 embedding_base_url: None,
                 embedding_api_key: None,
                 embedding_model: default_embedding_model(),
+                tls_cert: None,
+                tls_key: None,
+                allowed_origins: None,
+                environment: default_environment(),
             }
         });
 
@@ -177,6 +198,13 @@ impl AppConfig {
             embedding_base_url,
             embedding_api_key,
             embedding_model: raw.embedding_model,
+            tls_cert: raw.tls_cert,
+            tls_key: raw.tls_key,
+            allowed_origins: raw
+                .allowed_origins
+                .map(|s| s.split(',').map(|o| o.trim().to_string()).collect())
+                .unwrap_or_default(),
+            environment: raw.environment,
         }
     }
 }
@@ -239,6 +267,7 @@ impl AppState {
             circuit_breaker,
             config: Arc::new(config),
             jwt: Arc::new(jwt),
+            shutdown: crate::shutdown::ShutdownState::new(),
         })
     }
 

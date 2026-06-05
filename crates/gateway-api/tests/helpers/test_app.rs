@@ -94,6 +94,10 @@ pub async fn spawn_test_app() -> TestApp {
         embedding_base_url: "https://api.openai.com".to_string(),
         embedding_api_key: String::new(),
         embedding_model: "text-embedding-3-small".to_string(),
+        tls_cert: None,
+        tls_key: None,
+        allowed_origins: vec![],
+        environment: "test".to_string(),
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
@@ -106,6 +110,7 @@ pub async fn spawn_test_app() -> TestApp {
         circuit_breaker,
         config: Arc::new(config),
         jwt,
+        shutdown: gateway_api::shutdown::ShutdownState::new(),
     };
 
     let app = build_router(state);
@@ -124,7 +129,10 @@ pub async fn spawn_test_app() -> TestApp {
     TestApp {
         addr,
         db_pool,
-        client: reqwest::Client::new(),
+        client: reqwest::Client::builder()
+            .cookie_store(true)
+            .build()
+            .expect("failed to build HTTP client"),
         redis,
     }
 }

@@ -15,6 +15,7 @@ import RequestsPage from '@/pages/Requests'
 import Settings from '@/pages/Settings'
 import UsersPage from '@/pages/settings/UsersPage'
 import ProviderDetailPage from '@/pages/providers/ProviderDetailPage'
+import WebhooksPage from '@/pages/webhooks/WebhooksPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -69,6 +70,7 @@ function App() {
         <Route path="/analytics/keys" element={<KeyUsagePage />} />
         <Route path="/analytics/budget" element={<BudgetPage />} />
         <Route path="/requests" element={<RequestsPage />} />
+        <Route path="/webhooks" element={<WebhooksPage />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/users" element={<UsersPage />} />
       </Route>

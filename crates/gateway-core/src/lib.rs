@@ -9,6 +9,9 @@ pub mod strategies;
 pub mod circuit_breaker;
 pub mod retry;
 pub mod profiles;
+pub mod cancellation;
+pub mod fallback;
+pub mod webhook_publisher;
 
 pub use types::*;
 pub use orchestrator::{orchestrate_chat_completion, OrchestratorError};

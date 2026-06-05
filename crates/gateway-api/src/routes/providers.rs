@@ -7,7 +7,8 @@ use axum::{
 };
 use gateway_auth::AuthContext;
 use gateway_db::{
-    models::ProviderConfig as DbProviderConfig, repos::provider_config_repo::ProviderConfigRepo,
+    models::{AuditAction, ProviderConfig as DbProviderConfig},
+    repos::provider_config_repo::ProviderConfigRepo,
     ModelRegistry,
 };
 use gateway_providers::factory::{ProviderConfig as FactoryProviderConfig, ProviderKind};
@@ -16,35 +17,55 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 
-use crate::{error::ApiError, state::AppState};
+use crate::{
+    audit::{self, AuditRequestContext},
+    error::ApiError,
+    extractors::ValidatedJson,
+    state::AppState,
+    validation::{sanitize_display_text, validate_provider_kind},
+};
+use validator::Validate;
 
 // ── Request / Response Types ─────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateProviderRequest {
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: String,
+    #[validate(length(min = 1, max = 32, message = "Kind must be 1-32 characters"))]
     pub kind: String,
     pub api_key: Option<String>,
+    #[validate(url(message = "Base URL must be a valid URL"))]
     pub base_url: Option<String>,
     pub models: Option<Vec<String>>,
+    #[validate(range(min = 10, max = 86400, message = "Health check interval must be 10-86400 seconds"))]
     pub health_check_interval_seconds: Option<u64>,
+    #[validate(range(min = 1, max = 300, message = "Health check timeout must be 1-300 seconds"))]
     pub health_check_timeout_seconds: Option<u64>,
     pub health_check_model: Option<String>,
+    #[validate(range(min = 0, max = 1000, message = "Weight must be 0-1000"))]
     pub weight: Option<i32>,
+    #[validate(range(min = 0, max = 1000, message = "Priority must be 0-1000"))]
     pub priority: Option<i32>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdateProviderRequest {
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: Option<String>,
     pub api_key: Option<String>,
     pub base_url: Option<Option<String>>,
     pub models: Option<Vec<String>>,
+    #[validate(range(min = 10, max = 86400, message = "Health check interval must be 10-86400 seconds"))]
     pub health_check_interval_seconds: Option<u64>,
+    #[validate(range(min = 1, max = 300, message = "Health check timeout must be 1-300 seconds"))]
     pub health_check_timeout_seconds: Option<u64>,
     pub health_check_model: Option<String>,
+    #[validate(range(min = 0, max = 1000, message = "Weight must be 0-1000"))]
     pub weight: Option<i32>,
+    #[validate(range(min = 0, max = 1000, message = "Priority must be 0-1000"))]
     pub priority: Option<i32>,
+    #[validate(length(min = 1, max = 32, message = "Status must be 1-32 characters"))]
     pub status: Option<String>,
 }
 
@@ -303,9 +324,14 @@ pub async fn list_providers(
 pub async fn create_provider(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
-    Json(body): Json<CreateProviderRequest>,
+    Extension(ctx): Extension<AuditRequestContext>,
+    ValidatedJson(body): ValidatedJson<CreateProviderRequest>,
 ) -> Result<Json<ProviderDetailResponse>, ApiError> {
+    validate_provider_kind(&body.kind).map_err(|e| {
+        ApiError::new(StatusCode::BAD_REQUEST, "invalid_provider_kind", e.message.unwrap_or_default())
+    })?;
     let repo = ProviderConfigRepo::new(state.db_pool.clone());
+    let name = sanitize_display_text(&body.name);
     let api_key_enc = body
         .api_key
         .as_deref()
@@ -318,7 +344,7 @@ pub async fn create_provider(
     let provider = repo
         .create(
             auth.org_id,
-            &body.name,
+            &name,
             &body.kind,
             body.base_url.as_deref(),
             &api_key_enc,
@@ -360,6 +386,23 @@ pub async fn create_provider(
             status: m.status,
         })
         .collect();
+
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::ProviderCreated,
+        "provider",
+        Some(&provider.id.to_string()),
+        None,
+        Some(json!({
+            "name": provider.name,
+            "kind": provider.kind,
+            "base_url": provider.api_base,
+        })),
+        "Provider created",
+    )
+    .await;
 
     Ok(Json(ProviderDetailResponse {
         provider: db_to_response(&provider),
@@ -430,8 +473,9 @@ pub async fn get_provider(
 pub async fn update_provider(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path(provider_id): Path<Uuid>,
-    Json(body): Json<UpdateProviderRequest>,
+    ValidatedJson(body): ValidatedJson<UpdateProviderRequest>,
 ) -> Result<Json<ProviderDetailResponse>, ApiError> {
     let repo = ProviderConfigRepo::new(state.db_pool.clone());
 
@@ -477,6 +521,29 @@ pub async fn update_provider(
         }
     }
 
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::ProviderUpdated,
+        "provider",
+        Some(&provider.id.to_string()),
+        Some(json!({
+            "name": existing.name,
+            "kind": existing.kind,
+            "base_url": existing.api_base,
+            "status": existing.status,
+        })),
+        Some(json!({
+            "name": provider.name,
+            "kind": provider.kind,
+            "base_url": provider.api_base,
+            "status": provider.status,
+        })),
+        "Provider updated",
+    )
+    .await;
+
     let health = fetch_provider_health(&state.redis, provider_id).await;
     let weight = provider
         .config
@@ -496,9 +563,16 @@ pub async fn update_provider(
 pub async fn delete_provider(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path(provider_id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     let repo = ProviderConfigRepo::new(state.db_pool.clone());
+    let existing = repo
+        .get_by_id(provider_id, auth.org_id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+
     repo.soft_delete(provider_id, auth.org_id)
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
@@ -506,6 +580,23 @@ pub async fn delete_provider(
     // Also delete associated models
     let registry = ModelRegistry::new(state.db_pool.clone());
     let _ = registry.delete_models_by_provider(auth.org_id, provider_id).await;
+
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::ProviderDeleted,
+        "provider",
+        Some(&existing.id.to_string()),
+        Some(json!({
+            "name": existing.name,
+            "kind": existing.kind,
+            "base_url": existing.api_base,
+        })),
+        None,
+        "Provider deleted",
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -657,17 +748,20 @@ pub async fn get_health_history(
     }))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct TestConnectionRequest {
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: String,
+    #[validate(length(min = 1, max = 32, message = "Kind must be 1-32 characters"))]
     pub kind: String,
     pub api_key: Option<String>,
+    #[validate(url(message = "Base URL must be a valid URL"))]
     pub base_url: Option<String>,
 }
 
 pub async fn test_connection(
     State(_state): State<AppState>,
-    Json(body): Json<TestConnectionRequest>,
+    ValidatedJson(body): ValidatedJson<TestConnectionRequest>,
 ) -> Result<Json<TestConnectionResponse>, ApiError> {
     let kind = parse_provider_kind(&body.kind).ok_or_else(|| {
         ApiError::new(

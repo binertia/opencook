@@ -293,3 +293,176 @@ pub struct UsageRecord {
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
+
+/// Event types that can trigger webhook deliveries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WebhookEvent {
+    RequestCompleted,
+    RequestFailed,
+    QuotaWarning,
+    QuotaExceeded,
+    ProviderError,
+    ProviderRecovered,
+}
+
+impl WebhookEvent {
+    /// Return the string representation used in the database and payloads.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            WebhookEvent::RequestCompleted => "request.completed",
+            WebhookEvent::RequestFailed => "request.failed",
+            WebhookEvent::QuotaWarning => "quota.warning",
+            WebhookEvent::QuotaExceeded => "quota.exceeded",
+            WebhookEvent::ProviderError => "provider.error",
+            WebhookEvent::ProviderRecovered => "provider.recovered",
+        }
+    }
+}
+
+impl std::fmt::Display for WebhookEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Webhook configuration for event notifications.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct Webhook {
+    pub id: Uuid,
+    pub org_id: Uuid,
+
+    pub name: String,
+    pub url: String,
+    pub secret_enc: Option<Vec<u8>>,
+
+    pub events: crate::types::JsonVec<String>,
+
+    pub custom_headers: serde_json::Value,
+
+    pub max_retries: i32,
+    pub retry_interval_seconds: i32,
+    pub timeout_seconds: i32,
+
+    pub status: String,
+
+    pub last_delivered_at: Option<DateTime<Utc>>,
+    pub last_failure_at: Option<DateTime<Utc>>,
+    pub consecutive_failures: i32,
+
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// Webhook delivery record.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct WebhookDelivery {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub webhook_id: Uuid,
+
+    pub event_type: String,
+    pub payload: serde_json::Value,
+
+    pub attempt_number: i32,
+
+    pub request_headers: serde_json::Value,
+    pub request_body: Option<String>,
+    pub response_status: Option<i32>,
+    pub response_body: Option<String>,
+    pub response_headers: serde_json::Value,
+
+    pub status: String,
+    pub error_message: Option<String>,
+
+    pub scheduled_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// Security-relevant actions tracked in the immutable audit log.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AuditAction {
+    Create,
+    Update,
+    Delete,
+    Login,
+    Logout,
+    ApiKeyCreated,
+    ApiKeyRevoked,
+    ProviderCreated,
+    ProviderUpdated,
+    ProviderDeleted,
+    QuotaExceeded,
+    QuotaWarning,
+    WebhookCreated,
+    WebhookDeleted,
+    RoutingRuleCreated,
+    RoutingRuleUpdated,
+    SettingsUpdated,
+    BillingUpdated,
+    UserRoleChanged,
+    SecurityViolation,
+}
+
+impl AuditAction {
+    /// String representation used in the database.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AuditAction::Create => "create",
+            AuditAction::Update => "update",
+            AuditAction::Delete => "delete",
+            AuditAction::Login => "login",
+            AuditAction::Logout => "logout",
+            AuditAction::ApiKeyCreated => "api_key.created",
+            AuditAction::ApiKeyRevoked => "api_key.revoked",
+            AuditAction::ProviderCreated => "provider.created",
+            AuditAction::ProviderUpdated => "provider.updated",
+            AuditAction::ProviderDeleted => "provider.deleted",
+            AuditAction::QuotaExceeded => "quota.exceeded",
+            AuditAction::QuotaWarning => "quota.warning",
+            AuditAction::WebhookCreated => "webhook.created",
+            AuditAction::WebhookDeleted => "webhook.deleted",
+            AuditAction::RoutingRuleCreated => "routing_rule.created",
+            AuditAction::RoutingRuleUpdated => "routing_rule.updated",
+            AuditAction::SettingsUpdated => "settings.updated",
+            AuditAction::BillingUpdated => "billing.updated",
+            AuditAction::UserRoleChanged => "user.role_changed",
+            AuditAction::SecurityViolation => "security.violation",
+        }
+    }
+}
+
+impl std::fmt::Display for AuditAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Single audit log entry — immutable, append-only.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct AuditEntry {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub user_id: Option<Uuid>,
+    pub api_key_id: Option<Uuid>,
+
+    pub action: String,
+    pub entity_type: String,
+    pub entity_id: Option<String>,
+
+    pub old_values: Option<serde_json::Value>,
+    pub new_values: Option<serde_json::Value>,
+    pub summary: String,
+
+    pub ip_address: Option<String>,
+    pub user_agent: Option<String>,
+    pub request_id: Option<Uuid>,
+
+    pub created_at: DateTime<Utc>,
+}

@@ -39,6 +39,20 @@ impl ApiError {
         self.request_id = request_id.into();
         self
     }
+
+    /// Internal message for logging (PII-redacted but detailed).
+    pub fn internal_message(&self) -> String {
+        gateway_observability::redaction::redact(&self.message)
+    }
+
+    /// Client-facing message: generic for 5xx, redacted for 4xx.
+    fn client_message(&self) -> String {
+        if self.status.is_server_error() {
+            "An internal error occurred. Please try again later.".to_string()
+        } else {
+            gateway_observability::redaction::redact(&self.message)
+        }
+    }
 }
 
 fn error_type_from_status(status: StatusCode) -> String {
@@ -56,10 +70,11 @@ fn error_type_from_status(status: StatusCode) -> String {
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
+        let client_msg = self.client_message();
         let body = Json(json!({
             "error": {
                 "code": self.code,
-                "message": self.message,
+                "message": client_msg,
                 "type": self.error_type,
                 "param": self.param,
                 "status": self.status.as_u16(),
@@ -91,5 +106,58 @@ impl From<sqlx::Error> for ApiError {
             "database_error",
             err.to_string(),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_client_message_5xx_generic() {
+        let err = ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            "Connection to postgres://db:5432 failed",
+        );
+        let msg = err.client_message();
+        assert!(!msg.contains("postgres"));
+        assert_eq!(msg, "An internal error occurred. Please try again later.");
+    }
+
+    #[test]
+    fn test_client_message_4xx_redacted() {
+        let key = "sk_gw_abcdefghijklmnopqrstuvwxyz1234567890abcd";
+        let err = ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_request",
+            format!("Invalid API key: {}", key),
+        );
+        let msg = err.client_message();
+        assert!(!msg.contains(key));
+        assert!(msg.contains("[REDACTED:api_key]"));
+    }
+
+    #[test]
+    fn test_internal_message_redacted() {
+        let err = ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error",
+            "User admin@example.com failed auth",
+        );
+        let msg = err.internal_message();
+        assert!(!msg.contains("admin@example.com"));
+        assert!(msg.contains("[REDACTED:email]"));
+    }
+
+    #[test]
+    fn test_error_response_body() {
+        let err = ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "bad_request",
+            "Missing field: email",
+        );
+        let response = err.into_response();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 }

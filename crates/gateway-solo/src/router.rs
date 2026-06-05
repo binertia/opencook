@@ -3,7 +3,7 @@
 use axum::{
     http::Method,
     middleware,
-    routing::{get, post},
+    routing::{get, post, put, delete},
     Router,
 };
 use tower_http::{
@@ -15,7 +15,10 @@ use tracing::Level;
 
 use crate::{
     middleware::timing::timing_middleware,
-    routes::{chat, health, metrics, models, quotas, usage, requests, dashboard, auth_solo},
+    routes::{
+        analytics_solo, auth_solo, chat, dashboard, health, metrics, models,
+        quotas, requests, routing_solo, usage, webhooks_solo,
+    },
     state::AppState,
     static_files::build_static_router,
 };
@@ -41,21 +44,39 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health::health_check))
         .route("/ready", get(health::readiness_check))
         .route("/metrics", get(metrics::metrics_handler))
+        // Core API
         .route("/v1/chat/completions", post(chat::chat_completions))
         .route("/v1/models", get(models::list_models))
-        // Solo-mode dashboard API stubs
-        .route("/api/v1/auth/me", get(auth_solo::me))
-        .route("/api/v1/dashboard", get(dashboard::get_dashboard))
-        .route("/api/v1/requests", get(requests::list_requests))
-        .route("/api/v1/requests/:request_id", get(requests::get_request))
-        .route("/api/v1/providers", get(dashboard::list_providers))
-        .route("/api/v1/analytics", get(dashboard::get_analytics))
-        .route("/api/v1/api-keys", get(dashboard::list_api_keys))
-        .route("/api/v1/users", get(dashboard::list_users))
-        // Quota management (user-configurable in SOLO mode)
+        // Auth (frontend expects /v1/auth/*)
+        .route("/v1/auth/login", post(auth_solo::login))
+        .route("/v1/auth/logout", post(auth_solo::logout))
+        .route("/v1/auth/refresh", post(auth_solo::refresh))
+        .route("/v1/auth/me", get(auth_solo::me))
+        // Dashboard
+        .route("/v1/dashboard", get(dashboard::get_dashboard))
+        // Users
+        .route("/v1/users", get(dashboard::list_users))
+        // API Keys
+        .route("/v1/api-keys", get(dashboard::list_api_keys))
+        // Providers
+        .route("/v1/providers", get(dashboard::list_providers))
+        // Analytics
+        .route("/v1/analytics", get(dashboard::get_analytics))
+        .route("/v1/analytics/keys", get(analytics_solo::get_key_usage))
+        // Requests
+        .route("/v1/requests", get(requests::list_requests))
+        .route("/v1/requests/:request_id", get(requests::get_request))
+        // Webhooks
+        .route("/v1/webhooks", get(webhooks_solo::list_webhooks).post(webhooks_solo::create_webhook))
+        .route("/v1/webhooks/:webhook_id", get(webhooks_solo::get_webhook).put(webhooks_solo::update_webhook).delete(webhooks_solo::delete_webhook))
+        .route("/v1/webhooks/:webhook_id/deliveries", get(webhooks_solo::list_deliveries))
+        .route("/v1/webhooks/:webhook_id/deliveries/:delivery_id/retry", post(webhooks_solo::retry_delivery))
+        // Routing rules
+        .route("/v1/routing-rules", get(routing_solo::list_routing_rules))
+        // Quota management (also available under /api/v1 for compatibility)
         .route("/api/v1/quotas", get(quotas::list_quotas).post(quotas::create_quota))
         .route("/api/v1/quotas/:quota_id", get(quotas::get_quota).put(quotas::update_quota).delete(quotas::delete_quota))
-        // Usage analytics
+        // Usage analytics (also available under /api/v1 for compatibility)
         .route("/api/v1/usage", get(usage::get_usage))
         .route("/api/v1/costs", get(usage::get_costs))
         .layer(trace)

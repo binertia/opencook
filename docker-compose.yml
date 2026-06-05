@@ -1,0 +1,101 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gateway-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gateway}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-gateway}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - gateway
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: gateway-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - gateway
+
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: gateway-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-gateway}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-gateway}
+      REDIS_URL: redis://redis:6379
+      GATEWAY_MASTER_KEY: ${GATEWAY_MASTER_KEY}
+      GATEWAY_JWT_PRIVATE_KEY: ${GATEWAY_JWT_PRIVATE_KEY}
+      GATEWAY_JWT_PUBLIC_KEY: ${GATEWAY_JWT_PUBLIC_KEY}
+      GATEWAY_ALLOWED_ORIGINS: ${GATEWAY_ALLOWED_ORIGINS}
+      TLS_CERT: ${TLS_CERT:-}
+      TLS_KEY: ${TLS_KEY:-}
+      RUST_LOG: ${RUST_LOG:-info}
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - gateway
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/gateway-api", "health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  nginx:
+    image: nginx:alpine
+    container_name: gateway-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - frontend_dist:/usr/share/nginx/html/admin:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    networks:
+      - gateway
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  frontend_dist:
+
+networks:
+  gateway:
+    driver: bridge

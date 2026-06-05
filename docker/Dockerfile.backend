@@ -1,37 +1,34 @@
 # syntax=docker/dockerfile:1
 
-# ─── Stage 1: Build frontend ───
-FROM node:22-bookworm AS frontend-builder
+# ─── Stage 1: Cargo chef — dependency planner ───
+FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
+WORKDIR /app
 
+# ─── Stage 2: Prepare recipe.json ───
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ─── Stage 3: Build frontend ───
+FROM node:22-bookworm AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
-
 COPY frontend/ ./
 RUN npm run build
 
-# ─── Stage 2: Build Rust backend ───
-FROM rust:1.80-bookworm AS backend-builder
+# ─── Stage 4: Build Rust backend ───
+FROM chef AS backend-builder
+COPY --from=planner /app/recipe.json recipe.json
 
-WORKDIR /app
-COPY Cargo.toml rust-toolchain.toml ./
-COPY crates/*/Cargo.toml ./crates/*/
+# Build dependencies — cached layer unless recipe.json changes
+RUN cargo chef cook --release --recipe-path recipe.json
 
-# Create stub lib.rs/main.rs so cargo can resolve dependencies
-RUN mkdir -p crates/gateway-api/src && echo 'fn main() {}' > crates/gateway-api/src/main.rs
-RUN for crate in gateway-core gateway-providers gateway-cache gateway-quota gateway-auth gateway-db gateway-observability; do \
-    mkdir -p crates/$crate/src && echo '' > crates/$crate/src/lib.rs; \
-    done
-RUN cargo build --release --bin gateway-api 2>/dev/null || true
-
-# Now copy real source and build
-COPY crates/ ./crates/
+COPY . .
 RUN cargo build --release --bin gateway-api
 
-# ─── Stage 3: Runtime ───
-FROM debian:bookworm-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+# ─── Stage 5: Runtime ───
+FROM gcr.io/distroless/cc-debian12:nonroot
 
 WORKDIR /app
 
@@ -41,9 +38,15 @@ COPY --from=backend-builder /app/target/release/gateway-api /usr/local/bin/gatew
 # Copy built frontend assets
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
-EXPOSE 8080
+# Expose API and metrics ports
+EXPOSE 8080 9090
 
 ENV APP_ENV=production
+ENV RUST_LOG=info
 
-ENTRYPOINT ["gateway-api"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD ["/usr/local/bin/gateway-api", "health"] || exit 1
+
+ENTRYPOINT ["/usr/local/bin/gateway-api"]
 CMD ["serve"]

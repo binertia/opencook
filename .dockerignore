@@ -1,0 +1,36 @@
+# Git
+.git/
+.gitignore
+
+# Rust build artifacts
+target/
+Cargo.lock
+
+# Frontend build artifacts & dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Docker
+docker/
+docker-compose*.yml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/
+*.md
+
+# Data
+data/
+*.db
+
+# Tests
+tests/

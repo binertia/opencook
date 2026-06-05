@@ -58,6 +58,11 @@ pub fn record_cache_hit_l2() {
     metrics::counter!("gateway_cache_hit_total", "layer" => "l2").increment(1);
 }
 
+/// Record a semantic cache hit.
+pub fn record_cache_hit_semantic() {
+    metrics::counter!("gateway_cache_hit_total", "layer" => "semantic").increment(1);
+}
+
 /// Record a cache miss.
 pub fn record_cache_miss() {
     metrics::counter!("gateway_cache_miss_total").increment(1);

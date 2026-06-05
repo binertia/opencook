@@ -2,6 +2,7 @@
 
 pub mod analytics;
 pub mod api_keys;
+pub mod audit;
 pub mod auth;
 pub mod chat;
 pub mod dashboard;
@@ -12,3 +13,4 @@ pub mod providers;
 pub mod quotas;
 pub mod usage;
 pub mod users;
+pub mod webhooks;

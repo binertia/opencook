@@ -7,6 +7,7 @@ use gateway_auth::AuthContext;
 use gateway_db::{DbBackend, QuotaRepo, QuotaUsageRepo, RequestRepo};
 use gateway_quota::{QuotaEngine, QuotaMetric, QuotaResult, RequestContext};
 use rust_decimal::Decimal;
+use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info, warn};
 
 use crate::types::{ChatCompletionRequest, ChatCompletionResponse};
@@ -67,6 +68,7 @@ pub async fn orchestrate_chat_completion(
     auth: &AuthContext,
     trace_id: &str,
     request: ChatCompletionRequest,
+    cancellation: CancellationToken,
     provider_call: ProviderCall,
 ) -> Result<ChatCompletionResponse, OrchestratorError> {
     let start = std::time::Instant::now();
@@ -154,8 +156,16 @@ pub async fn orchestrate_chat_completion(
         }
     };
 
-    // ── 4. Call provider ───────────────────────────────────────────────
-    let provider_result = provider_call(request.clone()).await;
+    // ── 4. Call provider (with cancellation support) ───────────────────
+    let provider_result = match crate::cancellation::with_cancellation(
+        &cancellation,
+        provider_call(request.clone()),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err("Request cancelled by client disconnect".to_string()),
+    };
 
     let latency_ms = start.elapsed().as_millis() as u64;
 
@@ -304,6 +314,9 @@ pub enum OrchestratorError {
     #[error("Provider error: {0}")]
     Provider(String),
 
+    #[error("Request cancelled by client disconnect")]
+    Cancelled,
+
     #[error("Database error: {0}")]
     Database(#[from] gateway_db::error::DbError),
 }
@@ -313,6 +326,7 @@ impl OrchestratorError {
         match self {
             OrchestratorError::QuotaExceeded { .. } => 403,
             OrchestratorError::Provider(_) => 502,
+            OrchestratorError::Cancelled => 499,
             OrchestratorError::Database(_) => 500,
         }
     }

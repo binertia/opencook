@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-config
+  namespace: gateway
+  labels:
+    app.kubernetes.io/name: gateway
+data:
+  APP_ENV: "production"
+  RUST_LOG: "info"
+  GATEWAY_LOG_SAMPLE_RATE: "1.0"
+  GATEWAY_CACHE_TTL: "300"
+  # Database and Redis URLs are injected from the Secret for security.
+  # GATEWAY_ALLOWED_ORIGINS should be set per environment.

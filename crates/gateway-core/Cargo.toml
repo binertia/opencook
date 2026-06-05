@@ -29,3 +29,4 @@ tokio-util = { workspace = true }
 futures = { workspace = true }
 rand = { workspace = true }
 validator = { workspace = true }
+reqwest = { workspace = true }

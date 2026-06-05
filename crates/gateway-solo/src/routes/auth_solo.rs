@@ -2,7 +2,7 @@
 //! so the React dashboard thinks it's logged in.
 
 use axum::Json;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize)]
 pub struct SoloUser {
@@ -21,8 +21,45 @@ pub struct SoloOrg {
     pub role: String,
 }
 
+#[derive(Deserialize)]
+pub struct LoginRequest {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Serialize)]
+pub struct LoginResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub user: SoloUser,
+}
+
 pub async fn me() -> Json<SoloUser> {
-    Json(SoloUser {
+    Json(mock_user())
+}
+
+pub async fn login(Json(_req): Json<LoginRequest>) -> Json<LoginResponse> {
+    Json(LoginResponse {
+        access_token: "solo-token".to_string(),
+        refresh_token: "solo-refresh".to_string(),
+        user: mock_user(),
+    })
+}
+
+pub async fn logout() -> Json<serde_json::Value> {
+    Json(serde_json::json!({"success": true}))
+}
+
+pub async fn refresh() -> Json<LoginResponse> {
+    Json(LoginResponse {
+        access_token: "solo-token".to_string(),
+        refresh_token: "solo-refresh".to_string(),
+        user: mock_user(),
+    })
+}
+
+fn mock_user() -> SoloUser {
+    SoloUser {
         id: "solo-user".to_string(),
         email: "solo@opencook.local".to_string(),
         name: "Solo Developer".to_string(),
@@ -37,5 +74,5 @@ pub async fn me() -> Json<SoloUser> {
             org_name: "Personal".to_string(),
             role: "owner".to_string(),
         }],
-    })
+    }
 }

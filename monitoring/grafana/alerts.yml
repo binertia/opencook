@@ -1,0 +1,64 @@
+# AI Gateway Prometheus Alert Rules
+# Apply with: promtool check rules alerts.yml && kubectl create configmap ...
+# Or place in your Prometheus rule_files directory.
+
+groups:
+  - name: ai-gateway
+    interval: 30s
+    rules:
+      - alert: GatewayHighErrorRate
+        expr: |
+          (
+            sum(rate(gateway_request_total{status!="success"}[5m]))
+            /
+            sum(rate(gateway_request_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Gateway error rate is high"
+          description: "Gateway error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: GatewayHighP99Latency
+        expr: |
+          histogram_quantile(
+            0.99,
+            sum(rate(gateway_request_duration_ms_bucket[5m])) by (le)
+          ) > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Gateway p99 latency is high"
+          description: "Gateway p99 latency is {{ $value | humanizeDuration }}ms over the last 5 minutes."
+
+      - alert: GatewayProviderUnhealthy
+        expr: |
+          gateway_provider_health == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI provider is unhealthy"
+          description: "Provider {{ $labels.provider }} (org {{ $labels.org }}) has been unhealthy for more than 5 minutes."
+
+      - alert: GatewayRateLimitSpike
+        expr: |
+          sum(rate(gateway_rate_limited_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI Gateway rate limiting is elevated"
+          description: "Rate-limited requests are {{ $value }}/s over the last 5 minutes."
+
+      - alert: GatewayQuotaExceeded
+        expr: |
+          sum(rate(gateway_quota_exceeded_total[5m])) > 0
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "AI Gateway quota exceeded"
+          description: "Quota metric {{ $labels.metric }} exceeded for scope {{ $labels.scope }}."

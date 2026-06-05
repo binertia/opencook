@@ -1,19 +1,17 @@
 //! Gateway Observability — Structured JSON logging, Prometheus metrics, request tracing.
 
 pub mod metrics;
+pub mod redaction;
+pub mod request_log;
+pub mod tracing_setup;
 
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-/// Initialize the global tracing subscriber with JSON formatting in production
-/// and pretty formatting in development.
+/// Initialize the global tracing subscriber.
+///
+/// Delegates to [`tracing_setup::init_tracing`] which supports:
+/// * JSON formatting in production (`GATEWAY_ENV=production`)
+/// * Pretty formatting in development
+/// * `RUST_LOG` env var filtering
+/// * `GATEWAY_LOG_SAMPLE_RATE` for info-level sampling
 pub fn init_tracing() {
-    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-
-    let fmt_layer = tracing_subscriber::fmt::layer().with_target(true);
-
-    tracing_subscriber::registry()
-        .with(env_filter)
-        .with(fmt_layer)
-        .init();
+    tracing_setup::init_tracing();
 }

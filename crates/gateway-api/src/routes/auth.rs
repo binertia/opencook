@@ -7,13 +7,24 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::{AuthContext, PasswordHasherService};
-use gateway_db::UserRepo;
+use gateway_db::{
+    models::AuditAction,
+    UserRepo,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
 use validator::Validate;
 
-use crate::{error::ApiError, state::AppState};
+use crate::{
+    audit::{self, AuditRequestContext},
+    error::ApiError,
+    extractors::ValidatedJson,
+    middleware::csrf::{generate_token, set_csrf_cookie},
+    state::AppState,
+    validation::sanitize_input,
+};
+use tower_cookies::Cookies;
 
 // ── Request / Response Types ─────────────────────────────────────────
 
@@ -40,6 +51,7 @@ pub struct LoginResponse {
     pub refresh_token: String,
     pub token_type: String,
     pub expires_in: i64,
+    pub csrf_token: String,
     pub user: MeResponse,
 }
 
@@ -48,17 +60,19 @@ pub struct LoginResponse {
 /// POST /v1/auth/login
 pub async fn login(
     State(state): State<AppState>,
-    Json(body): Json<LoginRequest>,
+    Extension(ctx): Extension<AuditRequestContext>,
+    cookies: Cookies,
+    ValidatedJson(body): ValidatedJson<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ApiError> {
-    // Validate request
-    body.validate()
-        .map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, "validation_error", e.to_string()))?;
-
     let repo = UserRepo::new(state.db_pool.clone());
+
+    // Sanitize inputs
+    let email = sanitize_input(&body.email).to_lowercase();
+    let password = sanitize_input(&body.password);
 
     // Find user by email
     let user = repo
-        .find_by_email(&body.email)
+        .find_by_email(&email)
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
         .ok_or_else(|| {
@@ -80,7 +94,7 @@ pub async fn login(
 
     let hasher = PasswordHasherService::new();
     hasher
-        .verify_password(&body.password, password_hash)
+        .verify_password(&password, password_hash)
         .map_err(|_| {
             ApiError::new(
                 StatusCode::UNAUTHORIZED,
@@ -103,11 +117,39 @@ pub async fn login(
         .issue_refresh(user.id)
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
 
+    // Record successful login audit event.
+    let auth = AuthContext {
+        auth_type: gateway_auth::AuthType::Session,
+        org_id: user.org_id,
+        user_id: Some(user.id),
+        key_id: None,
+        role: Some(user.role.clone()),
+        permissions: vec![],
+        rate_limit_rps: None,
+    };
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::Login,
+        "user",
+        Some(&user.id.to_string()),
+        None,
+        Some(json!({"email": user.email.clone() })),
+        "User logged in",
+    )
+    .await;
+
+    let csrf_token = generate_token();
+    let secure_cookie = state.config.tls_cert.is_some();
+    set_csrf_cookie(&cookies, &csrf_token, secure_cookie);
+
     Ok(Json(LoginResponse {
         access_token,
         refresh_token,
         token_type: "Bearer".to_string(),
         expires_in: 900, // 15 minutes
+        csrf_token,
         user: MeResponse {
             id: user.id.to_string(),
             email: user.email,
@@ -130,15 +172,17 @@ pub async fn logout() -> impl IntoResponse {
     Json(json!({ "status": "ok" }))
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct RefreshRequest {
+    #[validate(length(min = 1, message = "Refresh token is required"))]
     pub refresh_token: String,
 }
 
 /// POST /v1/auth/refresh
 pub async fn refresh(
     State(state): State<AppState>,
-    Json(body): Json<RefreshRequest>,
+    cookies: Cookies,
+    ValidatedJson(body): ValidatedJson<RefreshRequest>,
 ) -> Result<Json<LoginResponse>, ApiError> {
     let claims = state
         .jwt
@@ -173,11 +217,16 @@ pub async fn refresh(
         .issue_refresh(user.id)
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
 
+    let csrf_token = generate_token();
+    let secure_cookie = state.config.tls_cert.is_some();
+    set_csrf_cookie(&cookies, &csrf_token, secure_cookie);
+
     Ok(Json(LoginResponse {
         access_token,
         refresh_token,
         token_type: "Bearer".to_string(),
         expires_in: 900,
+        csrf_token,
         user: MeResponse {
             id: user.id.to_string(),
             email: user.email,

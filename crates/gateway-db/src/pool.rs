@@ -354,6 +354,36 @@ async fn init_sqlite_schema(pool: &SqlitePool) -> Result<(), DbError> {
         INSERT OR IGNORE INTO organizations (id, name, slug, status, settings, billing_email, plan_tier)
         VALUES (X'00000000000000000000000000000000', 'Default Organization', 'default', 'active', '{}', NULL, 'free');
 
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id BLOB PRIMARY KEY NOT NULL DEFAULT (randomblob(16)),
+            org_id BLOB NOT NULL REFERENCES organizations(id),
+            user_id BLOB REFERENCES users(id),
+            api_key_id BLOB REFERENCES api_keys(id),
+            action TEXT NOT NULL CHECK (action IN (
+                'create', 'update', 'delete', 'login', 'logout',
+                'api_key.created', 'api_key.revoked',
+                'provider.created', 'provider.updated', 'provider.deleted',
+                'quota.exceeded', 'quota.warning',
+                'webhook.created', 'webhook.deleted',
+                'routing_rule.created', 'routing_rule.updated',
+                'settings.updated', 'billing.updated',
+                'user.role_changed', 'security.violation'
+            )),
+            entity_type TEXT NOT NULL,
+            entity_id TEXT,
+            old_values TEXT,
+            new_values TEXT,
+            summary TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            request_id TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_org_created ON audit_log(org_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(org_id, action, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
+
         -- Seed default user for SOLO mode
         INSERT OR IGNORE INTO users (id, org_id, email, password_hash, display_name, role, status)
         VALUES (X'00000000000000000000000000000000', X'00000000000000000000000000000000', 'admin@localhost', NULL, 'Admin', 'owner', 'active');

@@ -127,7 +127,6 @@ pub fn check_permission(role: Role, permission: Permission) -> bool {
                 | Permission::UsersRead
                 | Permission::SettingsRead
                 | Permission::WebhooksRead
-                | Permission::AuditRead
                 | Permission::BillingRead
         ),
     }

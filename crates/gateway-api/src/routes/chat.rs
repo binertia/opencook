@@ -12,11 +12,14 @@ use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError}
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
 use gateway_db::RequestRepo;
+use tokio_util::sync::CancellationToken;
 use gateway_db::repos::{provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo};
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{error::ApiError, extractors::ValidatedJson, state::AppState};
+
+use gateway_observability::request_log::{log_request, RequestLogEntry};
 
 /// Map a provider kind string to the ProviderKind enum.
 fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
@@ -305,6 +308,14 @@ async fn non_stream_chat_completions(
             let mut resp = axum::Json(response).into_response();
             resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("HIT"));
             gateway_observability::metrics::record_cache_hit_l2();
+            log_request(
+                &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                    .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                    .with_success(200)
+                    .with_latency_breakdown(0, 0, 0)
+                    .with_provider(&cached.provider)
+                    .with_cache_hit(),
+            );
             return Ok(resp);
         }
 
@@ -347,6 +358,15 @@ async fn non_stream_chat_completions(
 
                 let mut resp = axum::Json(response).into_response();
                 resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("SEMANTIC_HIT"));
+                gateway_observability::metrics::record_cache_hit_semantic();
+                log_request(
+                    &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                        .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                        .with_success(200)
+                        .with_latency_breakdown(0, 0, 0)
+                        .with_provider(&cached.provider)
+                        .with_cache_hit(),
+                );
                 return Ok(resp);
             }
         }
@@ -359,18 +379,23 @@ async fn non_stream_chat_completions(
         (default_provider_config(&state, &auth, &request).await, vec![])
     };
 
+    // ── Cancellation token for client disconnect detection ────────────
+    let cancel_token = CancellationToken::new();
+
     // ── Provider call (with circuit breaker + retry + fallback) ────────
     let provider_call: gateway_core::orchestrator::ProviderCall = {
         let primary = primary_config.clone();
         let fallbacks = fallback_configs.clone();
         let req_model = request.model.clone();
         let circuit_breaker = state.circuit_breaker.clone();
+        let cancel_clone = cancel_token.clone();
 
         Box::new(move |req| {
             let primary = primary.clone();
             let fallbacks = fallbacks.clone();
             let req_model = req_model.clone();
             let cb = circuit_breaker.clone();
+            let cancel = cancel_clone.clone();
 
             Box::pin(async move {
                 let configs: Vec<ProviderConfig> = std::iter::once(primary)
@@ -380,6 +405,12 @@ async fn non_stream_chat_completions(
                 let mut last_error = String::new();
 
                 for (idx, config) in configs.iter().enumerate() {
+                    // Check cancellation before each attempt
+                    if cancel.is_cancelled() {
+                        tracing::warn!(provider = %config.provider_id, attempt = idx, "Request cancelled — aborting fallback chain");
+                        break;
+                    }
+
                     let is_primary = idx == 0;
                     let provider_key = config.provider_id.clone(); // e.g. "openai", "anthropic"
 
@@ -473,7 +504,7 @@ async fn non_stream_chat_completions(
 
     // Orchestrate
     let start = std::time::Instant::now();
-    let response = orchestrate_chat_completion(state.db_pool.clone(), &auth, &request_id, request.clone(), provider_call)
+    let response = orchestrate_chat_completion(state.db_pool.clone(), &auth, &request_id, request.clone(), cancel_token, provider_call)
         .await;
     let duration_ms = start.elapsed().as_millis() as f64;
 
@@ -482,6 +513,12 @@ async fn non_stream_chat_completions(
         Err(OrchestratorError::QuotaExceeded { metric, limit }) => {
             gateway_observability::metrics::record_quota_exceeded(&metric, "org");
             gateway_observability::metrics::record_request(&request.model, "none", "quota_exceeded", duration_ms);
+            log_request(
+                &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                    .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                    .with_quota_exceeded()
+                    .with_latency_breakdown(duration_ms as u64, 0, duration_ms as u64),
+            );
             return Err(ApiError::new(
                 axum::http::StatusCode::FORBIDDEN,
                 "quota_exceeded",
@@ -490,14 +527,40 @@ async fn non_stream_chat_completions(
         }
         Err(OrchestratorError::Provider(msg)) => {
             gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
+            log_request(
+                &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                    .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                    .with_error(502, "provider_error")
+                    .with_latency_breakdown(duration_ms as u64, 0, duration_ms as u64),
+            );
             return Err(ApiError::new(
                 axum::http::StatusCode::BAD_GATEWAY,
                 "provider_error",
                 msg,
             ));
         }
+        Err(OrchestratorError::Cancelled) => {
+            gateway_observability::metrics::record_request(&request.model, "none", "cancelled", duration_ms);
+            log_request(
+                &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                    .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                    .with_cancelled()
+                    .with_latency_breakdown(duration_ms as u64, 0, duration_ms as u64),
+            );
+            return Err(ApiError::new(
+                axum::http::StatusCode::from_u16(499).unwrap_or(axum::http::StatusCode::BAD_REQUEST),
+                "request_cancelled",
+                "Request cancelled by client disconnect",
+            ));
+        }
         Err(OrchestratorError::Database(err)) => {
             gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
+            log_request(
+                &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+                    .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+                    .with_error(500, "database_error")
+                    .with_latency_breakdown(duration_ms as u64, 0, duration_ms as u64),
+            );
             return Err(ApiError::new(
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 "database_error",
@@ -545,17 +608,38 @@ async fn non_stream_chat_completions(
     // Record metrics
     let provider = response.gateway.as_ref().map(|g| g.provider.clone()).unwrap_or_else(|| "unknown".to_string());
     let model = response.model.clone();
-    let duration_ms = response.gateway.as_ref().map(|g| g.latency_ms as f64).unwrap_or(0.0);
-    gateway_observability::metrics::record_request(&model, &provider, "success", duration_ms);
+    let provider_latency_ms = response.gateway.as_ref().map(|g| g.latency_ms).unwrap_or(0);
+    let gateway_latency_ms = (duration_ms as u64).saturating_sub(provider_latency_ms);
+    gateway_observability::metrics::record_request(&model, &provider, "success", provider_latency_ms as f64);
     gateway_observability::metrics::record_tokens(&model, response.usage.prompt_tokens as u64, response.usage.completion_tokens as u64);
     let cost = gateway_core::orchestrator::calculate_cost(&model, response.usage.prompt_tokens as u64, response.usage.completion_tokens as u64);
     gateway_observability::metrics::record_cost(&model, &provider, cost);
     gateway_observability::metrics::record_cache_miss();
 
+    log_request(
+        &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
+            .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
+            .with_success(200)
+            .with_latency_breakdown(gateway_latency_ms, provider_latency_ms, duration_ms as u64)
+            .with_provider(&provider)
+            .with_model_routed(&model)
+            .with_tokens(
+                response.usage.prompt_tokens as u64,
+                response.usage.completion_tokens as u64,
+                response.usage.total_tokens as u64,
+            )
+            .with_cost(cost),
+    );
+
     let mut resp = axum::Json(response).into_response();
     resp.headers_mut().insert(
         "x-cache",
         axum::http::HeaderValue::from_static("MISS"),
+    );
+    resp.headers_mut().insert(
+        "x-provider-latency-ms",
+        axum::http::HeaderValue::from_str(&provider_latency_ms.to_string())
+            .unwrap_or_else(|_| axum::http::HeaderValue::from_static("0")),
     );
     Ok(resp)
 }

@@ -36,6 +36,7 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 sqlx = { workspace = true, features = ["runtime-tokio", "tls-rustls", "sqlite", "uuid", "chrono", "rust_decimal"] }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 futures = { workspace = true }
 rust_decimal = { workspace = true }
 reqwest = { workspace = true }

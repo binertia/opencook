@@ -10,6 +10,7 @@ import {
   Plug,
   Settings,
   Users,
+  WebhookIcon,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,7 @@ const manageItems: NavItem[] = [
   { label: 'Providers', href: '/providers', icon: Plug },
   { label: 'API Keys', href: '/keys', icon: KeyRound },
   { label: 'Users', href: '/users', icon: Users },
+  { label: 'Webhooks', href: '/webhooks', icon: WebhookIcon },
 ]
 
 const monitorItems: NavItem[] = [

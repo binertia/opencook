@@ -13,6 +13,7 @@ use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError}
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
 use gateway_db::RequestRepo;
+use tokio_util::sync::CancellationToken;
 use gateway_db::repos::routing_repo::RoutingRepo;
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
@@ -179,17 +180,21 @@ async fn non_stream_chat_completions(
         .await
         .unwrap_or_else(|| (default_provider_config(&request), vec![]));
 
+    let cancel_token = CancellationToken::new();
+
     let provider_call: gateway_core::orchestrator::ProviderCall = {
         let primary = primary_config.clone();
         let fallbacks = fallback_configs.clone();
         let req_model = request.model.clone();
         let circuit_breaker = state.circuit_breaker.clone();
+        let cancel_clone = cancel_token.clone();
 
         Box::new(move |req| {
             let primary = primary.clone();
             let fallbacks = fallbacks.clone();
             let req_model = req_model.clone();
             let cb = circuit_breaker.clone();
+            let cancel = cancel_clone.clone();
 
             Box::pin(async move {
                 let configs: Vec<ProviderConfig> = std::iter::once(primary)
@@ -199,6 +204,11 @@ async fn non_stream_chat_completions(
                 let mut last_error = String::new();
 
                 for (idx, config) in configs.iter().enumerate() {
+                    if cancel.is_cancelled() {
+                        tracing::warn!(provider = %config.provider_id, attempt = idx, "Request cancelled — aborting fallback chain");
+                        break;
+                    }
+
                     let is_primary = idx == 0;
                     let provider_key = config.provider_id.clone();
 
@@ -291,6 +301,7 @@ async fn non_stream_chat_completions(
         &auth,
         &request_id,
         request.clone(),
+        cancel_token,
         provider_call,
     )
     .await;
@@ -309,6 +320,10 @@ async fn non_stream_chat_completions(
         Err(OrchestratorError::Provider(msg)) => {
             gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
             return Err(ApiError::new("provider_error", msg));
+        }
+        Err(OrchestratorError::Cancelled) => {
+            gateway_observability::metrics::record_request(&request.model, "none", "cancelled", duration_ms);
+            return Err(ApiError::new("request_cancelled", "Request cancelled by client disconnect"));
         }
         Err(OrchestratorError::Database(err)) => {
             gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);

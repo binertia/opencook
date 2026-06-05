@@ -23,6 +23,7 @@ axum = { workspace = true }
 tokio = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
+tower-cookies = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 figment = { workspace = true }
@@ -36,13 +37,20 @@ sqlx = { workspace = true }
 async-trait = { workspace = true }
 http = { workspace = true }
 rand = { workspace = true }
+hex = { workspace = true }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 reqwest = { workspace = true }
 validator = { workspace = true }
+regex = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 futures = { workspace = true }
 rust_decimal = { workspace = true }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+rustls-pemfile = "2"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
 
 [dev-dependencies]
 wiremock = { workspace = true }

@@ -24,8 +24,18 @@ pub async fn health_check() -> Json<HealthResponse> {
     })
 }
 
-/// Readiness probe — returns 200 only when DB is reachable.
+/// Readiness probe — returns 200 only when DB is reachable and not shutting down.
 pub async fn readiness_check(State(state): State<AppState>) -> (StatusCode, Json<ReadyResponse>) {
+    if state.shutdown.is_shutting_down() {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ReadyResponse {
+                status: "not_ready".to_string(),
+                reason: Some("shutting down".to_string()),
+            }),
+        );
+    }
+
     let db_ok = match &state.db_pool {
         gateway_db::DbBackend::Postgres(pool) => {
             sqlx::query("SELECT 1").fetch_one(pool).await.is_ok()

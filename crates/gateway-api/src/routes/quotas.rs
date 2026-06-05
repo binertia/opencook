@@ -6,12 +6,23 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::{AuthContext, rbac::{check_permission, Permission, Role}};
-use gateway_db::repos::quota_repo::QuotaRepo;
+use gateway_db::{
+    models::AuditAction,
+    repos::quota_repo::QuotaRepo,
+};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
-use crate::{error::ApiError, state::AppState};
+use crate::{
+    audit::{self, AuditRequestContext},
+    error::ApiError,
+    extractors::ValidatedJson,
+    state::AppState,
+    validation::sanitize_display_text,
+};
+use validator::Validate;
 
 /// Require a specific permission; return 403 if not authorized.
 fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), ApiError> {
@@ -33,20 +44,27 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
 
 // ── Request / Response Types ─────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateQuotaRequest {
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: String,
+    #[validate(length(max = 512, message = "Description must be at most 512 characters"))]
     pub description: Option<String>,
+    #[validate(length(min = 1, max = 64, message = "Metric must be 1-64 characters"))]
     pub metric: String,
+    #[validate(length(min = 1, max = 32, message = "Period must be 1-32 characters"))]
     pub period: String,
     pub limit_value: Decimal,
     #[serde(default)]
     pub warning_threshold: Decimal,
+    #[validate(length(min = 1, max = 64, message = "Applies-to must be 1-64 characters"))]
     pub applies_to: String,
     #[serde(default)]
     pub scope_filter: serde_json::Value,
+    #[validate(length(min = 1, max = 64, message = "Action must be 1-64 characters"))]
     pub action: String,
     #[serde(default = "default_active")]
+    #[validate(length(min = 1, max = 32, message = "Status must be 1-32 characters"))]
     pub status: String,
     pub api_key_id: Option<Uuid>,
 }
@@ -55,17 +73,24 @@ fn default_active() -> String {
     "active".to_string()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdateQuotaRequest {
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: Option<String>,
+    #[validate(length(max = 512, message = "Description must be at most 512 characters"))]
     pub description: Option<String>,
+    #[validate(length(min = 1, max = 64, message = "Metric must be 1-64 characters"))]
     pub metric: Option<String>,
+    #[validate(length(min = 1, max = 32, message = "Period must be 1-32 characters"))]
     pub period: Option<String>,
     pub limit_value: Option<Decimal>,
     pub warning_threshold: Option<Decimal>,
+    #[validate(length(min = 1, max = 64, message = "Applies-to must be 1-64 characters"))]
     pub applies_to: Option<String>,
     pub scope_filter: Option<serde_json::Value>,
+    #[validate(length(min = 1, max = 64, message = "Action must be 1-64 characters"))]
     pub action: Option<String>,
+    #[validate(length(min = 1, max = 32, message = "Status must be 1-32 characters"))]
     pub status: Option<String>,
     pub api_key_id: Option<Uuid>,
 }
@@ -125,7 +150,7 @@ pub async fn list_quotas(
 ) -> Result<Json<ListQuotasResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasRead)?;
 
-    let repo = QuotaRepo::new(state.db_pool);
+    let repo = QuotaRepo::new(state.db_pool.clone());
     let quotas = repo.list_by_org(org_id).await.map_err(|e| ApiError::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "database_error",
@@ -140,26 +165,34 @@ pub async fn list_quotas(
 pub async fn create_quota(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path(org_id): Path<Uuid>,
-    Json(body): Json<CreateQuotaRequest>,
+    ValidatedJson(body): ValidatedJson<CreateQuotaRequest>,
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasWrite)?;
 
-    let repo = QuotaRepo::new(state.db_pool);
+    let repo = QuotaRepo::new(state.db_pool.clone());
+    let name = sanitize_display_text(&body.name);
+    let description = body.description.as_deref().map(sanitize_display_text);
+    let metric = sanitize_display_text(&body.metric);
+    let period = sanitize_display_text(&body.period);
+    let applies_to = sanitize_display_text(&body.applies_to);
+    let action = sanitize_display_text(&body.action);
+    let status = sanitize_display_text(&body.status);
     let quota = repo
         .create(
             org_id,
             body.api_key_id,
-            &body.name,
-            body.description.as_deref(),
-            &body.metric,
-            &body.period,
+            &name,
+            description.as_deref(),
+            &metric,
+            &period,
             body.limit_value,
             body.warning_threshold,
-            &body.applies_to,
+            &applies_to,
             body.scope_filter,
-            &body.action,
-            &body.status,
+            &action,
+            &status,
         )
         .await
         .map_err(|e| ApiError::new(
@@ -167,6 +200,26 @@ pub async fn create_quota(
             "database_error",
             e.to_string(),
         ))?;
+
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::Create,
+        "quota",
+        Some(&quota.id.to_string()),
+        None,
+        Some(json!({
+            "name": quota.name,
+            "metric": quota.metric,
+            "period": quota.period,
+            "limit_value": quota.limit_value,
+            "applies_to": quota.applies_to,
+            "status": quota.status,
+        })),
+        "Quota created",
+    )
+    .await;
 
     Ok(Json(QuotaResponse::from(quota)))
 }
@@ -178,7 +231,7 @@ pub async fn get_quota(
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasRead)?;
 
-    let repo = QuotaRepo::new(state.db_pool);
+    let repo = QuotaRepo::new(state.db_pool.clone());
     let quota = repo
         .get_by_id(org_id, quota_id)
         .await
@@ -201,26 +254,48 @@ pub async fn get_quota(
 pub async fn update_quota(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path((org_id, quota_id)): Path<(Uuid, Uuid)>,
-    Json(body): Json<UpdateQuotaRequest>,
+    ValidatedJson(body): ValidatedJson<UpdateQuotaRequest>,
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasWrite)?;
 
-    let repo = QuotaRepo::new(state.db_pool);
+    let repo = QuotaRepo::new(state.db_pool.clone());
+    let existing = repo
+        .get_by_id(org_id, quota_id)
+        .await
+        .map_err(|e| ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        ))?
+        .ok_or_else(|| ApiError::new(
+            StatusCode::NOT_FOUND,
+            "quota_not_found",
+            format!("Quota {} not found", quota_id),
+        ))?;
+
+    let name = body.name.as_deref().map(sanitize_display_text);
+    let description = body.description.as_deref().map(sanitize_display_text);
+    let metric = body.metric.as_deref().map(sanitize_display_text);
+    let period = body.period.as_deref().map(sanitize_display_text);
+    let applies_to = body.applies_to.as_deref().map(sanitize_display_text);
+    let action = body.action.as_deref().map(sanitize_display_text);
+    let status = body.status.as_deref().map(sanitize_display_text);
     let quota = repo
         .update(
             org_id,
             quota_id,
-            body.name.as_deref(),
-            body.description.as_deref().map(Some).or(Some(None)),
-            body.metric.as_deref(),
-            body.period.as_deref(),
+            name.as_deref(),
+            description.as_deref().map(Some).or(Some(None)),
+            metric.as_deref(),
+            period.as_deref(),
             body.limit_value,
             body.warning_threshold,
-            body.applies_to.as_deref(),
+            applies_to.as_deref(),
             body.scope_filter,
-            body.action.as_deref(),
-            body.status.as_deref(),
+            action.as_deref(),
+            status.as_deref(),
         )
         .await
         .map_err(|e| ApiError::new(
@@ -230,7 +305,35 @@ pub async fn update_quota(
         ))?;
 
     match quota {
-        Some(q) => Ok(Json(QuotaResponse::from(q))),
+        Some(ref q) => {
+            audit::record(
+                &state,
+                &auth,
+                &ctx,
+                AuditAction::Update,
+                "quota",
+                Some(&q.id.to_string()),
+                Some(json!({
+                    "name": existing.name,
+                    "metric": existing.metric,
+                    "period": existing.period,
+                    "limit_value": existing.limit_value,
+                    "applies_to": existing.applies_to,
+                    "status": existing.status,
+                })),
+                Some(json!({
+                    "name": q.name,
+                    "metric": q.metric,
+                    "period": q.period,
+                    "limit_value": q.limit_value,
+                    "applies_to": q.applies_to,
+                    "status": q.status,
+                })),
+                "Quota updated",
+            )
+            .await;
+            Ok(Json(QuotaResponse::from(q.clone())))
+        }
         None => Err(ApiError::new(
             StatusCode::NOT_FOUND,
             "quota_not_found",
@@ -242,11 +345,21 @@ pub async fn update_quota(
 pub async fn delete_quota(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path((org_id, quota_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     require_permission(&auth, Permission::QuotasDelete)?;
 
-    let repo = QuotaRepo::new(state.db_pool);
+    let repo = QuotaRepo::new(state.db_pool.clone());
+    let existing = repo
+        .get_by_id(org_id, quota_id)
+        .await
+        .map_err(|e| ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        ))?;
+
     let deleted = repo
         .delete(org_id, quota_id)
         .await
@@ -257,6 +370,27 @@ pub async fn delete_quota(
         ))?;
 
     if deleted {
+        if let Some(q) = existing {
+            audit::record(
+                &state,
+                &auth,
+                &ctx,
+                AuditAction::Delete,
+                "quota",
+                Some(&q.id.to_string()),
+                Some(json!({
+                    "name": q.name,
+                    "metric": q.metric,
+                    "period": q.period,
+                    "limit_value": q.limit_value,
+                    "applies_to": q.applies_to,
+                    "status": q.status,
+                })),
+                None,
+                "Quota deleted",
+            )
+            .await;
+        }
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(ApiError::new(

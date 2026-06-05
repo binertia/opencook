@@ -16,3 +16,4 @@ axum = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-prometheus = { workspace = true }
 blake3 = { workspace = true }
+regex = { workspace = true }

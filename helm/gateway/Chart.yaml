@@ -1,0 +1,14 @@
+apiVersion: v2
+name: gateway
+description: AI Gateway — Helm chart for Kubernetes deployment
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - gateway
+  - ai
+  - llm
+home: https://github.com/ai-gateway/gateway
+maintainers:
+  - name: AI Gateway Team
+    email: team@ai-gateway.dev

@@ -87,7 +87,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0052 | Implement Provider List Page with Health Status | Epic-10 | High | 1d | TASK-0048, TASK-0025, TASK-0047 | done |
 | TASK-0053 | Implement Add/Edit Provider Wizard | Epic-10 | High | 1.5d | TASK-0052, TASK-0023, TASK-0047 | done |
 | TASK-0054 | Implement Provider Detail Page with Model Management | Epic-10 | Medium | 1d | TASK-0053, TASK-0047 | todo |
-| TASK-0055 | Serve Dashboard as Static Files from Gateway Container | Epic-09 | Critical | 0.5d | TASK-0026, TASK-0046 | todo |
+| TASK-0055 | Serve Dashboard as Static Files from Gateway Container | Epic-09 | Critical | 0.5d | TASK-0026, TASK-0046 | done |
 | TASK-0056 | Implement API Key List Page with Status and Usage | Epic-11 | High | 1d | TASK-0048, TASK-0014, TASK-0047 | todo |
 | TASK-0057 | Implement API Key Creation with One-Time Display | Epic-11 | High | 1d | TASK-0056, TASK-0047 | todo |
 | TASK-0058 | Implement API Key Revocation and Edit | Epic-11 | High | 1d | TASK-0056, TASK-0018 | todo |
@@ -108,21 +108,21 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0073 | Implement Webhook Event Publisher and Retry Logic | Epic-15 | Medium | 1d | TASK-0072, TASK-0006 | todo |
 | TASK-0074 | Implement Quota and Budget Alert Webhooks | Epic-15 | Medium | 1d | TASK-0073, TASK-0042, TASK-0067 | todo |
 | TASK-0075 | Implement Webhook Management UI | Epic-15 | Medium | 1d | TASK-0072, TASK-0047 | todo |
-| TASK-0076 | Implement Webhook Delivery Retry UI | Epic-15 | Low | 1d | TASK-0075 | todo |
-| TASK-0077 | Implement Structured Request Logging with tracing | Epic-16 | Critical | 1d | TASK-0029, TASK-0001 | todo |
-| TASK-0078 | Implement Prometheus Metrics and /metrics Endpoint | Epic-16 | Critical | 1d | TASK-0026, TASK-0029 | todo |
-| TASK-0079 | Implement PII Redaction in Request/Response Logging | Epic-16 | Critical | 1d | TASK-0077, TASK-0026 | todo |
-| TASK-0080 | Build Admin Dashboard Grafana Export | Epic-16 | Medium | 1d | TASK-0078 | todo |
-| TASK-0081 | Implement Request Timing Middleware and Error Reporting | Epic-16 | Critical | 1d | TASK-0026, TASK-0077 | todo |
-| TASK-0082 | Implement Input Validation and Injection Protection | Epic-17 | Critical | 1d | TASK-0026, TASK-0041 | todo |
-| TASK-0083 | Implement TLS/HTTPS Configuration and Security Headers | Epic-17 | Critical | 1d | TASK-0026 | todo |
-| TASK-0084 | Implement Audit Log System | Epic-17 | Critical | 1d | TASK-0010, TASK-0016 | todo |
+| TASK-0076 | Implement Webhook Delivery Retry UI | Epic-15 | Low | 1d | TASK-0075 | done |
+| TASK-0077 | Implement Structured Request Logging with tracing | Epic-16 | Critical | 1d | TASK-0029, TASK-0001 | done |
+| TASK-0078 | Implement Prometheus Metrics and /metrics Endpoint | Epic-16 | Critical | 1d | TASK-0026, TASK-0029 | done |
+| TASK-0079 | Implement PII Redaction in Request/Response Logging | Epic-16 | Critical | 1d | TASK-0077, TASK-0026 | done |
+| TASK-0080 | Build Admin Dashboard Grafana Export | Epic-16 | Medium | 1d | TASK-0078 | done |
+| TASK-0081 | Implement Request Timing Middleware and Error Reporting | Epic-16 | Critical | 1d | TASK-0026, TASK-0077 | done |
+| TASK-0082 | Implement Input Validation and Injection Protection | Epic-17 | Critical | 1d | TASK-0026, TASK-0041 | done |
+| TASK-0083 | Implement TLS/HTTPS Configuration and Security Headers | Epic-17 | Critical | 1d | TASK-0026 | done |
+| TASK-0084 | Implement Audit Log System | Epic-17 | Critical | 1d | TASK-0010, TASK-0016 | done |
 | TASK-0085 | Implement Secrets Rotation and Master Key Management | Epic-17 | High | 1d | TASK-0013, TASK-0023 | todo |
-| TASK-0086 | Implement CORS, CSRF Protection, and Security Audit | Epic-17 | High | 1d | TASK-0082, TASK-0083 | todo |
-| TASK-0087 | Create Production Dockerfile and Docker Compose | Epic-18 | Critical | 1d | TASK-0001, TASK-0055 | todo |
-| TASK-0088 | Create Kubernetes Deployment Manifests | Epic-18 | Critical | 1d | TASK-0087 | todo |
-| TASK-0089 | Implement Zero-Downtime Deployment with Signal Handling | Epic-18 | Critical | 1d | TASK-0087 | todo |
-| TASK-0090 | Create Terraform/Helm Infrastructure Definition | Epic-18 | Medium | 1.5d | TASK-0088 | todo |
+| TASK-0086 | Implement CORS, CSRF Protection, and Security Audit | Epic-17 | High | 1d | TASK-0082, TASK-0083 | done |
+| TASK-0087 | Create Production Dockerfile and Docker Compose | Epic-18 | Critical | 1d | TASK-0001, TASK-0055 | done |
+| TASK-0088 | Create Kubernetes Deployment Manifests | Epic-18 | Critical | 1d | TASK-0087 | done |
+| TASK-0089 | Implement Zero-Downtime Deployment with Signal Handling | Epic-18 | Critical | 1d | TASK-0087 | done |
+| TASK-0090 | Create Terraform/Helm Infrastructure Definition | Epic-18 | Medium | 1.5d | TASK-0088 | done |
 | TASK-0091 | Create Database Backup and Migration Strategy | Epic-18 | High | 1d | TASK-0011 | todo |
 | TASK-0092 | Implement Per-Model Pricing and Cost-Optimized Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0024, TASK-0049 | todo |
 | TASK-0093 | Implement Provider Latency Tracking and Latency-Based Routing | Epic-19 | Medium | 1d | TASK-0034, TASK-0078 | todo |

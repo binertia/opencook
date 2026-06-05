@@ -6,11 +6,23 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::AuthContext;
-use gateway_db::{repos::user_repo::UserRepo, User as DbUser};
+use gateway_db::{
+    models::AuditAction,
+    repos::user_repo::UserRepo,
+    User as DbUser,
+};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
-use crate::{error::ApiError, state::AppState};
+use crate::{
+    audit::{self, AuditRequestContext},
+    error::ApiError,
+    extractors::ValidatedJson,
+    state::AppState,
+    validation::sanitize_display_text,
+};
+use validator::Validate;
 
 // ── Request / Response Types ─────────────────────────────────────────
 
@@ -47,16 +59,20 @@ pub struct PaginationInfo {
     pub has_more: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateUserRequest {
+    #[validate(email(message = "Invalid email address"))]
     pub email: String,
+    #[validate(length(min = 1, max = 128, message = "Name must be 1-128 characters"))]
     pub name: String,
+    #[validate(length(min = 1, max = 32, message = "Role must be 1-32 characters"))]
     pub role: String,
     pub organization_ids: Option<Vec<String>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdateUserRequest {
+    #[validate(length(min = 1, max = 32, message = "Role must be 1-32 characters"))]
     pub role: Option<String>,
 }
 
@@ -107,7 +123,8 @@ pub async fn list_users(
 pub async fn create_user(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
-    Json(body): Json<CreateUserRequest>,
+    Extension(ctx): Extension<AuditRequestContext>,
+    ValidatedJson(body): ValidatedJson<CreateUserRequest>,
 ) -> Result<Json<UserDetailResponse>, ApiError> {
     let repo = UserRepo::new(state.db_pool.clone());
 
@@ -117,17 +134,37 @@ pub async fn create_user(
         _ => "viewer",
     };
 
+    let email = body.email.to_lowercase();
+    let name = sanitize_display_text(&body.name);
     let user = repo
         .create(
             auth.org_id,
-            &body.email,
+            &email,
             None, // no password for invited users
-            Some(&body.name),
+            Some(&name),
             role,
             "pending",
         )
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::Create,
+        "user",
+        Some(&user.id.to_string()),
+        None,
+        Some(json!({
+            "email": user.email,
+            "name": user.display_name,
+            "role": user.role,
+            "status": user.status,
+        })),
+        "User invited",
+    )
+    .await;
 
     Ok(Json(db_to_detail(&user)))
 }
@@ -135,8 +172,9 @@ pub async fn create_user(
 pub async fn update_user(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path(user_id): Path<String>,
-    Json(body): Json<UpdateUserRequest>,
+    ValidatedJson(body): ValidatedJson<UpdateUserRequest>,
 ) -> Result<Json<UserDetailResponse>, ApiError> {
     let repo = UserRepo::new(state.db_pool.clone());
 
@@ -154,6 +192,7 @@ pub async fn update_user(
         return Err(ApiError::new(StatusCode::FORBIDDEN, "forbidden", "User does not belong to your organization"));
     }
 
+    let old_role = user.role.clone();
     if let Some(role) = body.role {
         let role = match role.as_str() {
             "admin" | "member" | "viewer" => role.as_str(),
@@ -173,12 +212,28 @@ pub async fn update_user(
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "user_not_found", "User not found"))?;
 
+    if old_role != updated.role {
+        audit::record(
+            &state,
+            &auth,
+            &ctx,
+            AuditAction::UserRoleChanged,
+            "user",
+            Some(&updated.id.to_string()),
+            Some(json!({ "role": old_role })),
+            Some(json!({ "role": updated.role.clone() })),
+            "User role changed",
+        )
+        .await;
+    }
+
     Ok(Json(db_to_detail(&updated)))
 }
 
 pub async fn delete_user(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
+    Extension(ctx): Extension<AuditRequestContext>,
     Path(user_id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
     let repo = UserRepo::new(state.db_pool.clone());
@@ -201,6 +256,24 @@ pub async fn delete_user(
         .delete(user_uuid)
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
+    audit::record(
+        &state,
+        &auth,
+        &ctx,
+        AuditAction::Delete,
+        "user",
+        Some(&user.id.to_string()),
+        Some(json!({
+            "email": user.email,
+            "name": user.display_name,
+            "role": user.role,
+            "status": user.status,
+        })),
+        None,
+        "User deleted",
+    )
+    .await;
 
     Ok(StatusCode::NO_CONTENT)
 }

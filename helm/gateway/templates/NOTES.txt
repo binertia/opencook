@@ -1,0 +1,23 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get values {{ .Release.Name }}
+  $ kubectl get all --namespace {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "gateway.name" . }}
+
+{{- if .Values.ingress.enabled }}
+
+The gateway is exposed via Ingress at:
+{{- range .Values.ingress.hosts }}
+  - {{ .host }}
+{{- end }}
+{{- else }}
+
+The gateway service is of type {{ .Values.service.type }}.
+To access it from outside the cluster, consider enabling Ingress or using kubectl port-forward:
+
+  $ kubectl port-forward svc/{{ include "gateway.fullname" . }} 8080:80
+{{- end }}
