@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Copy, KeyRound, Trash2, Edit2, Search } from 'lucide-react'
+import { KeyRound, Trash2, Edit2, Search } from 'lucide-react'
 import {
   useApiKeys,
   useCreateApiKey,
@@ -7,9 +7,10 @@ import {
   useDeleteApiKey,
   useKeyUsage,
 } from '@/hooks/useApiKeys'
+import { CreateKeyModal } from '@/components/keys/CreateKeyModal'
+import { KeyDisplayModal } from '@/components/keys/KeyDisplayModal'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { CreateApiKeyRequest } from '@/hooks/useApiKeys'
 
 function formatDate(date: string | null) {
   if (!date) return 'Never'
@@ -72,9 +74,8 @@ export default function ApiKeys() {
   const updateKey = useUpdateApiKey()
   const deleteKey = useDeleteApiKey()
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [newKeyName, setNewKeyName] = useState('')
-  const [createdKey, setCreatedKey] = useState<string | null>(null)
+  const [showCreate, setShowCreate] = useState(false)
+  const [displayedKey, setDisplayedKey] = useState<string | null>(null)
   const [deleteKeyId, setDeleteKeyId] = useState<string | null>(null)
   const [editKeyId, setEditKeyId] = useState<string | null>(null)
   const [editKeyName, setEditKeyName] = useState('')
@@ -112,21 +113,13 @@ export default function ApiKeys() {
     })
   }, [keys, searchQuery, statusFilter])
 
-  const handleCreate = () => {
-    if (!newKeyName.trim()) return
-    createKey.mutate(
-      { name: newKeyName.trim() },
-      {
-        onSuccess: (data) => {
-          setCreatedKey(data.key)
-          setNewKeyName('')
-        },
-      }
-    )
-  }
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text)
+  const handleCreate = (payload: CreateApiKeyRequest) => {
+    createKey.mutate(payload, {
+      onSuccess: (data) => {
+        setShowCreate(false)
+        setDisplayedKey(data.key)
+      },
+    })
   }
 
   const handleEdit = (keyId: string, name: string) => {
@@ -166,7 +159,7 @@ export default function ApiKeys() {
             Manage API keys for your organization.
           </p>
         </div>
-        <Button onClick={() => { setIsCreateOpen(true); setCreatedKey(null) }}>
+        <Button onClick={() => setShowCreate(true)}>
           <KeyRound className="mr-2 h-4 w-4" />
           Create Key
         </Button>
@@ -317,57 +310,18 @@ export default function ApiKeys() {
         </CardContent>
       </Card>
 
-      {/* Create Key Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create API Key</DialogTitle>
-            <DialogDescription>
-              {createdKey
-                ? 'Copy your API key now. You will not be able to see it again.'
-                : 'Give your new API key a name.'}
-            </DialogDescription>
-          </DialogHeader>
+      <CreateKeyModal
+        open={showCreate}
+        onOpenChange={setShowCreate}
+        onSubmit={handleCreate}
+        isPending={createKey.isPending}
+      />
 
-          {createdKey ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <code className="flex-1 rounded bg-muted px-2 py-1 text-sm break-all">
-                  {createdKey}
-                </code>
-                <Button variant="outline" size="sm" onClick={() => handleCopy(createdKey)}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-              <DialogFooter>
-                <Button onClick={() => { setIsCreateOpen(false); setCreatedKey(null) }}>
-                  Done
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="key-name">Key Name</Label>
-                <Input
-                  id="key-name"
-                  placeholder="e.g. Production API Key"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreate} disabled={createKey.isPending || !newKeyName.trim()}>
-                  {createKey.isPending ? 'Creating...' : 'Create'}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <KeyDisplayModal
+        apiKey={displayedKey}
+        open={!!displayedKey}
+        onOpenChange={() => setDisplayedKey(null)}
+      />
 
       {/* Edit Name Dialog */}
       <Dialog open={!!editKeyId} onOpenChange={() => setEditKeyId(null)}>
@@ -377,7 +331,9 @@ export default function ApiKeys() {
             <DialogDescription>Update the display name for this API key.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="edit-key-name">Key Name</Label>
+            <label htmlFor="edit-key-name" className="text-sm font-medium">
+              Key Name
+            </label>
             <Input
               id="edit-key-name"
               placeholder="Key name"
