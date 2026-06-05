@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{error::ApiError, state::AppState};
 
-fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), ApiError> {
+fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), Box<ApiError>> {
     let role = auth
         .role
         .as_deref()
@@ -19,11 +19,11 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         .unwrap_or(Role::Viewer);
 
     if !check_permission(role, permission) {
-        return Err(ApiError::new(
+        return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
             format!("Role '{:?}' does not have permission '{:?}'", role, permission),
-        ));
+        )));
     }
     Ok(())
 }

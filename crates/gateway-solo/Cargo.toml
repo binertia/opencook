@@ -6,14 +6,6 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
-[[bin]]
-name = "gateway-solo"
-path = "src/main.rs"
-
-[[bin]]
-name = "opencook"
-path = "src/main.rs"
-
 [dependencies]
 gateway-core = { path = "../gateway-core" }
 gateway-db = { path = "../gateway-db" }

@@ -80,6 +80,7 @@ mod tests {
     use tower::Service;
 
     #[derive(Clone)]
+    #[allow(dead_code)]
     struct OkService;
 
     impl Service<Request<Body>> for OkService {

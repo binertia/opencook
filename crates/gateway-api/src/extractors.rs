@@ -101,6 +101,7 @@ mod tests {
     use validator::Validate;
 
     #[derive(Debug, Clone, Deserialize, Validate)]
+    #[allow(dead_code)]
     struct TestDto {
         #[validate(length(min = 1, max = 10))]
         name: String,

@@ -1,4 +1,5 @@
 //! Mock LLM provider server using wiremock.
+#![allow(dead_code)]
 
 use wiremock::{
     matchers::{header_exists, method, path},

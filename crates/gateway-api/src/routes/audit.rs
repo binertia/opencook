@@ -23,7 +23,7 @@ use uuid::Uuid;
 use crate::{audit::record as audit_record, audit::AuditRequestContext, error::ApiError, state::AppState};
 
 /// Require the caller to have `audit:read` and be accessing their own org.
-fn require_audit_access(auth: &AuthContext, org_id: Uuid) -> Result<(), ApiError> {
+fn require_audit_access(auth: &AuthContext, org_id: Uuid) -> Result<(), Box<ApiError>> {
     let role = auth
         .role
         .as_deref()
@@ -31,19 +31,19 @@ fn require_audit_access(auth: &AuthContext, org_id: Uuid) -> Result<(), ApiError
         .unwrap_or(Role::Viewer);
 
     if !check_permission(role, Permission::AuditRead) {
-        return Err(ApiError::new(
+        return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
             "Audit log access requires owner or admin role".to_string(),
-        ));
+        )));
     }
 
     if auth.org_id != org_id {
-        return Err(ApiError::new(
+        return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "cross_org_access",
             "Cannot access audit log for another organization".to_string(),
-        ));
+        )));
     }
 
     Ok(())

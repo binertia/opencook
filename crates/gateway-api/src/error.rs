@@ -109,6 +109,12 @@ impl From<sqlx::Error> for ApiError {
     }
 }
 
+impl From<Box<ApiError>> for ApiError {
+    fn from(err: Box<ApiError>) -> Self {
+        *err
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

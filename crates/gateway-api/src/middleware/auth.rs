@@ -167,20 +167,34 @@ async fn fetch_api_key_from_db(state: &AppState, key_hash: &str) -> Result<ApiKe
 }
 
 /// Verify a JWT access token and build auth context.
-fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiError> {
+fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, Box<ApiError>> {
     let claims = state.jwt.verify_access(token).map_err(|e| match e {
-        gateway_auth::AuthError::TokenExpired => {
-            ApiError::new(StatusCode::UNAUTHORIZED, "token_expired", "Access token expired")
-        }
-        _ => ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid access token"),
+        gateway_auth::AuthError::TokenExpired => Box::new(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "token_expired",
+            "Access token expired",
+        )),
+        _ => Box::new(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid access token",
+        )),
     })?;
 
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid token subject")
+        Box::new(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid token subject",
+        ))
     })?;
 
     let org_id = Uuid::parse_str(&claims.active_org_id).map_err(|_| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid token organization")
+        Box::new(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid token organization",
+        ))
     })?;
 
     Ok(AuthContext {

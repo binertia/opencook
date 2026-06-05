@@ -1,4 +1,5 @@
 //! Test app harness — spins up a full gateway server for E2E tests.
+#![allow(dead_code)]
 
 use std::net::SocketAddr;
 use std::sync::Arc;

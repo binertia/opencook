@@ -102,7 +102,7 @@ pub async fn list_sso_providers(
 
 // ── Permission helper ────────────────────────────────────────────────
 
-fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), ApiError> {
+fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), Box<ApiError>> {
     let role = auth
         .role
         .as_deref()
@@ -110,11 +110,11 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         .unwrap_or(Role::Viewer);
 
     if !check_permission(role, permission) {
-        return Err(ApiError::new(
+        return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
             "You do not have permission to perform this action",
-        ));
+        )));
     }
     Ok(())
 }
@@ -510,18 +510,18 @@ async fn provision_user(
 
 // Helper to convert DbBackend to PgPool
 trait IntoPg {
-    fn into_pg(self) -> Result<sqlx::PgPool, ApiError>;
+    fn into_pg(self) -> Result<sqlx::PgPool, Box<ApiError>>;
 }
 
 impl IntoPg for gateway_db::DbBackend {
-    fn into_pg(self) -> Result<sqlx::PgPool, ApiError> {
+    fn into_pg(self) -> Result<sqlx::PgPool, Box<ApiError>> {
         match self {
             gateway_db::DbBackend::Postgres(pg) => Ok(pg),
-            gateway_db::DbBackend::Sqlite(_) => Err(ApiError::new(
+            gateway_db::DbBackend::Sqlite(_) => Err(Box::new(ApiError::new(
                 StatusCode::SERVICE_UNAVAILABLE,
                 "sqlite_not_supported",
                 "SSO requires PostgreSQL",
-            )),
+            ))),
         }
     }
 }

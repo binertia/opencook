@@ -26,7 +26,7 @@ use crate::{
     validation::sanitize_display_text,
 };
 
-fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), ApiError> {
+fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), Box<ApiError>> {
     let role = auth
         .role
         .as_deref()
@@ -34,11 +34,11 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         .unwrap_or(Role::Viewer);
 
     if !check_permission(role, permission) {
-        return Err(ApiError::new(
+        return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
             format!("Role '{:?}' does not have permission '{:?}'", role, permission),
-        ));
+        )));
     }
     Ok(())
 }
@@ -213,13 +213,13 @@ async fn validate_targets(
 }
 
 /// Validate that conditions is a valid JSON object.
-fn validate_conditions(conditions: &serde_json::Value) -> Result<(), ApiError> {
+fn validate_conditions(conditions: &serde_json::Value) -> Result<(), Box<ApiError>> {
     if !conditions.is_object() {
-        return Err(ApiError::new(
+        return Err(Box::new(ApiError::new(
             StatusCode::BAD_REQUEST,
             "invalid_conditions",
             "Conditions must be a JSON object",
-        ));
+        )));
     }
     Ok(())
 }

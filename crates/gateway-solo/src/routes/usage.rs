@@ -14,6 +14,7 @@ fn default_org() -> uuid::Uuid {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct UsageQuery {
     #[serde(default = "default_period")]
     pub period: String,

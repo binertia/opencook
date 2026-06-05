@@ -1,4 +1,5 @@
 //! Test data generators (fixtures) for E2E tests.
+#![allow(dead_code)]
 
 use gateway_db::DbBackend;
 use uuid::Uuid;

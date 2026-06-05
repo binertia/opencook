@@ -17,6 +17,7 @@ pub struct AppState {
 
 /// Application configuration.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct AppConfig {
     pub port: u16,
     pub database_url: String,
