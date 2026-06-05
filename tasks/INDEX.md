@@ -86,7 +86,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0051 | Implement Dashboard Overview Page with KPI Cards | Epic-09 | High | 1d | TASK-0048, TASK-0045, TASK-0047 | done |
 | TASK-0052 | Implement Provider List Page with Health Status | Epic-10 | High | 1d | TASK-0048, TASK-0025, TASK-0047 | done |
 | TASK-0053 | Implement Add/Edit Provider Wizard | Epic-10 | High | 1.5d | TASK-0052, TASK-0023, TASK-0047 | done |
-| TASK-0054 | Implement Provider Detail Page with Model Management | Epic-10 | Medium | 1d | TASK-0053, TASK-0047 | todo |
+| TASK-0054 | Implement Provider Detail Page with Model Management | Epic-10 | Medium | 1d | TASK-0053, TASK-0047 | done |
 | TASK-0055 | Serve Dashboard as Static Files from Gateway Container | Epic-09 | Critical | 0.5d | TASK-0026, TASK-0046 | done |
 | TASK-0056 | Implement API Key List Page with Status and Usage | Epic-11 | High | 1d | TASK-0048, TASK-0014, TASK-0047 | todo |
 | TASK-0057 | Implement API Key Creation with One-Time Display | Epic-11 | High | 1d | TASK-0056, TASK-0047 | todo |
