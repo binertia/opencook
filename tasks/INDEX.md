@@ -55,7 +55,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0020 | Define Provider Trait and Canonical Request/Response Types | Epic-04 | Critical | 1d | TASK-0001 | done |
 | TASK-0021 | Implement OpenAI Provider Adapter | Epic-04 | Critical | 1.5d | TASK-0020, TASK-0008 | done |
 | TASK-0022 | Implement Anthropic, Gemini, and Ollama Adapters | Epic-04 | Critical | 2d | TASK-0021, TASK-0020 | done |
-| TASK-0023 | Implement Provider Config Encryption and Storage | Epic-04 | Critical | 1d | TASK-0008, TASK-0019 | todo |
+| TASK-0023 | Implement Provider Config Encryption and Storage | Epic-04 | Critical | 1d | TASK-0008, TASK-0019 | done |
 | TASK-0024 | Implement Model Registry with Pricing and Capabilities | Epic-04 | Critical | 1d | TASK-0023, TASK-0006 | done |
 | TASK-0025 | Implement Provider Health Check Framework | Epic-04 | High | 1d | TASK-0021, TASK-0022, TASK-0006 | todo |
 | TASK-0026 | Set Up Axum HTTP Server with Middleware Stack | Epic-05 | Critical | 1d | TASK-0015, TASK-0013, TASK-0006 | done |

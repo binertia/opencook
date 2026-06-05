@@ -162,6 +162,12 @@ impl AppConfig {
             Some(hex) => gateway_auth::crypto::parse_master_key(&hex)
                 .expect("GATEWAY_MASTER_KEY must be a valid 64-character hex string (32 bytes)"),
             None => {
+                if raw.environment == "production" {
+                    panic!(
+                        "GATEWAY_MASTER_KEY is required in production. \
+                         Set it to a 64-character hex string (32 bytes)."
+                    );
+                }
                 // Dev fallback: generate a random key and warn loudly
                 let dev_key = {
                     use rand::Rng;
