@@ -322,50 +322,98 @@ export default function TokenUsagePage() {
       </div>
 
       {/* Tokens by Model */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tokens by Model</CardTitle>
-          <CardDescription>Top models by token consumption.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-              <Skeleton className="h-8 w-full" />
-            </div>
-          ) : tokensByModel.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="space-y-3">
-              {tokensByModel.map((item) => (
-                <div
-                  key={item.model}
-                  className="flex items-center justify-between rounded-md border p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{item.model}</p>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="text-blue-500">
-                        {new Intl.NumberFormat('en-US').format(item.prompt)} prompt
-                      </span>
-                      <span>·</span>
-                      <span className="text-green-500">
-                        {new Intl.NumberFormat('en-US').format(item.completion)} completion
-                      </span>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Tokens by Model</CardTitle>
+            <CardDescription>Horizontal breakdown of prompt vs completion tokens.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-72 w-full" />
+            ) : tokensByModel.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={tokensByModel.slice(0, 8)}
+                    layout="vertical"
+                    margin={{ top: 5, right: 20, left: 40, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" tick={{ fontSize: 12 }} />
+                    <YAxis
+                      dataKey="model"
+                      type="category"
+                      tick={{ fontSize: 11 }}
+                      width={120}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        borderColor: 'hsl(var(--border))',
+                      }}
+                      formatter={(value: number, name: string) => [
+                        new Intl.NumberFormat('en-US').format(value),
+                        name === 'prompt' ? 'Prompt' : 'Completion',
+                      ]}
+                    />
+                    <Legend />
+                    <Bar dataKey="prompt" stackId="a" fill="#3b82f6" name="Prompt" />
+                    <Bar dataKey="completion" stackId="a" fill="#10b981" name="Completion" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Model Details</CardTitle>
+            <CardDescription>Token counts per model.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+              </div>
+            ) : tokensByModel.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <div className="space-y-3">
+                {tokensByModel.map((item) => (
+                  <div
+                    key={item.model}
+                    className="flex items-center justify-between rounded-md border p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{item.model}</p>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="text-blue-500">
+                          {new Intl.NumberFormat('en-US').format(item.prompt)} prompt
+                        </span>
+                        <span>·</span>
+                        <span className="text-green-500">
+                          {new Intl.NumberFormat('en-US').format(item.completion)} completion
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right ml-4">
+                      <p className="text-sm font-medium">
+                        {new Intl.NumberFormat('en-US').format(item.tokens)} tokens
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right ml-4">
-                    <p className="text-sm font-medium">
-                      {new Intl.NumberFormat('en-US').format(item.tokens)} tokens
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

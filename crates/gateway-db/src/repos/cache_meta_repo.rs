@@ -336,6 +336,39 @@ impl CacheMetaRepo {
 
         Ok(rows)
     }
+
+    /// Get total number of active cache entries for an organization.
+    pub async fn get_entry_count(&self, org_id: Uuid) -> Result<i64, DbError> {
+        let count = match &self.pool {
+            DbBackend::Postgres(pg) => {
+                let row = sqlx::query(
+                    r#"
+                    SELECT COUNT(*) AS cnt
+                    FROM cache_metadata
+                    WHERE org_id = $1 AND deleted_at IS NULL
+                    "#,
+                )
+                .bind(org_id)
+                .fetch_one(pg)
+                .await?;
+                row.try_get::<i64, _>("cnt").unwrap_or(0)
+            }
+            DbBackend::Sqlite(sqlite) => {
+                let row = sqlx::query(
+                    r#"
+                    SELECT COUNT(*) AS cnt
+                    FROM cache_metadata
+                    WHERE org_id = $1 AND deleted_at IS NULL
+                    "#,
+                )
+                .bind(org_id)
+                .fetch_one(sqlite)
+                .await?;
+                row.try_get::<i64, _>("cnt").unwrap_or(0)
+            }
+        };
+        Ok(count)
+    }
 }
 
 /// Statistics for a single model's cache performance.

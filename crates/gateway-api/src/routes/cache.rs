@@ -48,6 +48,7 @@ pub struct CacheStatsResponse {
     pub period: String,
     pub hit_rate: f64,
     pub cost_saved_usd: f64,
+    pub entry_count: i64,
     pub top_models: Vec<TopModelStats>,
 }
 
@@ -85,11 +86,17 @@ pub async fn get_cache_stats(
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
 
+    let entry_count = analytics
+        .get_entry_count(auth.org_id)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+
     Ok(Json(CacheStatsResponse {
         org_id: auth.org_id.to_string(),
         period: query.period,
         hit_rate,
         cost_saved_usd,
+        entry_count,
         top_models: top_models
             .into_iter()
             .map(|m| TopModelStats {

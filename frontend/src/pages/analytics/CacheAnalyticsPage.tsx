@@ -20,6 +20,7 @@ import {
   AlertTriangle,
 } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
+import { useCacheStats } from '@/hooks/useCacheStats'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -76,6 +77,7 @@ function exportToJson(filename: string, data: unknown) {
 export default function CacheAnalyticsPage() {
   const [timeRange, setTimeRange] = useState('30d')
   const { data, isLoading } = useAnalytics(timeRange)
+  const { data: cacheStats, isLoading: cacheStatsLoading } = useCacheStats(timeRange)
 
   const cacheHitRate = data?.cache_hit_rate ?? 0
   const costSaved = data?.cost_saved_from_cache_usd ?? 0
@@ -83,6 +85,7 @@ export default function CacheAnalyticsPage() {
     data?.time_series.reduce((sum, p) => sum + p.cache_hits, 0) ?? 0
   const totalCacheMisses =
     data?.time_series.reduce((sum, p) => sum + p.cache_misses, 0) ?? 0
+  const entryCount = cacheStats?.entry_count ?? 0
 
   const cacheTimeSeries =
     data?.time_series.map((point) => ({
@@ -193,7 +196,7 @@ export default function CacheAnalyticsPage() {
       </Tabs>
 
       {/* KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard
           title="Cache Hit Rate"
           value={`${cacheHitRate.toFixed(1)}%`}
@@ -228,6 +231,13 @@ export default function CacheAnalyticsPage() {
           icon={AlertTriangle}
           iconColor="text-orange-500"
           isLoading={isLoading}
+        />
+        <KpiCard
+          title="Cache Entries"
+          value={new Intl.NumberFormat('en-US').format(entryCount)}
+          icon={Database}
+          iconColor="text-purple-500"
+          isLoading={isLoading || cacheStatsLoading}
         />
       </div>
 

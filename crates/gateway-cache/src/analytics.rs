@@ -70,6 +70,13 @@ impl CacheAnalytics {
         })
     }
 
+    /// Get total number of active cache entries for an organization.
+    pub async fn get_entry_count(&self, org_id: Uuid) -> Result<i64, CacheAnalyticsError> {
+        self.repo.get_entry_count(org_id).await.map_err(|e| {
+            CacheAnalyticsError::Database(e.to_string())
+        })
+    }
+
     /// Internal: fetch total cost from usage_records for the period.
     async fn fetch_total_cost(
         &self,

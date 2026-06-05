@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, DollarSign, Zap, AlertTriangle, TrendingUp, Clock } from 'lucide-react'
+import { Activity, DollarSign, Zap, AlertTriangle, TrendingUp, Clock, FileSpreadsheet, FileJson } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { CostByProviderChart } from '@/components/analytics/CostByProviderChart'
 import { CostOverTimeChart } from '@/components/analytics/CostOverTimeChart'
@@ -17,9 +17,77 @@ const TIME_RANGES = [
   { value: '30d', label: 'Last 30 Days' },
 ]
 
+function exportToCsv(filename: string, rows: Record<string, string | number>[]) {
+  if (rows.length === 0) return
+  const headers = Object.keys(rows[0])
+  const csv = [
+    headers.join(','),
+    ...rows.map((row) =>
+      headers.map((h) => {
+        const val = row[h]
+        const str = typeof val === 'number' ? val.toString() : `"${String(val).replace(/"/g, '""')}"`
+        return str
+      }).join(',')
+    ),
+  ].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportToJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState('30d')
   const { data, isLoading, error, refetch } = useAnalytics(timeRange)
+
+  const handleExportCsv = () => {
+    if (!data) return
+    exportToCsv(
+      `analytics-${timeRange}.csv`,
+      data.time_series.map((p) => ({
+        timestamp: p.timestamp,
+        requests: p.requests,
+        tokens: p.tokens,
+        prompt_tokens: p.prompt_tokens,
+        completion_tokens: p.completion_tokens,
+        cost_usd: p.cost_usd.toFixed(4),
+        latency_ms: p.latency_ms.toFixed(2),
+        cache_hits: p.cache_hits,
+        cache_misses: p.cache_misses,
+      }))
+    )
+  }
+
+  const handleExportJson = () => {
+    if (!data) return
+    exportToJson(`analytics-${timeRange}.json`, {
+      range: timeRange,
+      total_requests: data.total_requests,
+      total_tokens: data.total_tokens,
+      total_cost_usd: data.total_cost_usd,
+      cost_saved_from_cache_usd: data.cost_saved_from_cache_usd,
+      avg_latency_ms: data.avg_latency_ms,
+      cache_hit_rate: data.cache_hit_rate,
+      error_rate: data.error_rate,
+      by_model: data.by_model,
+      by_provider: data.by_provider,
+      by_status: data.by_status,
+      time_series: data.time_series,
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -41,6 +109,14 @@ export default function Analytics() {
               ))}
             </SelectContent>
           </Select>
+          <Button variant="outline" size="sm" onClick={handleExportCsv}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleExportJson}>
+            <FileJson className="mr-2 h-4 w-4" />
+            JSON
+          </Button>
         </div>
       </div>
 
