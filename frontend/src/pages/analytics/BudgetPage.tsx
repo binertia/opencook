@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Save, TrendingUp, AlertCircle } from 'lucide-react'
 import { useBudget, DEFAULT_THRESHOLDS } from '@/hooks/useBudget'
@@ -48,12 +48,12 @@ export default function BudgetPage() {
   )
 
   // Sync local state when budget data loads
-  useState(() => {
+  useEffect(() => {
     if (budget) {
       setHasLimit(budget.cost_budget_usd != null)
       setLimitInput(budget.cost_budget_usd?.toString() ?? '')
     }
-  })
+  }, [budget])
 
   const handleSave = useCallback(async () => {
     const limit = hasLimit ? parseFloat(limitInput) || 0 : null
