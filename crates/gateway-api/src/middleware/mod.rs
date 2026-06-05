@@ -1,6 +1,5 @@
 //! Tower middleware for the gateway API.
 
-pub mod api_key_auth;
 pub mod audit_context;
 pub mod auth;
 pub mod auth_rate_limit;

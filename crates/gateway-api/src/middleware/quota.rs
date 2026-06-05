@@ -33,7 +33,7 @@ pub async fn quota_middleware(
     req: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    // Extract auth context (set by api_key_auth_middleware)
+    // Extract auth context (set by auth_middleware)
     let auth = req
         .extensions()
         .get::<AuthContext>()

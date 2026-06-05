@@ -39,7 +39,7 @@ pub async fn rate_limit_middleware(
 ) -> Result<Response, ApiError> {
     let limiter = RateLimiter::new(redis);
 
-    // Extract auth context (set by api_key_auth_middleware)
+    // Extract auth context (set by auth_middleware)
     let auth = req
         .extensions()
         .get::<AuthContext>()
