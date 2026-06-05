@@ -110,7 +110,7 @@ pub async fn list_users(
 
     Ok(Json(UsersListResponse {
         object: "list".to_string(),
-        data: users.iter().map(|u| db_to_user_item(u)).collect(),
+        data: users.iter().map(db_to_user_item).collect(),
         pagination: PaginationInfo {
             limit: total,
             offset: 0,

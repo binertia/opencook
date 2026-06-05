@@ -118,7 +118,7 @@ pub async fn list_users(
     let end = (start + query.count).min(total);
     let page = &users[start..end];
 
-    let scim_users: Vec<ScimUser> = page.iter().map(|u| db_user_to_scim(u)).collect();
+    let scim_users: Vec<ScimUser> = page.iter().map(db_user_to_scim).collect();
 
     let resp = ScimListResponse::new(scim_users, total, query.start_index, query.count);
     let mut response = Json(resp).into_response();
@@ -153,7 +153,7 @@ pub async fn create_user(
     let user_repo = UserRepo::new(state.db_pool.clone());
     let member_repo = OrgMemberRepo::new(state.db_pool.clone());
 
-    let display_name = body.name.as_ref().map(|n| {
+    let display_name = body.name.as_ref().and_then(|n| {
         let mut parts = Vec::new();
         if let Some(g) = &n.given_name { parts.push(g.clone()); }
         if let Some(f) = &n.family_name { parts.push(f.clone()); }
@@ -162,7 +162,7 @@ pub async fn create_user(
         } else {
             Some(parts.join(" "))
         }
-    }).flatten();
+    });
 
     let user = match user_repo.create(
         auth.org_id,
@@ -249,20 +249,16 @@ pub async fn patch_user(
     };
 
     for op in &body.operations {
-        match op.op.as_str() {
-            "Replace" => {
-                if op.path.as_deref() == Some("active") {
-                    let active = op.value.as_ref().and_then(|v| v.as_bool()).unwrap_or(true);
-                    let new_status = if active { "active" } else { "suspended" };
-                    if existing.status != new_status {
-                        if let Err(e) = user_repo.update_status(user_id, new_status).await {
-                            return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
-                        }
+        if op.op.as_str() == "Replace"
+            && op.path.as_deref() == Some("active") {
+                let active = op.value.as_ref().and_then(|v| v.as_bool()).unwrap_or(true);
+                let new_status = if active { "active" } else { "suspended" };
+                if existing.status != new_status {
+                    if let Err(e) = user_repo.update_status(user_id, new_status).await {
+                        return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
                     }
                 }
             }
-            _ => {}
-        }
     }
 
     let user = match user_repo.find_by_id(user_id).await {

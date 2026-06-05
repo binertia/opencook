@@ -307,8 +307,8 @@ impl AppState {
                         embedding_client,
                         config.semantic_cache_threshold,
                     );
-                    // Spawn background maintenance task
-                    let _ = gateway_cache::semantic_pg::spawn_maintenance(
+                    // Spawn background maintenance task (detached)
+                    let _handle = gateway_cache::semantic_pg::spawn_maintenance(
                         cache.clone(),
                         std::time::Duration::from_secs(300),
                         100_000,

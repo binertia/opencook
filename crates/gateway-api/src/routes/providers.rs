@@ -317,7 +317,7 @@ pub async fn list_providers(
 
     Ok(Json(ListProvidersResponse {
         object: "list".to_string(),
-        data: providers.iter().map(|p| db_to_response(p)).collect(),
+        data: providers.iter().map(db_to_response).collect(),
     }))
 }
 

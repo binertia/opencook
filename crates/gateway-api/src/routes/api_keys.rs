@@ -27,7 +27,6 @@ use crate::{
 const APIKEY_CACHE_PREFIX: &str = "auth:apikey";
 /// Redis pub/sub channel for API key revocation events.
 const APIKEY_REVOKE_CHANNEL: &str = "apikey:revoked";
-use chrono::Utc;
 use validator::Validate;
 
 // ── Request / Response Types ─────────────────────────────────────────
@@ -97,7 +96,7 @@ pub async fn list_api_keys(
 
     Ok(Json(ApiKeysListResponse {
         object: "list".to_string(),
-        data: keys.iter().map(|k| db_to_item(k)).collect(),
+        data: keys.iter().map(db_to_item).collect(),
     }))
 }
 

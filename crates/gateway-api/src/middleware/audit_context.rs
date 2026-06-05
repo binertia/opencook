@@ -13,7 +13,7 @@ pub async fn audit_context_middleware(mut req: Request, next: Next) -> Response 
 
 impl AuditRequestContext {
     fn from_request(req: &Request) -> Self {
-        use axum::http::header::{FORWARDED, USER_AGENT};
+        use axum::http::header::USER_AGENT;
         use uuid::Uuid;
 
         let request_id = req

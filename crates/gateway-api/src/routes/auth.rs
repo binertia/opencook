@@ -243,7 +243,7 @@ pub async fn login(
     })?;
 
     let hasher = PasswordHasherService::new();
-    if let Err(_) = hasher.verify_password(&password, password_hash) {
+    if hasher.verify_password(&password, password_hash).is_err() {
         // Record failed attempt and possibly lock account.
         let _ = record_failed_login(&repo, &user).await;
 

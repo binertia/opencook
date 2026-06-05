@@ -52,19 +52,16 @@ pub fn validate_cidr(cidr: &str) -> Result<(), ValidationError> {
     if cidr.parse::<std::net::IpAddr>().is_ok() {
         return Ok(());
     }
-    if cidr.contains('/') {
-        if cidr.parse::<std::net::IpAddr>().is_err() {
+    if cidr.contains('/')
+        && cidr.parse::<std::net::IpAddr>().is_err() {
             // Try parsing as CIDR (e.g., 192.168.0.0/24)
             let parts: Vec<&str> = cidr.split('/').collect();
-            if parts.len() == 2 {
-                if parts[0].parse::<std::net::IpAddr>().is_ok() {
-                    if parts[1].parse::<u8>().map(|m| m <= 128).unwrap_or(false) {
+            if parts.len() == 2
+                && parts[0].parse::<std::net::IpAddr>().is_ok()
+                    && parts[1].parse::<u8>().map(|m| m <= 128).unwrap_or(false) {
                         return Ok(());
                     }
-                }
-            }
         }
-    }
     let mut err = ValidationError::new("invalid_cidr");
     err.message = Some(format!("'{}' is not a valid IP or CIDR", cidr).into());
     Err(err)
@@ -72,7 +69,7 @@ pub fn validate_cidr(cidr: &str) -> Result<(), ValidationError> {
 
 /// Basic input sanitizer: trims whitespace and strips null bytes.
 pub fn sanitize_input(s: &str) -> String {
-    s.trim().replace('\0', "").replace('\x1b', "")
+    s.trim().replace(['\0', '\x1b'], "")
 }
 
 /// Sanitize a string that will be used as a display name or description.

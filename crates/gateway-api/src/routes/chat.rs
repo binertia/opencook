@@ -436,7 +436,7 @@ async fn non_stream_chat_completions(
 
             Box::pin(async move {
                 let configs: Vec<ProviderConfig> = std::iter::once(primary)
-                    .chain(fallbacks.into_iter())
+                    .chain(fallbacks)
                     .collect();
 
                 let mut last_error = String::new();

@@ -70,7 +70,7 @@ pub async fn list_requests(
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
 
-    let has_more = rows.len() > limit as usize;
+    let _has_more = rows.len() > limit as usize;
     let total_count = rows.len() as i64;
     let items: Vec<RequestItem> = rows.into_iter().take(limit as usize).map(|r| RequestItem {
         id: r.id.to_string(),

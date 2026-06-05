@@ -448,7 +448,7 @@ pub async fn retry_webhook_delivery(
 
     let start = std::time::Instant::now();
     let response = request.send().await;
-    let elapsed_ms = start.elapsed().as_millis() as i32;
+    let _elapsed_ms = start.elapsed().as_millis() as i32;
 
     let request_headers = serde_json::json!({
         "Content-Type": "application/json",
@@ -459,7 +459,7 @@ pub async fn retry_webhook_delivery(
         Ok(resp) => {
             let status = resp.status().as_u16() as i32;
             let body_text = resp.text().await.unwrap_or_else(|_| "<unreadable>".to_string());
-            let preview = if body_text.len() > 200 { format!("{}...", &body_text[..200]) } else { body_text };
+            let _preview = if body_text.len() > 200 { format!("{}...", &body_text[..200]) } else { body_text };
 
             if (200..300).contains(&status) {
                 ("delivered", Some(status), None)

@@ -198,7 +198,7 @@ fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, ApiError> 
 
 /// Check if a route is public (no auth required).
 fn is_public_route(path: &str) -> bool {
-    PUBLIC_ROUTES.iter().any(|&r| path == r)
+    PUBLIC_ROUTES.contains(&path)
 }
 
 /// Parse a Bearer token from an Authorization header value.
