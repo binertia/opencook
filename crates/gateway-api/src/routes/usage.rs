@@ -137,6 +137,9 @@ pub async fn get_usage(
     Query(query): Query<UsageQuery>,
 ) -> Result<Json<UsageListResponse>, ApiError> {
     require_permission(&auth, Permission::UsageRead)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access usage for another organization"));
+    }
 
     let end = query.end_time.unwrap_or_else(Utc::now);
     let start = query.start_time.unwrap_or_else(|| end - chrono::Duration::days(7));
@@ -163,6 +166,9 @@ pub async fn get_costs(
     Query(query): Query<UsageQuery>,
 ) -> Result<Json<CostBreakdownResponse>, ApiError> {
     require_permission(&auth, Permission::UsageRead)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access costs for another organization"));
+    }
 
     let end = query.end_time.unwrap_or_else(Utc::now);
     let start = query.start_time.unwrap_or_else(|| end - chrono::Duration::days(7));

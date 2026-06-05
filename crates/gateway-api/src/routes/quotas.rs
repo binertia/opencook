@@ -149,6 +149,9 @@ pub async fn list_quotas(
     Path(org_id): Path<Uuid>,
 ) -> Result<Json<ListQuotasResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasRead)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access quotas for another organization"));
+    }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
     let quotas = repo.list_by_org(org_id).await.map_err(|e| ApiError::new(
@@ -170,6 +173,9 @@ pub async fn create_quota(
     ValidatedJson(body): ValidatedJson<CreateQuotaRequest>,
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasWrite)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot create quotas for another organization"));
+    }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
     let name = sanitize_display_text(&body.name);
@@ -230,6 +236,9 @@ pub async fn get_quota(
     Path((org_id, quota_id)): Path<(Uuid, Uuid)>,
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasRead)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access quotas for another organization"));
+    }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
     let quota = repo
@@ -259,6 +268,9 @@ pub async fn update_quota(
     ValidatedJson(body): ValidatedJson<UpdateQuotaRequest>,
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasWrite)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot update quotas for another organization"));
+    }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
     let existing = repo
@@ -349,6 +361,9 @@ pub async fn delete_quota(
     Path((org_id, quota_id)): Path<(Uuid, Uuid)>,
 ) -> Result<StatusCode, ApiError> {
     require_permission(&auth, Permission::QuotasDelete)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot delete quotas for another organization"));
+    }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
     let existing = repo

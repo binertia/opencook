@@ -352,6 +352,9 @@ pub async fn get_sso_config(
     Path(org_id): Path<Uuid>,
 ) -> Result<Json<Vec<SsoConfigResponse>>, ApiError> {
     require_permission(&auth, Permission::SettingsRead)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access SSO config for another organization"));
+    }
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let configs = repo.list_by_org(org_id).await.map_err(|e| {
         ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
@@ -386,6 +389,9 @@ pub async fn create_sso_config(
     Json(body): Json<CreateSsoConfig>,
 ) -> Result<Json<SsoConfigResponse>, ApiError> {
     require_permission(&auth, Permission::SettingsWrite)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot configure SSO for another organization"));
+    }
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
 
     let provider_type = match body.provider_type.as_str() {
@@ -436,6 +442,9 @@ pub async fn delete_sso_config(
     Path((org_id, provider_type)): Path<(Uuid, String)>,
 ) -> Result<StatusCode, ApiError> {
     require_permission(&auth, Permission::SettingsWrite)?;
+    if auth.org_id != org_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot delete SSO config for another organization"));
+    }
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
 
     let pt = match provider_type.as_str() {
