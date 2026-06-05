@@ -13,7 +13,7 @@ use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
 use gateway_db::RequestRepo;
 use tokio_util::sync::CancellationToken;
-use gateway_db::repos::{provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo};
+use gateway_db::repos::{cache_meta_repo::CacheMetaRepo, provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo};
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -305,9 +305,19 @@ async fn non_stream_chat_completions(
                 ).await;
             });
 
+            // Record cache metadata hit (fire-and-forget)
+            let db_pool_meta = state.db_pool.clone();
+            let org_id_meta = auth.org_id;
+            let key_hash_meta = cache_key.request_hash.clone();
+            tokio::spawn(async move {
+                let repo = CacheMetaRepo::new(db_pool_meta);
+                let _ = repo.record_hit(org_id_meta, &key_hash_meta).await;
+            });
+
+            gateway_observability::metrics::record_cache_hit_by_model(&request.model);
+
             let mut resp = axum::Json(response).into_response();
             resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("HIT"));
-            gateway_observability::metrics::record_cache_hit_l2();
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
                     .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
@@ -355,6 +365,17 @@ async fn non_stream_chat_completions(
                         None,
                     ).await;
                 });
+
+                // Record cache metadata hit for semantic cache (fire-and-forget)
+                let db_pool_meta = state.db_pool.clone();
+                let org_id_meta = auth.org_id;
+                let key_hash_meta = cache_key.request_hash.clone();
+                tokio::spawn(async move {
+                    let repo = CacheMetaRepo::new(db_pool_meta);
+                    let _ = repo.record_hit(org_id_meta, &key_hash_meta).await;
+                });
+
+                gateway_observability::metrics::record_cache_hit_by_model(&request.model);
 
                 let mut resp = axum::Json(response).into_response();
                 resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("SEMANTIC_HIT"));
@@ -572,7 +593,8 @@ async fn non_stream_chat_completions(
     // ── Cache store (fire-and-forget) ──────────────────────────────────
     if is_cacheable {
         let cache = state.cache.clone();
-        let cache_key = cache_key.redis_key;
+        let redis_key = cache_key.redis_key.clone();
+        let request_hash = cache_key.request_hash.clone();
         let body = serde_json::to_string(&response).unwrap_or_default();
         let cached = gateway_cache::CachedResponse {
             body: body.clone(),
@@ -583,7 +605,36 @@ async fn non_stream_chat_completions(
             cached_at: chrono::Utc::now(),
         };
         tokio::spawn(async move {
-            cache.insert(cache_key, cached, std::time::Duration::from_secs(3600)).await;
+            cache.insert(redis_key, cached, std::time::Duration::from_secs(3600)).await;
+        });
+
+        // Store cache metadata for analytics (fire-and-forget)
+        let db_pool_meta = state.db_pool.clone();
+        let org_id_meta = auth.org_id;
+        let key_hash_meta = request_hash;
+        let model_id_meta = request.model.clone();
+        let prompt_preview = request.messages.first().and_then(|m| m.content.clone()).unwrap_or_default();
+        let prompt_preview = if prompt_preview.len() > 200 {
+            format!("{}...", &prompt_preview[..200])
+        } else {
+            prompt_preview
+        };
+        let prompt_tokens = response.usage.prompt_tokens as i32;
+        tokio::spawn(async move {
+            let repo = CacheMetaRepo::new(db_pool_meta);
+            let expires_at = chrono::Utc::now() + chrono::Duration::hours(1);
+            let _ = repo.upsert(
+                org_id_meta,
+                &key_hash_meta,
+                Some(&key_hash_meta[..16.min(key_hash_meta.len())]),
+                &model_id_meta,
+                if prompt_preview.is_empty() { None } else { Some(&prompt_preview) },
+                prompt_tokens,
+                "redis",
+                3600,
+                expires_at,
+                None,
+            ).await;
         });
 
         // Also store in semantic cache
@@ -614,7 +665,6 @@ async fn non_stream_chat_completions(
     gateway_observability::metrics::record_tokens(&model, response.usage.prompt_tokens as u64, response.usage.completion_tokens as u64);
     let cost = gateway_core::orchestrator::calculate_cost(&model, response.usage.prompt_tokens as u64, response.usage.completion_tokens as u64);
     gateway_observability::metrics::record_cost(&model, &provider, cost);
-    gateway_observability::metrics::record_cache_miss();
 
     log_request(
         &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)

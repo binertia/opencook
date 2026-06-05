@@ -458,6 +458,27 @@ impl std::fmt::Display for AuditAction {
     }
 }
 
+/// Cache metadata for analytics and monitoring.
+#[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
+pub struct CacheMetadata {
+    pub id: Uuid,
+    pub org_id: Uuid,
+    pub cache_key_hash: String,
+    pub cache_key_preview: Option<String>,
+    pub model_id: String,
+    pub prompt_preview: Option<String>,
+    pub prompt_tokens: i32,
+    pub storage_backend: String,
+    pub ttl_seconds: i32,
+    pub expires_at: DateTime<Utc>,
+    pub hit_count: i32,
+    pub last_hit_at: Option<DateTime<Utc>>,
+    pub content_hash: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
 /// Single audit log entry — immutable, append-only.
 #[derive(Debug, Clone, FromRow, Serialize, Deserialize)]
 pub struct AuditEntry {

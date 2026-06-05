@@ -68,6 +68,18 @@ pub fn record_cache_miss() {
     metrics::counter!("gateway_cache_miss_total").increment(1);
 }
 
+/// Record a cache hit for a specific model.
+pub fn record_cache_hit_by_model(model: &str) {
+    let model = sanitize_label(model);
+    metrics::counter!("gateway_cache_hit_by_model_total", "model" => model).increment(1);
+}
+
+/// Record estimated cost saved from a cache hit (in USD).
+pub fn record_cache_cost_saved(cost_usd: f64) {
+    let micro_dollars = (cost_usd.max(0.0) * 1_000_000.0) as u64;
+    metrics::counter!("gateway_cache_cost_saved_total").increment(micro_dollars);
+}
+
 // ── Token & Cost Metrics ─────────────────────────────────────────────────────
 
 /// Record token usage for a request.

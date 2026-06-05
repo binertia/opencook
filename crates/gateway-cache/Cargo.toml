@@ -24,3 +24,6 @@ reqwest = { workspace = true }
 md5 = "0.7"
 gateway-core = { path = "../gateway-core" }
 gateway-auth = { path = "../gateway-auth" }
+gateway-db = { path = "../gateway-db" }
+gateway-observability = { path = "../gateway-observability" }
+sqlx = { workspace = true }

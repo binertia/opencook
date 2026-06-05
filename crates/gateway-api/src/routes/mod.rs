@@ -4,6 +4,7 @@ pub mod analytics;
 pub mod api_keys;
 pub mod audit;
 pub mod auth;
+pub mod cache;
 pub mod chat;
 pub mod dashboard;
 pub mod health;

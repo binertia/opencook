@@ -42,6 +42,7 @@ impl TwoTierCache {
         // L1 first
         if let Some(value) = self.l1.get(key).await {
             debug!(key = %key, "Two-tier cache L1 hit");
+            crate::metrics::record_hit_l1();
             return Some(value);
         }
 
@@ -49,6 +50,7 @@ impl TwoTierCache {
         match self.l2.get(key).await {
             Some(value) => {
                 debug!(key = %key, "Two-tier cache L2 hit → promoting to L1");
+                crate::metrics::record_hit_l2();
                 // Promote to L1 asynchronously (fire-and-forget)
                 let l1 = self.l1.clone();
                 let key = key.to_string();
@@ -60,6 +62,7 @@ impl TwoTierCache {
             }
             None => {
                 debug!(key = %key, "Two-tier cache miss");
+                crate::metrics::record_miss();
                 None
             }
         }

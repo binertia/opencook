@@ -24,7 +24,7 @@ use crate::{
     middleware::rate_limit::rate_limit_middleware,
     middleware::security_headers::SecurityHeadersLayer,
     middleware::timing::TimingLayer,
-    routes::{analytics, api_keys, audit, auth, chat, dashboard, health, metrics, models, organizations, providers, quotas, routing, usage, users, webhooks},
+    routes::{analytics, api_keys, audit, auth, cache, chat, dashboard, health, metrics, models, organizations, providers, quotas, routing, usage, users, webhooks},
     state::AppState,
     static_files::build_static_router,
 };
@@ -142,6 +142,8 @@ pub fn build_router(state: AppState) -> Router {
         // Routing rules
         .route("/api/v1/routing-rules", get(routing::list_rules).post(routing::create_rule))
         .route("/api/v1/routing-rules/:rule_id", get(routing::get_rule).put(routing::update_rule).delete(routing::delete_rule))
+        // Cache stats
+        .route("/api/v1/cache/stats", get(cache::get_cache_stats))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,

@@ -72,7 +72,7 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0037 | Implement L1 In-Process Cache with moka | Epic-07 | Critical | 1d | TASK-0036, TASK-0001 | done |
 | TASK-0038 | Implement L2 Redis Cache and Two-Tier Integration | Epic-07 | Critical | 1d | TASK-0037, TASK-0006 | done |
 | TASK-0039 | Integrate Cache into Request Orchestrator | Epic-07 | Critical | 1d | TASK-0038, TASK-0027, TASK-0036 | done |
-| TASK-0040 | Implement Cache Metrics and Analytics | Epic-07 | Medium | 1d | TASK-0039, TASK-0010 | todo |
+| TASK-0040 | Implement Cache Metrics and Analytics | Epic-07 | Medium | 1d | TASK-0039, TASK-0010 | done |
 | TASK-0041 | Implement Sliding Window Rate Limiter with Redis Lua | Epic-08 | Critical | 1d | TASK-0006, TASK-0015 | done |
 | TASK-0042 | Implement Quota Engine and Budget Caps | Epic-08 | Critical | 1d | TASK-0010, TASK-0019 | done |
 | TASK-0043 | Implement Usage Aggregation Pipeline | Epic-08 | High | 1d | TASK-0010, TASK-0029 | done |

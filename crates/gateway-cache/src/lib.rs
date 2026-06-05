@@ -1,8 +1,10 @@
 //! Gateway Cache — L1 (moka) + L2 (Redis) two-tier caching + semantic cache.
 
+pub mod analytics;
 pub mod l1;
 pub mod l2;
 pub mod key_builder;
+pub mod metrics;
 pub mod types;
 pub mod cacheable;
 pub mod l1_cache;

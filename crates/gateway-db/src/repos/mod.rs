@@ -2,6 +2,7 @@
 
 pub mod api_key_repo;
 pub mod audit_repo;
+pub mod cache_meta_repo;
 pub mod model_registry;
 pub mod org_member_repo;
 pub mod organization_repo;
