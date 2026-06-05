@@ -131,8 +131,8 @@ Master index of all implementation tasks for the AI Gateway project.
 | TASK-0096 | Implement SAML 2.0 and OIDC SSO Integration | Epic-20 | Medium | 2d | TASK-0095, TASK-0013 | todo |
 | TASK-0097 | Implement SCIM 2.0 User Provisioning | Epic-20 | Low | 1.5d | TASK-0096, TASK-0084 | todo |
 | TASK-0098 | Implement Audit Log Dashboard and Admin Actions Log | Epic-20 | Medium | 1d | TASK-0084, TASK-0047, TASK-0048 | done |
-| TASK-0099 | Implement End-to-End Integration Tests | Cross-Cutting | Critical | 2d | All backend tasks | todo |
-| TASK-0100 | Final Documentation and Release Checklist | Cross-Cutting | High | 1.5d | All tasks | todo |
+| TASK-0099 | Implement End-to-End Integration Tests | Cross-Cutting | Critical | 2d | All backend tasks | done |
+| TASK-0100 | Final Documentation and Release Checklist | Cross-Cutting | High | 1.5d | All tasks | done |
 | TASK-0101 | Implement Dual-Database Support (PostgreSQL + SQLite) | Cross-Cutting | Critical | 2d | TASK-0006, TASK-0011 | done |
 | TASK-0102 | Implement SOLO Mode Binary (gateway-solo) | Cross-Cutting | High | 2d | TASK-0101, TASK-0027, TASK-0045 | done |
 
