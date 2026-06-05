@@ -112,6 +112,20 @@ pub fn set_provider_health(provider: &str, org_id: &str, healthy: bool) {
     metrics::gauge!("gateway_provider_health", "provider" => provider, "org" => org_hash.to_string()).set(value);
 }
 
+// ── Latency Metrics ──────────────────────────────────────────────────────────
+
+/// Record provider latency measurement (in ms).
+pub fn record_provider_latency(provider: &str, model: &str, latency_ms: f64) {
+    let provider = sanitize_label(provider);
+    let model = sanitize_label(model);
+    metrics::histogram!("gateway_provider_latency_ms", "provider" => provider, "model" => model).record(latency_ms);
+}
+
+/// Record routing decision latency (in ms).
+pub fn record_routing_decision_latency(latency_ms: f64) {
+    metrics::histogram!("gateway_routing_latency_ms").record(latency_ms);
+}
+
 // ── Connection Metrics ───────────────────────────────────────────────────────
 
 /// Increment active connections gauge.

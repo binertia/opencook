@@ -12,6 +12,7 @@ pub mod profiles;
 pub mod cancellation;
 pub mod fallback;
 pub mod webhook_publisher;
+pub mod latency_tracker;
 
 pub use types::*;
 pub use orchestrator::{orchestrate_chat_completion, OrchestratorError};

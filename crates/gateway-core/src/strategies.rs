@@ -1,6 +1,7 @@
 //! Routing strategies — determines how providers are selected from rule targets.
 
 pub mod cost_optimized;
+pub mod latency;
 
 use gateway_db::{RoutingRule, Target};
 use tracing::warn;

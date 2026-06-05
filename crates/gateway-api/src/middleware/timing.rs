@@ -115,6 +115,11 @@ where
                         HeaderValue::from_str(&provider_ms.to_string())
                             .unwrap_or_else(|_| HeaderValue::from_static("0")),
                     );
+                    // Latency SLA header (default 5000ms; org-specific override planned).
+                    headers.insert(
+                        "x-gateway-latency-sla",
+                        HeaderValue::from_static("5000"),
+                    );
                     // Backward-compatible alias.
                     headers.insert(
                         "x-request-time-ms",
