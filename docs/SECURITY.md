@@ -302,6 +302,35 @@ Tenant isolation is enforced at 6 independent layers. Any single layer failing i
 - **Decoy organizations:** Set up orgs with no real users; alert on any access
 - **Code review requirement:** Every PR touching database queries must be reviewed for org_id inclusion
 
+### 2.6 SSO Security (SAML 2.0 & OIDC)
+
+#### 2.6.1 CSRF Protection for Identity Provider Flows
+
+Both SAML and OIDC login flows use cryptographically random nonces stored in Redis with a 10-minute TTL and one-time use semantics.
+
+| Flow | Nonce Mechanism | Storage | Verification |
+|------|----------------|---------|--------------|
+| **OIDC** | `state` parameter — 32 bytes of randomness, hex-encoded | `sso:oidc:state:{nonce}` → `org_id` | `/api/v1/auth/oidc/callback` reads the Redis key, validates the `org_id`, and immediately deletes the key |
+| **SAML** | `RelayState` parameter — 32 bytes of randomness, hex-encoded | `sso:saml:relay:{nonce}` → `org_id` | `/api/v1/auth/saml/acs` reads the Redis key, validates the `org_id`, and immediately deletes the key |
+
+**Attack prevented:** An attacker cannot trick a user into completing an IdP login against a victim organization. Even if the attacker knows the target `org_id` (UUID), they cannot forge a valid `state`/`RelayState` nonce.
+
+#### 2.6.2 Post-Login Redirects
+
+Both SAML ACS and OIDC callback redirect the browser to the first URL configured in `allowed_origins` rather than a hardcoded path. This prevents open-redirect vulnerabilities and ensures the user lands on the legitimate dashboard origin.
+
+#### 2.6.3 SSO Configuration Access Control
+
+Admin endpoints for viewing and modifying SSO configuration enforce RBAC:
+
+| Endpoint | Required Permission |
+|----------|---------------------|
+| `GET /api/v1/organizations/:org_id/sso` | `settings:read` |
+| `POST /api/v1/organizations/:org_id/sso` | `settings:write` |
+| `DELETE /api/v1/organizations/:org_id/sso/:provider_type` | `settings:write` |
+
+Additionally, every request verifies `auth.org_id == path_org_id` to prevent cross-organization SSO tampering.
+
 ---
 
 ## 3. Data Protection
@@ -563,17 +592,22 @@ if contains_pii(&request_body_text) {
 
 **Client opt-out:** `X-Cache-No-Store: true` header bypasses all caching for sensitive requests.
 
-### 4.3 SSRF Prevention (Provider URL Validation)
+### 4.3 SSRF Prevention (Provider and Webhook URL Validation)
 
 #### 4.3.1 URL Whitelist and Validation
+
+Applies to both provider base URLs and webhook URLs configured by organizations.
 
 | Control | Implementation |
 |---------|---------------|
 | **URL whitelist** | Only pre-approved provider domains: `api.openai.com`, `api.anthropic.com`, `generativelanguage.googleapis.com`, etc. Reject all others |
-| **Internal IP blocklist** | Reject URLs resolving to: `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7`, `fe80::/10` |
+| **Scheme restriction** | Only `http://` and `https://` schemes are accepted. `file://`, `ftp://`, `gopher://`, etc. are rejected |
+| **Internal IP blocklist** | Reject URLs resolving to: `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7`, `fe80::/10`, IPv4-mapped IPv6 (`::ffff:127.0.0.1`) |
+| **Internal hostname blocklist** | Reject well-known internal hostnames: `localhost`, `localhost.localdomain`, `ip6-localhost`, `ip6-loopback` |
 | **DNS resolution before request** | Resolve hostname to IP, validate against blocklist, then connect. Prevents DNS rebinding attacks |
 | **Disable redirect following** | Configure HTTP client (`reqwest`) to not follow HTTP redirects. Treat 3xx responses as errors |
-| **URL canonicalization** | Parse with `url` crate, extract host, resolve to IP, apply blocklist. Reject if parse fails |
+| **URL canonicalization** | Parse with `url`/`reqwest::Url` crate, extract host, validate against blocklist. Reject if parse fails |
+| **Validation enforcement** | `CreateWebhookRequest`, `UpdateWebhookRequest`, `CreateProviderRequest`, and `TestConnectionRequest` all enforce `validate_url_not_internal` via the `validator` crate |
 
 #### 4.3.2 SSRF Detection
 
@@ -1083,7 +1117,7 @@ Contact: security@[company].com
 | 2 | P0 | PostgreSQL Row-Level Security enabled on all tenant-scoped tables | 1d | Pending | T-004, R-PROD-004 |
 | 3 | P0 | Request-scoped tenant context: org_id stored in Axum extensions, verified on every request | 2d | Pending | T-004, T-010 |
 | 4 | P0 | Deny-by-default RBAC: every endpoint declares required permission; default reject | 2d | Pending | T-010, STR-BE-012 |
-| 5 | P0 | Organization scoping on every admin action: verify admin.org_id == resource.org_id | 1d | Pending | T-004, T-010 |
+| 5 | P0 | Organization scoping on every admin action: verify admin.org_id == resource.org_id | 1d | Complete | T-004, T-010 |
 | 6 | P0 | RS256 JWT only: hardcoded algorithm; reject `none`, `HS256`, and all unexpected `alg` values | 1d | Pending | T-009, STR-BE-001 |
 | 7 | P0 | Constant-time API key comparison using `subtle::ConstantTimeEq`; identical responses for all invalid keys | 1d | Pending | T-009, T-003 |
 | 8 | P0 | Secure API key generation: CSPRNG 192-bit entropy, `gk_live_` prefix, Base58 encoding, CRC32 checksum | 1d | Pending | T-009, T-003 |
@@ -1095,8 +1129,8 @@ Contact: security@[company].com
 | 14 | P0 | Cost-based circuit breaker: per-organization hard cap; HTTP 429 when budget exceeded | 3d | Pending | T-007, R-FIN-001 |
 | 15 | P0 | Tiered rate limiting: per-org requests/minute, tokens/minute, tokens/day, max cost/day | 2d | Pending | T-007, T-006 |
 | 16 | P0 | Request size limits: max body 1MB, max 50 messages, max 100KB per message | 1d | Pending | STR-BE-010 |
-| 17 | P0 | URL whitelist for providers: only pre-approved domains; reject all others | 1d | Pending | T-005 |
-| 18 | P0 | Internal IP blocklist for SSRF: reject 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 | 1d | Pending | T-005 |
+| 17 | P0 | URL whitelist for providers: only pre-approved domains; reject all others | 1d | Complete | T-005 |
+| 18 | P0 | Internal IP blocklist for SSRF: reject 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 | 1d | Complete | T-005 |
 | 19 | P0 | No action based on LLM response: no URL prefetching, no response-activated webhooks | 1d | Pending | T-002 |
 | 20 | P0 | Structured logging with redaction: replace `sk-\w+` with `[REDACTED]`; never log bodies | 1d | Pending | T-011, R-TECH-006 |
 | 21 | P0 | TLS 1.3 preferred, TLS 1.2 minimum for all external connections; HSTS header | 1d | Pending | R-TECH-005 |
@@ -1104,6 +1138,9 @@ Contact: security@[company].com
 | 23 | P0 | Account lockout: 30-minute lock after 5 failed login attempts | 1d | Pending | T-009 |
 | 24 | P0 | HttpOnly Secure SameSite=Strict cookies for JWT session transport | 1d | Pending | STR-FE-001 |
 | 25 | P0 | Container hardening: non-root user, read-only fs, no-new-privileges, drop all capabilities | 2d | Pending | STR-DOCKER-007 |
+| 25a | P0 | OIDC state parameter CSRF protection: random nonce in Redis, 10-min TTL, one-time use | 1d | Complete | T-0096 |
+| 25b | P0 | SAML RelayState CSRF protection: random nonce in Redis, 10-min TTL, one-time use | 1d | Complete | T-0096 |
+| 25c | P0 | SSO admin endpoints enforce RBAC (`settings:read` / `settings:write`) + org_id verification | 1d | Complete | T-0096 |
 
 ### Must Have Within 30 Days (P1)
 

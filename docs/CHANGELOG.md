@@ -69,6 +69,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- **SSRF Protection** — Webhook and provider base URLs are validated against private IP ranges (RFC 1918), loopback, link-local, multicast, and well-known internal hostnames (`localhost`). Only `http`/`https` schemes are allowed.
+- **OIDC CSRF Protection** — `/api/v1/auth/oidc/authorize` now generates a cryptographically random 256-bit state nonce stored in Redis (10-min TTL). `/api/v1/auth/oidc/callback` verifies the state and deletes it after one-time use.
+- **SAML CSRF Protection** — New `/api/v1/auth/saml/authorize` endpoint generates a random RelayState stored in Redis. `/api/v1/auth/saml/acs` verifies RelayState before processing the SAML response.
+- **SSO Admin RBAC** — `GET/POST /organizations/:org_id/sso` and `DELETE /organizations/:org_id/sso/:provider_type` now require `SettingsRead` / `SettingsWrite` permissions.
+- **Cross-Organization Access Control** — Added `auth.org_id != org_id` checks to quotas, usage, and SSO admin endpoints to prevent cross-tenant data access.
+
+### Changed
+
+- **Zero Clippy Warnings** — `cargo clippy --workspace --all-targets --all-features` now passes with 0 warnings. This includes boxing `ApiError` in helper functions to satisfy `result_large_err` lint and refactoring `gateway-solo` into a library with separate binary entry points.
+- **SSO Redirects** — SAML ACS and OIDC callback no longer hardcode `/`; they redirect to the first configured `allowed_origins` URL.
+
 ### Planned
 
 - Full API key DB verification middleware

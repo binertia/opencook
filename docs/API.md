@@ -295,4 +295,57 @@ const response = await client.chat.completions.create({
 
 ---
 
+---
+
+## SSO Authentication (Enterprise)
+
+### OIDC
+
+#### Initiate Login
+
+```bash
+GET /api/v1/auth/oidc/authorize?org_id={org_id}
+```
+
+Generates a random `state` nonce, stores it in Redis (10-minute TTL), and redirects the browser to the configured OIDC identity provider. The user authenticates with the IdP and is redirected back to the callback URL.
+
+#### Callback
+
+```bash
+GET /api/v1/auth/oidc/callback?code={code}&state={state}
+```
+
+Verifies the `state` parameter against Redis (one-time use), exchanges the authorization code for tokens, provisions the user if necessary, and redirects to the configured `allowed_origins` URL.
+
+### SAML 2.0
+
+#### Initiate Login
+
+```bash
+GET /api/v1/auth/saml/authorize?org_id={org_id}
+```
+
+Generates a random `RelayState` nonce, stores it in Redis (10-minute TTL), and redirects the browser to the configured SAML identity provider with an AuthnRequest.
+
+#### Assertion Consumer Service (ACS)
+
+```bash
+POST /api/v1/auth/saml/acs
+Content-Type: application/x-www-form-urlencoded
+
+SAMLResponse={base64_response}&RelayState={relay_state}
+```
+
+Verifies the `RelayState` against Redis (one-time use), parses the SAML assertion, provisions the user if necessary, and redirects to the configured `allowed_origins` URL.
+
+### SSO Admin Configuration
+
+All SSO admin endpoints require a JWT session with `settings:read` or `settings:write` permission. The path `org_id` must match the caller's active organization.
+
+| Method | Endpoint | Permission | Description |
+|--------|----------|------------|-------------|
+| GET | `/api/v1/organizations/:org_id/sso` | `settings:read` | List configured SSO providers |
+| POST | `/api/v1/organizations/:org_id/sso` | `settings:write` | Create or update SSO config |
+| DELETE | `/api/v1/organizations/:org_id/sso/:provider_type` | `settings:write` | Delete SSO config (`saml` or `oidc`) |
+
 For complete request/response schemas, webhook formats, and SSE streaming details, see **[API_SPEC.md](API_SPEC.md)**.
