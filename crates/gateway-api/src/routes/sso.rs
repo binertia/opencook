@@ -10,6 +10,7 @@ use gateway_auth::sso::SsoAuthResult;
 use gateway_auth::sso::saml::SamlProvider;
 use gateway_auth::sso::oidc::OidcProvider;
 use gateway_db::{SsoConfigRepo, SsoProviderType as DbSsoProviderType, UserRepo, OrgMemberRepo};
+use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use uuid::Uuid;
@@ -97,18 +98,83 @@ pub async fn list_sso_providers(
     Ok(Json(providers))
 }
 
+// ── SAML Authorization ───────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct SamlAuthorizeQuery {
+    pub org_id: Uuid,
+}
+
+pub async fn saml_authorize(
+    State(state): State<AppState>,
+    Query(query): Query<SamlAuthorizeQuery>,
+) -> Result<Redirect, ApiError> {
+    let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
+    let config = repo
+        .get_by_org_and_type(query.org_id, DbSsoProviderType::Saml)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "sso_not_configured", "SAML not configured for this organization"))?;
+
+    // Generate a cryptographically random RelayState for CSRF protection
+    let mut random_bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut random_bytes);
+    let relay_state = hex::encode(random_bytes);
+
+    // Store relay_state -> org_id mapping in Redis with 10-minute TTL
+    let redis_key = format!("sso:saml:relay:{}", relay_state);
+    let _: () = redis::cmd("SETEX")
+        .arg(&redis_key)
+        .arg(600)
+        .arg(query.org_id.to_string())
+        .query_async(&mut state.redis.clone())
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+
+    let provider = SamlProvider::new(
+        config.entity_id.unwrap_or_default(),
+        format!("{}/api/v1/auth/saml/acs", state.config.allowed_origins.first().unwrap_or(&"http://localhost:8080".to_string())),
+        config.sso_url.unwrap_or_default(),
+        config.certificate,
+        config.role_attribute,
+    );
+
+    let url = provider
+        .authn_request_url(&relay_state)
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "saml_error", e.to_string()))?;
+
+    Ok(Redirect::to(&url))
+}
+
 // ── SAML ACS ─────────────────────────────────────────────────────────
 
 pub async fn saml_acs(
     State(state): State<AppState>,
     axum::Form(payload): axum::Form<SamlAcsPayload>,
 ) -> Result<Redirect, ApiError> {
-    // Extract org_id from RelayState
-    let org_id = payload
-        .relay_state
-        .as_deref()
-        .and_then(|s| Uuid::parse_str(s).ok())
-        .ok_or_else(|| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Missing or invalid RelayState"))?;
+    let relay_state = payload.relay_state.as_deref()
+        .ok_or_else(|| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Missing RelayState"))?;
+
+    // Verify RelayState against Redis (CSRF protection)
+    let redis_key = format!("sso:saml:relay:{}", relay_state);
+    let org_id_str: Option<String> = redis::cmd("GET")
+        .arg(&redis_key)
+        .query_async(&mut state.redis.clone())
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+
+    let org_id = match org_id_str {
+        Some(s) => Uuid::parse_str(&s)
+            .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Invalid RelayState"))?,
+        None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "RelayState expired or invalid")),
+    };
+
+    // Delete the relay key (one-time use)
+    let _: () = redis::cmd("DEL")
+        .arg(&redis_key)
+        .query_async(&mut state.redis.clone())
+        .await
+        .unwrap_or(());
 
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let config = repo
@@ -133,8 +199,10 @@ pub async fn saml_acs(
 
     info!(user_id = %user.id, org_id = %org_id, "SAML login successful");
 
-    // Redirect to dashboard with session token
-    Ok(Redirect::to("/"))
+    let dashboard_url = state.config.allowed_origins.first()
+        .cloned()
+        .unwrap_or_else(|| "http://localhost:8080".to_string());
+    Ok(Redirect::to(&dashboard_url))
 }
 
 // ── OIDC Authorization ───────────────────────────────────────────────
@@ -167,7 +235,21 @@ pub async fn oidc_authorize(
         config.role_attribute,
     );
 
-    let state_param = query.org_id.to_string();
+    // Generate a cryptographically random state nonce for CSRF protection
+    let mut random_bytes = [0u8; 32];
+    rand::thread_rng().fill_bytes(&mut random_bytes);
+    let state_param = hex::encode(random_bytes);
+
+    // Store state -> org_id mapping in Redis with 10-minute TTL
+    let redis_key = format!("sso:oidc:state:{}", state_param);
+    let _: () = redis::cmd("SETEX")
+        .arg(&redis_key)
+        .arg(600)
+        .arg(query.org_id.to_string())
+        .query_async(&mut state.redis.clone())
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+
     let nonce = Uuid::new_v4().to_string();
 
     let url = provider.authorization_url(&state_param, &nonce);
@@ -180,8 +262,26 @@ pub async fn oidc_callback(
     State(state): State<AppState>,
     Query(query): Query<OidcCallbackQuery>,
 ) -> Result<Redirect, ApiError> {
-    let org_id = Uuid::parse_str(&query.state)
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "Invalid state parameter"))?;
+    // Verify state parameter against Redis (CSRF protection)
+    let redis_key = format!("sso:oidc:state:{}", query.state);
+    let org_id_str: Option<String> = redis::cmd("GET")
+        .arg(&redis_key)
+        .query_async(&mut state.redis.clone())
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+
+    let org_id = match org_id_str {
+        Some(s) => Uuid::parse_str(&s)
+            .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "Invalid state parameter"))?,
+        None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "State parameter expired or invalid")),
+    };
+
+    // Delete the state key (one-time use)
+    let _: () = redis::cmd("DEL")
+        .arg(&redis_key)
+        .query_async(&mut state.redis.clone())
+        .await
+        .unwrap_or(());
 
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let config = repo
@@ -216,7 +316,10 @@ pub async fn oidc_callback(
 
     info!(user_id = %user.id, org_id = %org_id, "OIDC login successful");
 
-    Ok(Redirect::to("/"))
+    let dashboard_url = state.config.allowed_origins.first()
+        .cloned()
+        .unwrap_or_else(|| "http://localhost:8080".to_string());
+    Ok(Redirect::to(&dashboard_url))
 }
 
 // ── Admin: SSO Config CRUD ───────────────────────────────────────────

@@ -162,6 +162,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/cache/semantic-stats", get(cache::get_semantic_cache_stats))
         // SSO public endpoints
         .route("/api/v1/auth/sso/providers", get(sso::list_sso_providers))
+        .route("/api/v1/auth/saml/authorize", get(sso::saml_authorize))
         .route("/api/v1/auth/saml/acs", post(sso::saml_acs))
         .route("/api/v1/auth/oidc/authorize", get(sso::oidc_authorize))
         .route("/api/v1/auth/oidc/callback", get(sso::oidc_callback))
