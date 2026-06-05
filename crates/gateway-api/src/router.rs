@@ -112,6 +112,12 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/auth/refresh", post(auth::refresh))
         .route("/v1/auth/forgot-password", post(auth::forgot_password))
         .route("/v1/auth/reset-password", post(auth::reset_password))
+        // SSO public endpoints (IdP callbacks must not require authentication)
+        .route("/api/v1/auth/sso/providers", get(sso::list_sso_providers))
+        .route("/api/v1/auth/saml/authorize", get(sso::saml_authorize))
+        .route("/api/v1/auth/saml/acs", post(sso::saml_acs))
+        .route("/api/v1/auth/oidc/authorize", get(sso::oidc_authorize))
+        .route("/api/v1/auth/oidc/callback", get(sso::oidc_callback))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             auth_rate_limit_middleware,
@@ -160,12 +166,6 @@ pub fn build_router(state: AppState) -> Router {
         // Cache stats
         .route("/api/v1/cache/stats", get(cache::get_cache_stats))
         .route("/api/v1/cache/semantic-stats", get(cache::get_semantic_cache_stats))
-        // SSO public endpoints
-        .route("/api/v1/auth/sso/providers", get(sso::list_sso_providers))
-        .route("/api/v1/auth/saml/authorize", get(sso::saml_authorize))
-        .route("/api/v1/auth/saml/acs", post(sso::saml_acs))
-        .route("/api/v1/auth/oidc/authorize", get(sso::oidc_authorize))
-        .route("/api/v1/auth/oidc/callback", get(sso::oidc_callback))
         .layer(middleware::from_fn_with_state(
             state.redis.clone(),
             rate_limit_middleware,

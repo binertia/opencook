@@ -176,9 +176,9 @@ pub async fn saml_acs(
     let relay_state = payload.relay_state.as_deref()
         .ok_or_else(|| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Missing RelayState"))?;
 
-    // Verify RelayState against Redis (CSRF protection)
+    // Verify RelayState against Redis and atomically delete it (CSRF + replay protection)
     let redis_key = format!("sso:saml:relay:{}", relay_state);
-    let org_id_str: Option<String> = redis::cmd("GET")
+    let org_id_str: Option<String> = redis::cmd("GETDEL")
         .arg(&redis_key)
         .query_async(&mut state.redis.clone())
         .await
@@ -189,13 +189,6 @@ pub async fn saml_acs(
             .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Invalid RelayState"))?,
         None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "RelayState expired or invalid")),
     };
-
-    // Delete the relay key (one-time use)
-    let _: () = redis::cmd("DEL")
-        .arg(&redis_key)
-        .query_async(&mut state.redis.clone())
-        .await
-        .unwrap_or(());
 
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let config = repo
@@ -283,9 +276,9 @@ pub async fn oidc_callback(
     State(state): State<AppState>,
     Query(query): Query<OidcCallbackQuery>,
 ) -> Result<Redirect, ApiError> {
-    // Verify state parameter against Redis (CSRF protection)
+    // Verify state parameter against Redis and atomically delete it (CSRF + replay protection)
     let redis_key = format!("sso:oidc:state:{}", query.state);
-    let org_id_str: Option<String> = redis::cmd("GET")
+    let org_id_str: Option<String> = redis::cmd("GETDEL")
         .arg(&redis_key)
         .query_async(&mut state.redis.clone())
         .await
@@ -296,13 +289,6 @@ pub async fn oidc_callback(
             .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "Invalid state parameter"))?,
         None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "State parameter expired or invalid")),
     };
-
-    // Delete the state key (one-time use)
-    let _: () = redis::cmd("DEL")
-        .arg(&redis_key)
-        .query_async(&mut state.redis.clone())
-        .await
-        .unwrap_or(());
 
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let config = repo
