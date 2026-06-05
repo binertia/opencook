@@ -72,8 +72,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Security
 
 - **SSRF Protection** — Webhook and provider base URLs are validated against private IP ranges (RFC 1918), loopback, link-local, multicast, and well-known internal hostnames (`localhost`). Only `http`/`https` schemes are allowed.
-- **OIDC CSRF Protection** — `/api/v1/auth/oidc/authorize` now generates a cryptographically random 256-bit state nonce stored in Redis (10-min TTL). `/api/v1/auth/oidc/callback` verifies the state and deletes it after one-time use.
-- **SAML CSRF Protection** — New `/api/v1/auth/saml/authorize` endpoint generates a random RelayState stored in Redis. `/api/v1/auth/saml/acs` verifies RelayState before processing the SAML response.
+- **OIDC CSRF Protection** — `/api/v1/auth/oidc/authorize` now generates a cryptographically random 256-bit state nonce stored in Redis (10-min TTL). `/api/v1/auth/oidc/callback` atomically verifies and deletes the nonce using `GETDEL`.
+- **SAML CSRF Protection** — New `/api/v1/auth/saml/authorize` endpoint generates a random RelayState stored in Redis. `/api/v1/auth/saml/acs` atomically verifies and deletes the nonce using `GETDEL`.
+- **SSO Route Authorization Fix** — Public SSO endpoints (`/api/v1/auth/saml/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/sso/providers`) are no longer behind `auth_middleware`. IdP callbacks and authorize entry points are public by design, with strict per-IP auth rate limiting (10 req/min).
 - **SSO Admin RBAC** — `GET/POST /organizations/:org_id/sso` and `DELETE /organizations/:org_id/sso/:provider_type` now require `SettingsRead` / `SettingsWrite` permissions.
 - **Cross-Organization Access Control** — Added `auth.org_id != org_id` checks to quotas, usage, and SSO admin endpoints to prevent cross-tenant data access.
 
@@ -84,7 +85,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Planned
 
-- Full API key DB verification middleware
 - Dashboard user registration and login flow
 - Webhook event dispatch
 - Semantic cache implementation

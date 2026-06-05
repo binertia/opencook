@@ -310,8 +310,8 @@ Both SAML and OIDC login flows use cryptographically random nonces stored in Red
 
 | Flow | Nonce Mechanism | Storage | Verification |
 |------|----------------|---------|--------------|
-| **OIDC** | `state` parameter — 32 bytes of randomness, hex-encoded | `sso:oidc:state:{nonce}` → `org_id` | `/api/v1/auth/oidc/callback` reads the Redis key, validates the `org_id`, and immediately deletes the key |
-| **SAML** | `RelayState` parameter — 32 bytes of randomness, hex-encoded | `sso:saml:relay:{nonce}` → `org_id` | `/api/v1/auth/saml/acs` reads the Redis key, validates the `org_id`, and immediately deletes the key |
+| **OIDC** | `state` parameter — 32 bytes of randomness, hex-encoded | `sso:oidc:state:{nonce}` → `org_id` | `/api/v1/auth/oidc/callback` atomically reads and deletes the Redis key (`GETDEL`), validates the `org_id`, and rejects replays |
+| **SAML** | `RelayState` parameter — 32 bytes of randomness, hex-encoded | `sso:saml:relay:{nonce}` → `org_id` | `/api/v1/auth/saml/acs` atomically reads and deletes the Redis key (`GETDEL`), validates the `org_id`, and rejects replays |
 
 **Attack prevented:** An attacker cannot trick a user into completing an IdP login against a victim organization. Even if the attacker knows the target `org_id` (UUID), they cannot forge a valid `state`/`RelayState` nonce.
 
