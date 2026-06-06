@@ -607,6 +607,23 @@ This allows development without API keys. For integration testing, the user has 
 2. ~~**Request Cancellation** (TASK-0066)~~ — **RESOLVED.** `gateway-core/src/cancellation.rs` provides full cancellation token propagation, disconnect detection, and abort guarantees; integrated in chat handler and streaming pipeline.
 3. ~~**API Key DB Verification**~~ — **RESOLVED.** Auth middleware validates all API keys via `ApiKeyRepo::find_by_key_hash` with Redis caching; no stub validation paths remain.
 
+### Frontend Routing & Auth Fixes (This Swarm)
+
+1. **Dev-mode basename** — `BrowserRouter basename` is now conditional (`undefined` in dev, `/admin` in production) so dev server at `localhost:5173` routes correctly without requiring the `/admin` prefix.
+2. **Removed hardcoded `<base href="/admin/">`** from `index.html` — Vite handles base paths via its `base` config; the hardcoded tag caused asset resolution conflicts in dev.
+3. **Fixed infinite redirect loop on login page** — `frontend/src/lib/api.ts` had a global `afterResponse` hook that did `window.location.href = '/login'` on every 401, even when already on the login page. This caused `fetchMe()` (called in `App.tsx` on mount) to trigger an infinite reload loop. Fixed by:
+   - Computing `LOGIN_PATH` from `import.meta.env.BASE_URL` so it respects the Vite base path (`/login` in dev, `/admin/login` in production)
+   - Skipping the redirect when `window.location.pathname === LOGIN_PATH`
+4. **JWT token storage & API auth headers** — The frontend login received JWT tokens from the backend but never stored or sent them. Fixed by:
+   - Adding `accessToken` to `authStore.ts`
+   - Updating `useAuth.ts` to store `data.access_token` on login/refresh
+   - Updating `api.ts` `beforeRequest` hook to inject `Authorization: Bearer <token>` from the store
+5. **Backend `/api/v1/auth/*` route aliases** — The frontend uses `/api` prefix for all API calls (`/api/v1/auth/login`), but backend auth routes were at `/v1/auth/login` without `/api` aliases. Added `/api/v1/auth/*` aliases to `auth_routes` and `api_routes` in `router.rs`.
+6. **Vite proxy rewrite** — Added explicit `rewrite: (path) => path.replace(/^\/api/, '')` to Vite dev proxy config.
+7. **SQLite schema fix** — The `users` table in `init_sqlite_schema()` had `failed_login_attempts` and `locked_until` columns, but the existing `data/gateway.db` was created before these columns existed. Added `ALTER TABLE` to fix the database.
+8. **Default admin password** — Seeded user `admin@localhost` had `password_hash = NULL`. Generated Argon2id hash for password `admin` and updated the DB. Also changed email to `admin@example.com` to pass frontend email validation.
+9. **Dashboard renders correctly** — Full login → dashboard flow works in headless Chromium. Screenshot verified.
+
 ---
 
 ## 9. Rules for Implementation Swarms
@@ -622,7 +639,7 @@ This allows development without API keys. For integration testing, the user has 
 
 ---
 
-*Document version: 7.1*
+*Document version: 7.3*
 *Generated from: VISION.md, PRODUCT.md, MARKET.md, ARCHITECTURE.md, TECH_STACK.md, API_SPEC.md, DATABASE.md, AUTH.md, CACHE.md, SECURITY.md, ROADMAP.md, EPICS.md, COMPETITORS.md, MONETIZATION.md, 8 ADRs, tasks/INDEX.md*
 *Last updated: 2026-06-06*
-*Current swarm: All 102 tasks complete. Test suite hardened against real auth middleware. All backend gaps resolved. Project ready for release testing.*
+*Current swarm: All 102 tasks complete. Frontend auth, routing, and JWT token flow fully fixed. Dashboard login→render verified in dev mode. Project ready for release testing.*

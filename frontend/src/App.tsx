@@ -44,12 +44,15 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 
 function App() {
   const { fetchMe } = useAuth()
+  const location = useLocation()
 
   useEffect(() => {
+    // Skip auth check on login page to avoid 401 spam before user logs in
+    if (location.pathname === '/login') return
     fetchMe().catch(() => {
       // Unauthenticated — handled by RequireAuth
     })
-  }, [fetchMe])
+  }, [fetchMe, location.pathname])
 
   return (
     <Routes>

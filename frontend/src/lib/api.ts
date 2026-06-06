@@ -1,6 +1,8 @@
 import ky, { HTTPError } from 'ky'
+import { useAuthStore } from '@/store/authStore'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+const LOGIN_PATH = `${import.meta.env.BASE_URL}login`.replace(/\/+$/, '')
 
 export const api = ky.create({
   prefixUrl: API_BASE_URL,
@@ -11,14 +13,22 @@ export const api = ky.create({
       (request) => {
         request.headers.set('Accept', 'application/json')
         request.headers.set('Content-Type', 'application/json')
+        const token = useAuthStore.getState().accessToken
+        if (token) {
+          request.headers.set('Authorization', `Bearer ${token}`)
+        }
       },
     ],
     afterResponse: [
       async (_request, _options, response) => {
         if (response.status === 401) {
-          const currentPath = window.location.pathname + window.location.search
-          const returnUrl = encodeURIComponent(currentPath)
-          window.location.href = `/login?returnUrl=${returnUrl}`
+          const currentPath = window.location.pathname
+          // Avoid infinite redirect loop when already on the login page
+          if (currentPath === LOGIN_PATH) {
+            return response
+          }
+          const returnUrl = encodeURIComponent(currentPath + window.location.search)
+          window.location.href = `${LOGIN_PATH}?returnUrl=${returnUrl}`
         }
         return response
       },

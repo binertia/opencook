@@ -143,10 +143,15 @@ pub fn build_router(state: AppState) -> Router {
     // Auth routes: public, but with strict per-IP rate limiting.
     let auth_routes = Router::new()
         .route("/v1/auth/login", post(auth::login))
+        .route("/api/v1/auth/login", post(auth::login))
         .route("/v1/auth/logout", post(auth::logout))
+        .route("/api/v1/auth/logout", post(auth::logout))
         .route("/v1/auth/refresh", post(auth::refresh))
+        .route("/api/v1/auth/refresh", post(auth::refresh))
         .route("/v1/auth/forgot-password", post(auth::forgot_password))
+        .route("/api/v1/auth/forgot-password", post(auth::forgot_password))
         .route("/v1/auth/reset-password", post(auth::reset_password))
+        .route("/api/v1/auth/reset-password", post(auth::reset_password))
         // SSO public endpoints (IdP callbacks must not require authentication)
         .route("/api/v1/auth/sso/providers", get(sso::list_sso_providers))
         .route("/api/v1/auth/saml/authorize", get(sso::saml_authorize))
@@ -162,14 +167,21 @@ pub fn build_router(state: AppState) -> Router {
     let api_routes = Router::new()
         // Auth routes requiring authentication
         .route("/v1/auth/me", get(auth::me))
+        .route("/api/v1/auth/me", get(auth::me))
         .route("/v1/auth/switch-org", post(auth::switch_org))
+        .route("/api/v1/auth/switch-org", post(auth::switch_org))
         // Organization routes
         .route(
             "/v1/organizations",
             post(organizations::create_organization),
         )
+        .route(
+            "/api/v1/organizations",
+            post(organizations::create_organization),
+        )
         // Dashboard
         .route("/v1/dashboard", get(dashboard::get_dashboard))
+        .route("/api/v1/dashboard", get(dashboard::get_dashboard))
         // User routes
         .route("/v1/users", get(users::list_users).post(users::create_user))
         .route(

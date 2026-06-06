@@ -27,7 +27,7 @@ export function useAuth() {
           json: credentials,
         })
         const data = await response.json<LoginResponse>()
-        store.login(data.user)
+        store.login(data.user, data.access_token)
         return { success: true }
       } catch (error) {
         const apiError = await parseApiError(error)
@@ -51,8 +51,8 @@ export function useAuth() {
   const refresh = useCallback(async (): Promise<boolean> => {
     try {
       const response = await api.post('v1/auth/refresh')
-      const data = await response.json<{ user: User }>()
-      store.login(data.user)
+      const data = await response.json<LoginResponse>()
+      store.login(data.user, data.access_token)
       return true
     } catch {
       store.logout()
@@ -64,7 +64,9 @@ export function useAuth() {
     try {
       const response = await api.get('v1/auth/me')
       const data = await response.json<User>()
-      store.login(data)
+      store.setUser(data)
+      store.setAuthenticated(true)
+      store.setLoading(false)
       return true
     } catch {
       store.logout()
