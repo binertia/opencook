@@ -61,9 +61,20 @@ describe('OrganizationSettings', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGet.mockResolvedValue({
-      json: () => Promise.resolve(mockOrg),
-    } as never)
+    mockGet.mockImplementation((url: string) => {
+      if (url.includes('semantic-stats')) {
+        return Promise.resolve({
+          json: () => Promise.resolve({
+            org_id: 'org_123',
+            total_entries: 0,
+            newest_entry: null,
+          }),
+        } as never)
+      }
+      return Promise.resolve({
+        json: () => Promise.resolve(mockOrg),
+      } as never)
+    })
   })
 
   it('loads and displays organization data', async () => {
