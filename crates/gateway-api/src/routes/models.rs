@@ -10,8 +10,9 @@ use gateway_db::ModelRegistry;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use validator::Validate;
 
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, extractors::ValidatedJson, state::AppState};
 
 #[derive(Serialize)]
 pub struct ModelListResponse {
@@ -153,10 +154,21 @@ pub async fn get_model(
     }
 }
 
+fn validate_non_negative_decimal(value: &Decimal) -> Result<(), validator::ValidationError> {
+    if *value < Decimal::ZERO {
+        let mut err = validator::ValidationError::new("negative_value");
+        err.message = Some("Value must be non-negative".into());
+        return Err(err);
+    }
+    Ok(())
+}
+
 /// Pricing update request body.
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UpdatePricingRequest {
+    #[validate(custom(function = "validate_non_negative_decimal"))]
     pub input_cost_per_1k: Decimal,
+    #[validate(custom(function = "validate_non_negative_decimal"))]
     pub output_cost_per_1k: Decimal,
 }
 
@@ -167,7 +179,7 @@ pub async fn update_pricing(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
     Path((provider_id, model_id)): Path<(Uuid, String)>,
-    Json(body): Json<UpdatePricingRequest>,
+    ValidatedJson(body): ValidatedJson<UpdatePricingRequest>,
 ) -> Result<StatusCode, ApiError> {
     // Only owners and admins can update pricing
     let role = auth.role.as_deref().unwrap_or("viewer");

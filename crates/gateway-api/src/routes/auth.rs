@@ -253,6 +253,7 @@ pub async fn login(
     State(state): State<AppState>,
     Extension(ctx): Extension<AuditRequestContext>,
     cookies: Cookies,
+    headers: axum::http::HeaderMap,
     ValidatedJson(body): ValidatedJson<LoginRequest>,
 ) -> Result<Json<LoginResponse>, ApiError> {
     let repo = UserRepo::new(state.db_pool.clone());
@@ -400,7 +401,7 @@ pub async fn login(
     .await;
 
     let csrf_token = generate_token();
-    let secure_cookie = state.config.tls_cert.is_some();
+    let secure_cookie = state.config.secure_cookie(Some(&headers));
     set_csrf_cookie(&cookies, &csrf_token, secure_cookie);
 
     let user_resp = build_user_response(&user, &org_repo).await?;
@@ -421,13 +422,56 @@ pub struct LogoutRequest {
     pub refresh_token: String,
 }
 
+async fn blocklist_access_token(state: &AppState, token: &str) -> Result<(), ApiError> {
+    let claims = state.jwt.verify_access(token).map_err(|e| match e {
+        gateway_auth::AuthError::TokenExpired => ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "token_expired",
+            "Access token expired",
+        ),
+        _ => ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid access token",
+        ),
+    })?;
+
+    let mut conn = state.redis.clone();
+    let key = format!("auth:blocklist:access:{}", claims.jti);
+    let _: () = redis::cmd("SETEX")
+        .arg(&key)
+        .arg(900) // 15 minutes, matching access token expiry
+        .arg("1")
+        .query_async(&mut conn)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
+
+    Ok(())
+}
+
 /// POST /v1/auth/logout
 ///
-/// Revokes the provided refresh token by adding its JTI to a Redis blocklist.
+/// Revokes both the access token (from Authorization header) and the
+/// provided refresh token by adding their JTIs to a Redis blocklist.
 pub async fn logout(
     State(state): State<AppState>,
+    Extension(_auth): Extension<AuthContext>,
+    headers: axum::http::HeaderMap,
     ValidatedJson(body): ValidatedJson<LogoutRequest>,
 ) -> Result<impl IntoResponse, ApiError> {
+    // Blocklist the access token from the Authorization header
+    if let Some(auth_header) = headers.get("authorization").and_then(|h| h.to_str().ok()) {
+        if let Some(token) = auth_header.strip_prefix("Bearer ").or_else(|| auth_header.strip_prefix("bearer ")) {
+            let _ = blocklist_access_token(&state, token).await;
+        }
+    }
+    // Blocklist the refresh token
     blocklist_refresh_token(&state, &body.refresh_token).await?;
     Ok(Json(json!({ "status": "ok" })))
 }
@@ -574,6 +618,7 @@ pub async fn switch_org(
     Extension(auth): Extension<AuthContext>,
     Extension(ctx): Extension<AuditRequestContext>,
     cookies: Cookies,
+    headers: axum::http::HeaderMap,
     ValidatedJson(body): ValidatedJson<SwitchOrgRequest>,
 ) -> Result<Json<SwitchOrgResponse>, ApiError> {
     let user_id = auth.user_id.ok_or_else(|| {
@@ -674,7 +719,7 @@ pub async fn switch_org(
     .await;
 
     let csrf_token = generate_token();
-    let secure_cookie = state.config.tls_cert.is_some();
+    let secure_cookie = state.config.secure_cookie(Some(&headers));
     set_csrf_cookie(&cookies, &csrf_token, secure_cookie);
 
     let user_resp = build_user_response(&user, &org_repo).await?;

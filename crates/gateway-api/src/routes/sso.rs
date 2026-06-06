@@ -223,6 +223,7 @@ pub async fn saml_authorize(
 pub async fn saml_acs(
     State(state): State<AppState>,
     cookies: Cookies,
+    headers: axum::http::HeaderMap,
     axum::Form(payload): axum::Form<SamlAcsPayload>,
 ) -> Result<Redirect, ApiError> {
     let relay_state = payload.relay_state.as_deref().ok_or_else(|| {
@@ -306,7 +307,7 @@ pub async fn saml_acs(
 
     info!(user_id = %user.id, org_id = %org_id, "SAML login successful");
 
-    issue_sso_session_and_redirect(&state, &cookies, user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
+    issue_sso_session_and_redirect(&state, &cookies, Some(&headers), user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
 }
 
 // ── OIDC Authorization ───────────────────────────────────────────────
@@ -387,6 +388,7 @@ pub async fn oidc_authorize(
 pub async fn oidc_callback(
     State(state): State<AppState>,
     cookies: Cookies,
+    headers: axum::http::HeaderMap,
     Query(query): Query<OidcCallbackQuery>,
 ) -> Result<Redirect, ApiError> {
     // Verify state parameter against Redis and atomically delete it (CSRF + replay protection)
@@ -475,7 +477,7 @@ pub async fn oidc_callback(
 
     info!(user_id = %user.id, org_id = %org_id, "OIDC login successful");
 
-    issue_sso_session_and_redirect(&state, &cookies, user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
+    issue_sso_session_and_redirect(&state, &cookies, Some(&headers), user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
 }
 
 // ── Admin: SSO Config CRUD ───────────────────────────────────────────
@@ -713,6 +715,7 @@ async fn provision_user(
 async fn issue_sso_session_and_redirect(
     state: &AppState,
     cookies: &Cookies,
+    headers: Option<&axum::http::HeaderMap>,
     user: gateway_db::User,
     org_id: Uuid,
     email: &str,
@@ -738,7 +741,7 @@ async fn issue_sso_session_and_redirect(
     })?;
 
     let csrf_token = generate_token();
-    let secure_cookie = state.config.tls_cert.is_some();
+    let secure_cookie = state.config.secure_cookie(headers);
     set_csrf_cookie(cookies, &csrf_token, secure_cookie);
 
     let dashboard_url = state

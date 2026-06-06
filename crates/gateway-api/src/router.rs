@@ -159,7 +159,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/auth/oidc/authorize", get(sso::oidc_authorize))
         .route("/api/v1/auth/oidc/callback", get(sso::oidc_callback))
         .layer(middleware::from_fn_with_state(
-            state.redis.clone(),
+            state.clone(),
             auth_rate_limit_middleware,
         ));
 
@@ -271,7 +271,7 @@ pub fn build_router(state: AppState) -> Router {
             get(cache::get_semantic_cache_stats),
         )
         .layer(middleware::from_fn_with_state(
-            state.redis.clone(),
+            state.clone(),
             rate_limit_middleware,
         ))
         .layer(middleware::from_fn(csrf_middleware))
@@ -316,7 +316,7 @@ pub fn build_router(state: AppState) -> Router {
         )
         .layer(middleware::from_fn(csrf_middleware))
         .layer(middleware::from_fn_with_state(
-            state.redis.clone(),
+            state.clone(),
             rate_limit_middleware,
         ))
         .layer(middleware::from_fn_with_state(

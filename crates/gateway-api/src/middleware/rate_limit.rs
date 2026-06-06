@@ -18,10 +18,9 @@ use axum::{
 };
 use gateway_auth::AuthContext;
 use gateway_quota::{LayerCheck, LimitResult, RateLimiter};
-use redis::aio::ConnectionManager;
 use tracing::warn;
 
-use crate::error::ApiError;
+use crate::{error::ApiError, state::AppState};
 
 /// Default rate limits.
 const GLOBAL_RPS: u64 = 2000;
@@ -29,15 +28,33 @@ const GLOBAL_BURST: u64 = 4000;
 const IP_RPS: u64 = 100;
 const IP_BURST: u64 = 200;
 
+/// Extract client IP respecting `trusted_proxy_count` config.
+/// When `trusted_proxy_count` is 0, ignores `X-Forwarded-For` entirely.
+fn extract_client_ip(req: &Request, trusted_proxy_count: usize) -> String {
+    if trusted_proxy_count > 0 {
+        if let Some(xff) = req.headers().get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
+            let parts: Vec<&str> = xff.split(',').map(|s| s.trim()).collect();
+            if parts.len() > trusted_proxy_count {
+                return parts[parts.len() - trusted_proxy_count - 1].to_string();
+            } else if let Some(last) = parts.last() {
+                return last.to_string();
+            }
+        }
+    }
+    req.headers()
+        .get("x-real-ip")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 /// Rate limit middleware: checks all layers and rejects if any limit is exceeded.
-///
-/// Uses `State<ConnectionManager>` as the state parameter for `from_fn_with_state`.
 pub async fn rate_limit_middleware(
-    State(redis): State<ConnectionManager>,
+    State(state): State<AppState>,
     req: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    let limiter = RateLimiter::new(redis);
+    let limiter = RateLimiter::new(state.redis.clone());
 
     // Extract auth context (set by auth_middleware)
     let auth = req
@@ -60,20 +77,8 @@ pub async fn rate_limit_middleware(
     let org_id = auth.org_id.to_string();
     let key_id = auth.key_id.map(|k| k.to_string()).unwrap_or_default();
 
-    // Extract client IP from X-Forwarded-For or X-Real-IP header
-    let client_ip = req
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .or_else(|| {
-            req.headers()
-                .get("x-real-ip")
-                .and_then(|h| h.to_str().ok())
-                .map(|s| s.to_string())
-        })
-        .unwrap_or_else(|| "unknown".to_string());
+    // Extract client IP respecting trusted proxy config
+    let client_ip = extract_client_ip(&req, state.config.trusted_proxy_count);
 
     // Build rate limit layers
     let mut layers: Vec<LayerCheck> = vec![];

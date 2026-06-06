@@ -72,7 +72,7 @@ pub async fn auth_middleware(
         api_key_auth(&state, token).await?
     } else {
         // Session JWT path
-        session_auth(&state, token)?
+        session_auth(&state, token).await?
     };
 
     // Attach context to request extensions for downstream handlers
@@ -175,7 +175,7 @@ async fn fetch_api_key_from_db(state: &AppState, key_hash: &str) -> Result<ApiKe
 }
 
 /// Verify a JWT access token and build auth context.
-fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, Box<ApiError>> {
+async fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, Box<ApiError>> {
     let claims = state.jwt.verify_access(token).map_err(|e| match e {
         gateway_auth::AuthError::TokenExpired => Box::new(ApiError::new(
             StatusCode::UNAUTHORIZED,
@@ -188,6 +188,21 @@ fn session_auth(state: &AppState, token: &str) -> Result<AuthContext, Box<ApiErr
             "Invalid access token",
         )),
     })?;
+
+    // SECURITY: Check if the access token has been revoked.
+    let mut conn = state.redis.clone();
+    let blocked: bool = redis::cmd("EXISTS")
+        .arg(format!("auth:blocklist:access:{}", claims.jti))
+        .query_async(&mut conn)
+        .await
+        .unwrap_or(false);
+    if blocked {
+        return Err(Box::new(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "token_revoked",
+            "Access token has been revoked",
+        )));
+    }
 
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
         Box::new(ApiError::new(

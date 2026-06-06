@@ -70,6 +70,10 @@ where
                 "referrer-policy",
                 HeaderValue::from_static("strict-origin-when-cross-origin"),
             );
+            headers.insert(
+                "permissions-policy",
+                HeaderValue::from_static("camera=(), microphone=(), geolocation=(), interest-cohort=()"),
+            );
 
             if is_https {
                 headers.insert(

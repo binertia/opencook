@@ -71,6 +71,10 @@ struct RawConfig {
     smtp_password: Option<String>,
     #[serde(default)]
     smtp_from: Option<String>,
+    #[serde(default)]
+    trust_x_forwarded_proto: bool,
+    #[serde(default)]
+    trusted_proxy_count: usize,
 }
 
 fn default_environment() -> String {
@@ -111,6 +115,8 @@ pub struct AppConfig {
     pub smtp_user: Option<String>,
     pub smtp_password: Option<String>,
     pub smtp_from: Option<String>,
+    pub trust_x_forwarded_proto: bool,
+    pub trusted_proxy_count: usize,
 }
 
 impl AppConfig {
@@ -153,6 +159,8 @@ impl AppConfig {
                 smtp_user: None,
                 smtp_password: None,
                 smtp_from: None,
+                trust_x_forwarded_proto: false,
+                trusted_proxy_count: 0,
             }
         });
 
@@ -223,9 +231,7 @@ impl AppConfig {
             database_url: raw
                 .database_url
                 .or_else(|| std::env::var("DATABASE_URL").ok())
-                .unwrap_or_else(|| {
-                    "postgres://gateway:gateway_dev_password@localhost:5432/gateway_dev".into()
-                }),
+                .expect("DATABASE_URL must be set"),
             redis_url: raw
                 .redis_url
                 .or_else(|| std::env::var("REDIS_URL").ok())
@@ -253,6 +259,8 @@ impl AppConfig {
             smtp_user: raw.smtp_user,
             smtp_password: raw.smtp_password,
             smtp_from: raw.smtp_from,
+            trust_x_forwarded_proto: raw.trust_x_forwarded_proto,
+            trusted_proxy_count: raw.trusted_proxy_count,
         }
     }
 }
@@ -268,6 +276,25 @@ impl AppConfig {
             secondary: self.master_key_previous,
         };
         gateway_auth::crypto::decrypt_with_keys(ciphertext, &pair)
+    }
+
+    /// Determine whether cookies should be marked Secure.
+    /// Returns true if TLS is configured locally, or if the deployment is
+    /// behind a TLS terminator and `trust_x_forwarded_proto` is enabled.
+    pub fn secure_cookie(&self, headers: Option<&axum::http::HeaderMap>) -> bool {
+        if self.tls_cert.is_some() {
+            return true;
+        }
+        if let Some(headers) = headers {
+            if self.trust_x_forwarded_proto {
+                return headers
+                    .get("x-forwarded-proto")
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.eq_ignore_ascii_case("https"))
+                    .unwrap_or(false);
+            }
+        }
+        false
     }
 }
 

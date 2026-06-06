@@ -107,8 +107,26 @@ pub async fn list_users(
     let limit = query.limit.clamp(1, 500);
     let offset = query.offset.max(0);
 
+    // Validate and sanitize search/status query params
+    let search = query.search.as_deref().map(|s| {
+        let trimmed = s.trim();
+        if trimmed.len() > 128 {
+            &trimmed[..128]
+        } else {
+            trimmed
+        }
+    });
+    let status = query.status.as_deref().map(|s| {
+        let trimmed = s.trim();
+        if trimmed.len() > 32 {
+            &trimmed[..32]
+        } else {
+            trimmed
+        }
+    });
+
     let (users, total) = repo
-        .list_by_org(org_id, query.search.as_deref(), query.status.as_deref(), limit, offset)
+        .list_by_org(org_id, search, status, limit, offset)
         .await
         .map_err(|e| {
             ApiError::new(

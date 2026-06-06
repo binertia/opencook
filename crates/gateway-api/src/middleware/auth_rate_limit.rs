@@ -11,36 +11,42 @@ use axum::{
     response::Response,
 };
 use gateway_quota::{LayerCheck, LimitResult, RateLimiter};
-use redis::aio::ConnectionManager;
 use tracing::warn;
 
-use crate::error::ApiError;
+use crate::{error::ApiError, state::AppState};
 
 /// Auth endpoint rate limit: 10 requests per minute per IP.
 const AUTH_IP_LIMIT: u64 = 10;
 const AUTH_WINDOW_SECS: u64 = 60;
 
+/// Extract client IP respecting `trusted_proxy_count` config.
+/// When `trusted_proxy_count` is 0, ignores `X-Forwarded-For` entirely.
+fn extract_client_ip(req: &Request, trusted_proxy_count: usize) -> String {
+    if trusted_proxy_count > 0 {
+        if let Some(xff) = req.headers().get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
+            let parts: Vec<&str> = xff.split(',').map(|s| s.trim()).collect();
+            if parts.len() > trusted_proxy_count {
+                return parts[parts.len() - trusted_proxy_count - 1].to_string();
+            } else if let Some(last) = parts.last() {
+                return last.to_string();
+            }
+        }
+    }
+    req.headers()
+        .get("x-real-ip")
+        .and_then(|h| h.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 /// Middleware enforcing a strict per-IP rate limit on authentication routes.
 pub async fn auth_rate_limit_middleware(
-    State(redis): State<ConnectionManager>,
+    State(state): State<AppState>,
     req: Request,
     next: Next,
 ) -> Result<Response, ApiError> {
-    let limiter = RateLimiter::new(redis);
-
-    let client_ip = req
-        .headers()
-        .get("x-forwarded-for")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .or_else(|| {
-            req.headers()
-                .get("x-real-ip")
-                .and_then(|h| h.to_str().ok())
-                .map(|s| s.to_string())
-        })
-        .unwrap_or_else(|| "unknown".to_string());
+    let limiter = RateLimiter::new(state.redis.clone());
+    let client_ip = extract_client_ip(&req, state.config.trusted_proxy_count);
 
     let layers = vec![LayerCheck::SlidingWindow {
         key: format!("ratelimit:auth:ip:{}:req", client_ip),

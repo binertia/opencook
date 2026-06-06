@@ -5,7 +5,7 @@ use thiserror::Error;
 /// Unified database error type.
 #[derive(Error, Debug)]
 pub enum DbError {
-    #[error("SQLx error: {0}")]
+    #[error("Database operation failed")]
     Sqlx(#[from] sqlx::Error),
 
     #[error("Migration error: {0}")]

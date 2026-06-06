@@ -430,9 +430,7 @@ mod tests {
     use super::*;
 
     fn test_pg_url() -> String {
-        std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://gateway:gateway_dev_password@localhost:5432/gateway_dev".into()
-        })
+        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for tests")
     }
 
     /// Check if PostgreSQL is reachable before running PG-dependent tests.
