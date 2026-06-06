@@ -168,22 +168,34 @@ fn db_to_response(db: &DbProviderConfig) -> ProviderResponse {
     }
 }
 
-fn encrypt_api_key(api_key: &str, master_key: &[u8; 32]) -> Option<Vec<u8>> {
+fn encrypt_api_key(api_key: &str, master_key: &[u8; 32]) -> Result<Vec<u8>, ApiError> {
     if api_key.is_empty() {
-        return Some(Vec::new());
+        return Ok(Vec::new());
     }
-    gateway_auth::crypto::encrypt(api_key, master_key).ok()
+    gateway_auth::crypto::encrypt(api_key, master_key).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "encryption_error",
+            e.to_string(),
+        )
+    })
 }
 
-fn decrypt_api_key(api_key_enc: &[u8], master_key: &[u8; 32]) -> Option<String> {
+fn decrypt_api_key(api_key_enc: &[u8], master_key: &[u8; 32]) -> Result<String, ApiError> {
     if api_key_enc.is_empty() {
-        return Some(String::new());
+        return Ok(String::new());
     }
     gateway_auth::crypto::decrypt_with_keys(
         api_key_enc,
         &gateway_auth::ActiveKeyPair::new(*master_key),
     )
-    .ok()
+    .map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "decryption_error",
+            e.to_string(),
+        )
+    })
 }
 
 fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
@@ -208,7 +220,7 @@ fn default_base_url(kind: &ProviderKind) -> String {
         ProviderKind::OpenAi => "https://api.openai.com".to_string(),
         ProviderKind::Anthropic => "https://api.anthropic.com".to_string(),
         ProviderKind::Gemini => "https://generativelanguage.googleapis.com".to_string(),
-        ProviderKind::Ollama => "http://localhost:11434".to_string(),
+        ProviderKind::Ollama => String::new(), // must be explicitly configured
         ProviderKind::Qwen => "https://dashscope.aliyuncs.com/compatible-mode".to_string(),
         ProviderKind::Kimi => "https://api.moonshot.cn".to_string(),
         ProviderKind::Tencent => "https://hunyuan.tencentcloudapi.com".to_string(),
@@ -362,7 +374,8 @@ pub async fn create_provider(
     let api_key_enc = body
         .api_key
         .as_deref()
-        .and_then(|k| encrypt_api_key(k, &state.config.master_key))
+        .map(|k| encrypt_api_key(k, &state.config.master_key))
+        .transpose()?
         .unwrap_or_default();
 
     let config_json = build_config_json(&body);
@@ -551,7 +564,8 @@ pub async fn update_provider(
     let api_key_enc = body
         .api_key
         .as_deref()
-        .and_then(|k| encrypt_api_key(k, &state.config.master_key));
+        .map(|k| encrypt_api_key(k, &state.config.master_key))
+        .transpose()?;
 
     let config_json = Some(merge_config_json(&existing.config, &body));
 
@@ -768,7 +782,7 @@ pub async fn trigger_health_check(
         .unwrap_or_else(|| default_base_url(&kind));
 
     let api_key =
-        decrypt_api_key(&config.api_key_enc, &state.config.master_key).unwrap_or_default();
+        decrypt_api_key(&config.api_key_enc, &state.config.master_key)?;
 
     let provider_config = FactoryProviderConfig {
         kind: kind.clone(),
@@ -883,6 +897,7 @@ pub struct TestConnectionRequest {
 
 pub async fn test_connection(
     State(_state): State<AppState>,
+    Extension(_auth): Extension<AuthContext>,
     ValidatedJson(body): ValidatedJson<TestConnectionRequest>,
 ) -> Result<Json<TestConnectionResponse>, ApiError> {
     let kind = parse_provider_kind(&body.kind).ok_or_else(|| {
@@ -987,7 +1002,7 @@ pub async fn test_existing_connection(
         .unwrap_or_else(|| default_base_url(&kind));
 
     let api_key =
-        decrypt_api_key(&config.api_key_enc, &state.config.master_key).unwrap_or_default();
+        decrypt_api_key(&config.api_key_enc, &state.config.master_key)?;
 
     let provider_config = FactoryProviderConfig {
         kind: kind.clone(),

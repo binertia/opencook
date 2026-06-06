@@ -125,19 +125,16 @@ pub async fn list_users(
 ) -> Response {
     let user_repo = UserRepo::new(state.db_pool.clone());
 
-    let users = match user_repo.list_by_org(auth.org_id, None, Some("all")).await {
+    let start = query.start_index.saturating_sub(1) as i64;
+    let count = query.count as i64;
+    let (users, total) = match user_repo.list_by_org(auth.org_id, None, Some("all"), count, start).await {
         Ok(u) => u,
         Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
     };
 
-    let total = users.len();
-    let start = query.start_index.saturating_sub(1);
-    let end = (start + query.count).min(total);
-    let page = &users[start..end];
+    let scim_users: Vec<ScimUser> = users.iter().map(db_user_to_scim).collect();
 
-    let scim_users: Vec<ScimUser> = page.iter().map(db_user_to_scim).collect();
-
-    let resp = ScimListResponse::new(scim_users, total, query.start_index, query.count);
+    let resp = ScimListResponse::new(scim_users, total as usize, query.start_index, query.count);
     let mut response = Json(resp).into_response();
     response.headers_mut().insert(
         "Content-Type",

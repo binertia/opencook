@@ -116,15 +116,39 @@ impl UserRepo {
         Ok(())
     }
 
-    /// List users for an organization.
+    /// List users for an organization with pagination.
     pub async fn list_by_org(
         &self,
         org_id: Uuid,
         search: Option<&str>,
         status: Option<&str>,
-    ) -> Result<Vec<User>, DbError> {
-        let rows = match &self.pool {
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<User>, i64), DbError> {
+        let (rows, total) = match &self.pool {
             DbBackend::Postgres(pg) => {
+                // Count total
+                let mut count_query = String::from(
+                    "SELECT COUNT(*) FROM users WHERE org_id = $1 AND deleted_at IS NULL",
+                );
+                if search.is_some() {
+                    count_query.push_str(" AND (email ILIKE $2 OR display_name ILIKE $2)");
+                }
+                if status.is_some() && status != Some("all") {
+                    count_query.push_str(" AND status = $3");
+                }
+                let mut cq = sqlx::query_scalar::<_, i64>(&count_query).bind(org_id);
+                if let Some(s) = search {
+                    cq = cq.bind(format!("%{}%", s));
+                }
+                if let Some(st) = status {
+                    if st != "all" {
+                        cq = cq.bind(st);
+                    }
+                }
+                let total = cq.fetch_one(pg).await?;
+
+                // Fetch page
                 let mut query = String::from(
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
@@ -136,13 +160,16 @@ impl UserRepo {
                       AND deleted_at IS NULL
                     "#,
                 );
+                let mut param_idx = 2u32;
                 if search.is_some() {
-                    query.push_str(" AND (email ILIKE $2 OR display_name ILIKE $2)");
+                    query.push_str(&format!(" AND (email ILIKE ${} OR display_name ILIKE ${})", param_idx, param_idx));
+                    param_idx += 1;
                 }
                 if status.is_some() && status != Some("all") {
-                    query.push_str(" AND status = $3");
+                    query.push_str(&format!(" AND status = ${}", param_idx));
+                    param_idx += 1;
                 }
-                query.push_str(" ORDER BY created_at DESC");
+                query.push_str(&format!(" ORDER BY created_at DESC LIMIT ${} OFFSET ${}", param_idx, param_idx + 1));
 
                 let mut q = sqlx::query_as::<_, User>(&query).bind(org_id);
                 if let Some(s) = search {
@@ -153,9 +180,32 @@ impl UserRepo {
                         q = q.bind(st);
                     }
                 }
-                q.fetch_all(pg).await?
+                let rows = q.bind(limit).bind(offset).fetch_all(pg).await?;
+                (rows, total)
             }
             DbBackend::Sqlite(sqlite) => {
+                // Count total
+                let mut count_query = String::from(
+                    "SELECT COUNT(*) FROM users WHERE org_id = ?1 AND deleted_at IS NULL",
+                );
+                if search.is_some() {
+                    count_query.push_str(" AND (email LIKE ?2 OR display_name LIKE ?2)");
+                }
+                if status.is_some() && status != Some("all") {
+                    count_query.push_str(" AND status = ?3");
+                }
+                let mut cq = sqlx::query_scalar::<_, i64>(&count_query).bind(org_id);
+                if let Some(s) = search {
+                    cq = cq.bind(format!("%{}%", s));
+                }
+                if let Some(st) = status {
+                    if st != "all" {
+                        cq = cq.bind(st);
+                    }
+                }
+                let total = cq.fetch_one(sqlite).await?;
+
+                // Fetch page
                 let mut query = String::from(
                     r#"
                     SELECT id, org_id, email, password_hash, display_name,
@@ -173,7 +223,7 @@ impl UserRepo {
                 if status.is_some() && status != Some("all") {
                     query.push_str(" AND status = ?3");
                 }
-                query.push_str(" ORDER BY created_at DESC");
+                query.push_str(" ORDER BY created_at DESC LIMIT ?4 OFFSET ?5");
 
                 let mut q = sqlx::query_as::<_, User>(&query).bind(org_id);
                 if let Some(s) = search {
@@ -184,10 +234,11 @@ impl UserRepo {
                         q = q.bind(st);
                     }
                 }
-                q.fetch_all(sqlite).await?
+                let rows = q.bind(limit).bind(offset).fetch_all(sqlite).await?;
+                (rows, total)
             }
         };
-        Ok(rows)
+        Ok((rows, total))
     }
 
     /// Create a new user.

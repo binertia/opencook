@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -18,10 +18,32 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export default function Login() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { login } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { login, ssoLogin } = useAuth()
   const [serverError, setServerError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Handle SSO callback
+  useEffect(() => {
+    const sso = searchParams.get('sso')
+    const accessToken = searchParams.get('access_token')
+    const refreshToken = searchParams.get('refresh_token')
+    const expiresIn = searchParams.get('expires_in')
+
+    if (sso === '1' && accessToken && refreshToken) {
+      const expires = parseInt(expiresIn || '900', 10)
+      ssoLogin(accessToken, refreshToken, expires).then((success) => {
+        if (success) {
+          // Clean query params from URL
+          setSearchParams({}, { replace: true })
+          const returnUrl = searchParams.get('returnUrl')
+          navigate(returnUrl ? decodeURIComponent(returnUrl) : '/', { replace: true })
+        } else {
+          setServerError('SSO login failed. Please try again.')
+        }
+      })
+    }
+  }, [searchParams, ssoLogin, navigate, setSearchParams])
 
   const {
     register,

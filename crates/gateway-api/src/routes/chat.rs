@@ -110,11 +110,7 @@ async fn build_provider_config_from_env(target: &gateway_db::Target) -> Option<P
                 .unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
             std::env::var("GEMINI_API_KEY").unwrap_or_default(),
         ),
-        ProviderKind::Ollama => (
-            std::env::var("OLLAMA_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:11434".to_string()),
-            String::new(),
-        ),
+        ProviderKind::Ollama => (String::new(), String::new()),
         ProviderKind::Qwen => (
             std::env::var("QWEN_BASE_URL")
                 .unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode".to_string()),
@@ -168,7 +164,7 @@ fn default_base_url(kind: &ProviderKind) -> String {
         ProviderKind::OpenAi => "https://api.openai.com".to_string(),
         ProviderKind::Anthropic => "https://api.anthropic.com".to_string(),
         ProviderKind::Gemini => "https://generativelanguage.googleapis.com".to_string(),
-        ProviderKind::Ollama => "http://localhost:11434".to_string(),
+        ProviderKind::Ollama => String::new(),
         ProviderKind::Qwen => "https://dashscope.aliyuncs.com/compatible-mode".to_string(),
         ProviderKind::Kimi => "https://api.moonshot.cn".to_string(),
         ProviderKind::Tencent => "https://hunyuan.tencentcloudapi.com".to_string(),

@@ -92,6 +92,30 @@ export function useAuth() {
     }
   }, [setUser, setAuthenticated, setLoading, logoutAction])
 
+  const ssoLogin = useCallback(
+    async (accessToken: string, refreshToken: string, expiresIn: number): Promise<boolean> => {
+      try {
+        // Set tokens first so /v1/auth/me can authenticate
+        useAuthStore.setState({
+          accessToken,
+          refreshToken,
+          expiresAt: Math.floor(Date.now() / 1000) + expiresIn,
+          isAuthenticated: true,
+        })
+        const response = await api.get('v1/auth/me')
+        const user = await response.json<User>()
+        setUser(user)
+        setAuthenticated(true)
+        setLoading(false)
+        return true
+      } catch {
+        logoutAction()
+        return false
+      }
+    },
+    [setUser, setAuthenticated, setLoading, logoutAction]
+  )
+
   return {
     user,
     isAuthenticated,
@@ -100,6 +124,7 @@ export function useAuth() {
     logout,
     refresh,
     fetchMe,
+    ssoLogin,
     refreshToken,
   }
 }

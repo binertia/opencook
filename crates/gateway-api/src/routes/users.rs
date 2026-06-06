@@ -27,6 +27,14 @@ pub struct ListUsersQuery {
     pub org_id: Option<String>,
     pub search: Option<String>,
     pub status: Option<String>,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+}
+
+fn default_limit() -> i64 {
+    50
 }
 
 #[derive(Debug, Serialize)]
@@ -63,7 +71,6 @@ pub struct CreateUserRequest {
     pub name: String,
     #[validate(length(min = 1, max = 32, message = "Role must be 1-32 characters"))]
     pub role: String,
-    pub organization_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -97,8 +104,11 @@ pub async fn list_users(
         .and_then(|s| Uuid::parse_str(&s).ok())
         .unwrap_or(auth.org_id);
 
-    let users = repo
-        .list_by_org(org_id, query.search.as_deref(), query.status.as_deref())
+    let limit = query.limit.clamp(1, 500);
+    let offset = query.offset.max(0);
+
+    let (users, total) = repo
+        .list_by_org(org_id, query.search.as_deref(), query.status.as_deref(), limit, offset)
         .await
         .map_err(|e| {
             ApiError::new(
@@ -108,16 +118,14 @@ pub async fn list_users(
             )
         })?;
 
-    let total = users.len() as i64;
-
     Ok(Json(UsersListResponse {
         object: "list".to_string(),
         data: users.iter().map(db_to_user_item).collect(),
         pagination: PaginationInfo {
-            limit: total,
-            offset: 0,
+            limit,
+            offset,
             total,
-            has_more: false,
+            has_more: offset + (users.len() as i64) < total,
         },
     }))
 }

@@ -410,11 +410,24 @@ pub async fn delete_webhook(
 
 pub async fn list_webhook_deliveries(
     State(state): State<AppState>,
-    Extension(_auth): Extension<AuthContext>,
+    Extension(auth): Extension<AuthContext>,
     Path(webhook_id): Path<String>,
 ) -> Result<Json<WebhookDeliveryListResponse>, ApiError> {
     let webhook_id = Uuid::parse_str(&webhook_id)
         .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_id", "Invalid webhook ID"))?;
+
+    let webhook_repo = WebhookRepo::new(state.db_pool.clone());
+    let _ = webhook_repo
+        .get_by_id(auth.org_id, webhook_id)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Webhook not found"))?;
 
     let delivery_repo = WebhookDeliveryRepo::new(state.db_pool.clone());
 
@@ -470,6 +483,14 @@ pub async fn retry_webhook_delivery(
             )
         })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Delivery not found"))?;
+
+    if delivery.webhook_id != webhook_id {
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Delivery does not belong to this webhook",
+        ));
+    }
 
     // Decrypt secret
     let secret = match &webhook.secret_enc {

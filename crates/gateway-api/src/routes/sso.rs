@@ -15,9 +15,14 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 use uuid::Uuid;
 
-use crate::{error::ApiError, state::AppState};
+use crate::{
+    error::ApiError,
+    middleware::csrf::{generate_token, set_csrf_cookie},
+    state::AppState,
+};
 use gateway_auth::rbac::{check_permission, Permission, Role};
 use gateway_auth::AuthContext;
+use tower_cookies::Cookies;
 
 // ── Request / Response Types ─────────────────────────────────────────
 
@@ -204,6 +209,7 @@ pub async fn saml_authorize(
 
 pub async fn saml_acs(
     State(state): State<AppState>,
+    cookies: Cookies,
     axum::Form(payload): axum::Form<SamlAcsPayload>,
 ) -> Result<Redirect, ApiError> {
     let relay_state = payload.relay_state.as_deref().ok_or_else(|| {
@@ -287,13 +293,7 @@ pub async fn saml_acs(
 
     info!(user_id = %user.id, org_id = %org_id, "SAML login successful");
 
-    let dashboard_url = state
-        .config
-        .allowed_origins
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "http://localhost:8080".to_string());
-    Ok(Redirect::to(&dashboard_url))
+    issue_sso_session_and_redirect(&state, &cookies, user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
 }
 
 // ── OIDC Authorization ───────────────────────────────────────────────
@@ -373,6 +373,7 @@ pub async fn oidc_authorize(
 
 pub async fn oidc_callback(
     State(state): State<AppState>,
+    cookies: Cookies,
     Query(query): Query<OidcCallbackQuery>,
 ) -> Result<Redirect, ApiError> {
     // Verify state parameter against Redis and atomically delete it (CSRF + replay protection)
@@ -434,10 +435,16 @@ pub async fn oidc_callback(
             .unwrap_or(&"http://localhost:8080".to_string())
     );
 
+    let client_secret = config
+        .client_secret_enc
+        .as_deref()
+        .and_then(|s| decrypt_sso_secret(s, &state.config.master_key))
+        .unwrap_or_default();
+
     let idp_issuer = config.idp_issuer.unwrap_or_default();
     let provider = OidcProvider::new(
         config.client_id.unwrap_or_default(),
-        config.client_secret_enc.unwrap_or_default(),
+        client_secret,
         redirect_uri,
         config.sso_url.unwrap_or_default(),
         config.metadata_url.unwrap_or_default(),
@@ -455,13 +462,7 @@ pub async fn oidc_callback(
 
     info!(user_id = %user.id, org_id = %org_id, "OIDC login successful");
 
-    let dashboard_url = state
-        .config
-        .allowed_origins
-        .first()
-        .cloned()
-        .unwrap_or_else(|| "http://localhost:8080".to_string());
-    Ok(Redirect::to(&dashboard_url))
+    issue_sso_session_and_redirect(&state, &cookies, user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
 }
 
 // ── Admin: SSO Config CRUD ───────────────────────────────────────────
@@ -538,6 +539,12 @@ pub async fn create_sso_config(
         }
     };
 
+    let client_secret_enc = body
+        .client_secret
+        .as_deref()
+        .and_then(|s| encrypt_sso_secret(s, &state.config.master_key))
+        .unwrap_or_default();
+
     let config = gateway_db::SsoConfig {
         id: Uuid::new_v4(),
         org_id,
@@ -547,7 +554,7 @@ pub async fn create_sso_config(
         certificate: body.certificate,
         sso_url: body.sso_url,
         client_id: body.client_id,
-        client_secret_enc: body.client_secret,
+        client_secret_enc: Some(client_secret_enc),
         idp_issuer: body.idp_issuer,
         role_attribute: body.role_attribute.unwrap_or_else(|| "role".to_string()),
         enabled: body.enabled.unwrap_or(true),
@@ -684,6 +691,77 @@ async fn provision_user(
     }
 
     Ok(user)
+}
+
+// ── SSO Session Helpers ──────────────────────────────────────────────
+
+/// Issue JWT tokens and set CSRF cookie after successful SSO login,
+/// then redirect to the dashboard with tokens in query params for the SPA.
+async fn issue_sso_session_and_redirect(
+    state: &AppState,
+    cookies: &Cookies,
+    user: gateway_db::User,
+    org_id: Uuid,
+    email: &str,
+    role: &str,
+) -> Result<Redirect, ApiError> {
+    let (access_token, _access_jti) = state
+        .jwt
+        .issue_access(user.id, org_id, email, role)
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "token_error",
+                e.to_string(),
+            )
+        })?;
+
+    let (refresh_token, _refresh_jti) = state.jwt.issue_refresh(user.id).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "token_error",
+            e.to_string(),
+        )
+    })?;
+
+    let csrf_token = generate_token();
+    let secure_cookie = state.config.tls_cert.is_some();
+    set_csrf_cookie(cookies, &csrf_token, secure_cookie);
+
+    let dashboard_url = state
+        .config
+        .allowed_origins
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "http://localhost:8080".to_string());
+
+    let redirect_url = format!(
+        "{}/admin/login?sso=1&access_token={}&refresh_token={}&expires_in=900",
+        dashboard_url, access_token, refresh_token
+    );
+
+    Ok(Redirect::to(&redirect_url))
+}
+
+fn encrypt_sso_secret(secret: &str, master_key: &[u8; 32]) -> Option<String> {
+    if secret.is_empty() {
+        return Some(String::new());
+    }
+    gateway_auth::crypto::encrypt(secret, master_key)
+        .ok()
+        .map(hex::encode)
+}
+
+fn decrypt_sso_secret(secret_enc: &str, master_key: &[u8; 32]) -> Option<String> {
+    if secret_enc.is_empty() {
+        return Some(String::new());
+    }
+    let bytes = hex::decode(secret_enc).ok()?;
+    gateway_auth::crypto::decrypt_with_keys(
+        &bytes,
+        &gateway_auth::ActiveKeyPair::new(*master_key),
+    )
+    .ok()
 }
 
 // Helper to convert DbBackend to PgPool

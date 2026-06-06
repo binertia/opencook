@@ -110,10 +110,19 @@ pub async fn create_api_key(
     let (key_plain, key_hash, key_prefix) = generate_api_key();
     let scopes = body.scopes.unwrap_or_else(|| vec!["all".to_string()]);
     let rate_limit_rps = body.rate_limit_rps.unwrap_or(10);
-    let expires_at = body
-        .expires_at
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
-        .map(|dt| dt.with_timezone(&chrono::Utc));
+    let expires_at = match body.expires_at {
+        Some(s) => {
+            let dt = chrono::DateTime::parse_from_rfc3339(&s).map_err(|_| {
+                ApiError::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_date",
+                    "expires_at must be a valid RFC3339 datetime",
+                )
+            })?;
+            Some(dt.with_timezone(&chrono::Utc))
+        }
+        None => None,
+    };
 
     let name = sanitize_display_text(&body.name);
     let key = repo
