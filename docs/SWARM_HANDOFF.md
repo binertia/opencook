@@ -601,9 +601,11 @@ This allows development without API keys. For integration testing, the user has 
 
 ### Remaining Gaps (Backend)
 
-1. **Provider Config Encryption** (TASK-0023) — AES-256-GCM for `api_key_enc` column. Currently env vars used in some paths
-2. **Request Cancellation** (TASK-0066) — Abort in-flight requests on client disconnect (partially implemented, needs completion)
-3. **API Key DB Verification** — Some paths still use stub validation; full middleware verification planned
+*All backend gaps resolved as of latest maintenance pass:*
+
+1. ~~**Provider Config Encryption** (TASK-0023)~~ — **RESOLVED.** `gateway-api/src/routes/providers.rs` uses `gateway_auth::crypto::encrypt/decrypt` with AES-256-GCM + master key for `api_key_enc`.
+2. ~~**Request Cancellation** (TASK-0066)~~ — **RESOLVED.** `gateway-core/src/cancellation.rs` provides full cancellation token propagation, disconnect detection, and abort guarantees; integrated in chat handler and streaming pipeline.
+3. ~~**API Key DB Verification**~~ — **RESOLVED.** Auth middleware validates all API keys via `ApiKeyRepo::find_by_key_hash` with Redis caching; no stub validation paths remain.
 
 ---
 
@@ -620,7 +622,7 @@ This allows development without API keys. For integration testing, the user has 
 
 ---
 
-*Document version: 7.0*
+*Document version: 7.1*
 *Generated from: VISION.md, PRODUCT.md, MARKET.md, ARCHITECTURE.md, TECH_STACK.md, API_SPEC.md, DATABASE.md, AUTH.md, CACHE.md, SECURITY.md, ROADMAP.md, EPICS.md, COMPETITORS.md, MONETIZATION.md, 8 ADRs, tasks/INDEX.md*
-*Last updated: 2026-06-04*
-*Current swarm: All 102 tasks complete. Security hardening + clippy cleanup finished. Project ready for release testing.*
+*Last updated: 2026-06-06*
+*Current swarm: All 102 tasks complete. Test suite hardened against real auth middleware. All backend gaps resolved. Project ready for release testing.*
