@@ -274,6 +274,7 @@ pub fn build_router(state: AppState) -> Router {
             state.redis.clone(),
             rate_limit_middleware,
         ))
+        .layer(middleware::from_fn(csrf_middleware))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth_middleware,

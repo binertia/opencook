@@ -39,10 +39,14 @@ pub async fn me() -> Json<SoloUser> {
     Json(mock_user())
 }
 
+fn generate_solo_token() -> String {
+    uuid::Uuid::new_v4().to_string()
+}
+
 pub async fn login(Json(_req): Json<LoginRequest>) -> Json<LoginResponse> {
     Json(LoginResponse {
-        access_token: "solo-token".to_string(),
-        refresh_token: "solo-refresh".to_string(),
+        access_token: generate_solo_token(),
+        refresh_token: generate_solo_token(),
         user: mock_user(),
     })
 }
@@ -53,8 +57,8 @@ pub async fn logout() -> Json<serde_json::Value> {
 
 pub async fn refresh() -> Json<LoginResponse> {
     Json(LoginResponse {
-        access_token: "solo-token".to_string(),
-        refresh_token: "solo-refresh".to_string(),
+        access_token: generate_solo_token(),
+        refresh_token: generate_solo_token(),
         user: mock_user(),
     })
 }

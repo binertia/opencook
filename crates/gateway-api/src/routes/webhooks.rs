@@ -88,6 +88,7 @@ pub struct CreateWebhookRequest {
     pub url: String,
     #[validate(length(min = 1, message = "At least one event is required"))]
     pub events: Vec<String>,
+    #[validate(custom(function = "crate::validation::validate_custom_headers"))]
     #[serde(default = "default_custom_headers")]
     pub custom_headers: serde_json::Value,
     #[validate(range(min = 0, max = 20, message = "Max retries must be 0-20"))]
@@ -109,6 +110,7 @@ pub struct UpdateWebhookRequest {
     #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub url: Option<String>,
     pub events: Option<Vec<String>>,
+    #[validate(custom(function = "crate::validation::validate_custom_headers"))]
     pub custom_headers: Option<serde_json::Value>,
     #[validate(range(min = 0, max = 20, message = "Max retries must be 0-20"))]
     pub max_retries: Option<i32>,

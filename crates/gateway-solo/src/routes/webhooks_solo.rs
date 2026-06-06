@@ -74,7 +74,7 @@ pub async fn create_webhook(Json(req): Json<CreateWebhookRequest>) -> Json<Creat
         id: "solo-wh-1".to_string(),
         name: req.name,
         url: req.url,
-        secret: "sk_wh_solo_demo_secret_do_not_use".to_string(),
+        secret: format!("sk_wh_solo_{}", uuid::Uuid::new_v4()),
         events: req.events,
         max_retries: 3,
         retry_interval_seconds: 60,

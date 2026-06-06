@@ -197,6 +197,56 @@ fn is_internal_ip(ip: std::net::IpAddr) -> bool {
     }
 }
 
+/// Validate webhook custom headers JSON value.
+/// Must be an object with string values. Keys must be valid HTTP header names
+/// (alphanumeric + hyphen) and must not be forbidden headers. Values must not
+/// contain CR or LF characters.
+pub fn validate_custom_headers(headers: &serde_json::Value) -> Result<(), ValidationError> {
+    let obj = match headers.as_object() {
+        Some(o) => o,
+        None => {
+            let mut err = ValidationError::new("invalid_custom_headers");
+            err.message = Some("Custom headers must be a JSON object".into());
+            return Err(err);
+        }
+    };
+
+    let forbidden = [
+        "host", "content-length", "transfer-encoding", "connection",
+        "content-encoding", "upgrade", "expect", "te", "trailer",
+        "keep-alive", "proxy-connection", "proxy-authenticate",
+        "proxy-authorization", "www-authenticate", "authorization",
+    ];
+
+    for (key, value) in obj {
+        let lower_key = key.to_lowercase();
+        if forbidden.iter().any(|&h| h == lower_key) {
+            let mut err = ValidationError::new("forbidden_header");
+            err.message = Some(format!("Header '{}' is not allowed", key).into());
+            return Err(err);
+        }
+        if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+            let mut err = ValidationError::new("invalid_header_name");
+            err.message = Some(format!("Header name '{}' contains invalid characters", key).into());
+            return Err(err);
+        }
+        let val_str = match value.as_str() {
+            Some(s) => s,
+            None => {
+                let mut err = ValidationError::new("invalid_header_value");
+                err.message = Some(format!("Header '{}' value must be a string", key).into());
+                return Err(err);
+            }
+        };
+        if val_str.contains('\r') || val_str.contains('\n') {
+            let mut err = ValidationError::new("invalid_header_value");
+            err.message = Some(format!("Header '{}' value must not contain newlines", key).into());
+            return Err(err);
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

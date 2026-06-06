@@ -61,6 +61,8 @@ pub struct LoginResponse {
 pub struct SwitchOrgRequest {
     #[validate(length(min = 1, message = "Organization ID is required"))]
     pub org_id: String,
+    #[validate(length(min = 1, message = "Refresh token is required"))]
+    pub refresh_token: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -624,6 +626,9 @@ pub async fn switch_org(
         .ok_or_else(|| {
             ApiError::new(StatusCode::UNAUTHORIZED, "user_not_found", "User not found")
         })?;
+
+    // SECURITY: Revoke the old refresh token before issuing a new one.
+    blocklist_refresh_token(&state, &body.refresh_token).await?;
 
     // Issue new tokens scoped to the target organization.
     let (access_token, _access_jti) = state

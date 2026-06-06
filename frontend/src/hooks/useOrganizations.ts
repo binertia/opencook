@@ -12,6 +12,7 @@ export interface UserOrg {
 
 export interface SwitchOrgRequest {
   org_id: string
+  refresh_token: string
 }
 
 export interface SwitchOrgResponse {

@@ -14,9 +14,11 @@ use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use tracing::info;
 use uuid::Uuid;
+use validator::Validate;
 
 use crate::{
     error::ApiError,
+    extractors::ValidatedJson,
     middleware::csrf::{generate_token, set_csrf_cookie},
     state::AppState,
 };
@@ -51,16 +53,27 @@ pub struct SsoProviderResponse {
     pub enabled: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct CreateSsoConfig {
+    #[validate(length(min = 1, max = 32, message = "Provider type must be 1-32 characters"))]
     pub provider_type: String,
+    #[validate(url(message = "Metadata URL must be a valid URL"))]
+    #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub metadata_url: Option<String>,
+    #[validate(length(max = 512, message = "Entity ID must be at most 512 characters"))]
     pub entity_id: Option<String>,
+    #[validate(length(max = 4096, message = "Certificate must be at most 4096 characters"))]
     pub certificate: Option<String>,
+    #[validate(url(message = "SSO URL must be a valid URL"))]
+    #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub sso_url: Option<String>,
+    #[validate(length(max = 512, message = "Client ID must be at most 512 characters"))]
     pub client_id: Option<String>,
+    #[validate(length(max = 512, message = "Client secret must be at most 512 characters"))]
     pub client_secret: Option<String>,
+    #[validate(length(max = 512, message = "IDP issuer must be at most 512 characters"))]
     pub idp_issuer: Option<String>,
+    #[validate(length(max = 128, message = "Role attribute must be at most 128 characters"))]
     pub role_attribute: Option<String>,
     pub enabled: Option<bool>,
 }
@@ -515,7 +528,7 @@ pub async fn create_sso_config(
     State(state): State<AppState>,
     Extension(auth): Extension<AuthContext>,
     Path(org_id): Path<Uuid>,
-    Json(body): Json<CreateSsoConfig>,
+    ValidatedJson(body): ValidatedJson<CreateSsoConfig>,
 ) -> Result<Json<SsoConfigResponse>, ApiError> {
     require_permission(&auth, Permission::SettingsWrite)?;
     if auth.org_id != org_id {

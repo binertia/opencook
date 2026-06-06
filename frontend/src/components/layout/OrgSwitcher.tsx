@@ -41,7 +41,8 @@ export function OrgSwitcher() {
   const activeOrg = orgs?.find((o) => o.org_id === activeOrgId) || orgs?.[0]
 
   const handleSwitch = (orgId: string) => {
-    switchOrg.mutate({ org_id: orgId })
+    const refreshToken = useAuthStore.getState().refreshToken
+    switchOrg.mutate({ org_id: orgId, refresh_token: refreshToken || '' })
   }
 
   const handleCreate = (e: React.FormEvent) => {

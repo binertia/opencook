@@ -63,7 +63,10 @@ export default function Login() {
 
     if (result.success) {
       const returnUrl = searchParams.get('returnUrl')
-      navigate(returnUrl ? decodeURIComponent(returnUrl) : '/')
+      const decoded = returnUrl ? decodeURIComponent(returnUrl) : '/'
+      // Prevent open redirect: only allow relative paths starting with /
+      const safeUrl = decoded.startsWith('/') && !decoded.startsWith('//') ? decoded : '/'
+      navigate(safeUrl)
     } else {
       setServerError(result.error || 'Invalid credentials')
     }

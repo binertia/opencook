@@ -9,7 +9,7 @@ use axum::{
 use gateway_auth::scim::*;
 use gateway_db::{DbBackend, OrgMemberRepo, ScimTokenRepo, UserRepo};
 use serde::Deserialize;
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -89,6 +89,11 @@ fn scim_error(status: StatusCode, detail: &str) -> Response {
     resp
 }
 
+fn scim_db_error(e: impl std::fmt::Display) -> Response {
+    error!("SCIM database error: {}", e);
+    scim_error(StatusCode::INTERNAL_SERVER_ERROR, "Internal server error")
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────
 
 pub async fn service_provider_config() -> impl IntoResponse {
@@ -126,10 +131,10 @@ pub async fn list_users(
     let user_repo = UserRepo::new(state.db_pool.clone());
 
     let start = query.start_index.saturating_sub(1) as i64;
-    let count = query.count as i64;
+    let count = query.count.min(1000) as i64;
     let (users, total) = match user_repo.list_by_org(auth.org_id, None, Some("all"), count, start).await {
         Ok(u) => u,
-        Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(e) => return scim_db_error(e),
     };
 
     let scim_users: Vec<ScimUser> = users.iter().map(db_user_to_scim).collect();
@@ -161,7 +166,7 @@ pub async fn get_user(
         }
         Ok(Some(_)) => scim_error(StatusCode::NOT_FOUND, "User not found in organization"),
         Ok(None) => scim_error(StatusCode::NOT_FOUND, "User not found"),
-        Err(e) => scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(e) => scim_db_error(e),
     }
 }
 
@@ -200,7 +205,7 @@ pub async fn create_user(
         .await
     {
         Ok(u) => u,
-        Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(e) => return scim_db_error(e),
     };
 
     // Link to org
@@ -231,14 +236,14 @@ pub async fn update_user(
         Ok(Some(u)) if u.org_id == auth.org_id => u,
         Ok(Some(_)) => return scim_error(StatusCode::NOT_FOUND, "User not found in organization"),
         Ok(None) => return scim_error(StatusCode::NOT_FOUND, "User not found"),
-        Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(e) => return scim_db_error(e),
     };
 
     // Update status if changed
     let new_status = if body.active { "active" } else { "suspended" };
     if existing.status != new_status {
         if let Err(e) = user_repo.update_status(user_id, new_status).await {
-            return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+            return scim_db_error(e);
         }
     }
 
@@ -280,7 +285,7 @@ pub async fn patch_user(
         Ok(Some(u)) if u.org_id == auth.org_id => u,
         Ok(Some(_)) => return scim_error(StatusCode::NOT_FOUND, "User not found in organization"),
         Ok(None) => return scim_error(StatusCode::NOT_FOUND, "User not found"),
-        Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(e) => return scim_db_error(e),
     };
 
     for op in &body.operations {
@@ -289,7 +294,7 @@ pub async fn patch_user(
             let new_status = if active { "active" } else { "suspended" };
             if existing.status != new_status {
                 if let Err(e) = user_repo.update_status(user_id, new_status).await {
-                    return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+                    return scim_db_error(e);
                 }
             }
         }
@@ -319,11 +324,11 @@ pub async fn delete_user(
         Ok(Some(u)) if u.org_id == auth.org_id => {}
         Ok(Some(_)) => return scim_error(StatusCode::NOT_FOUND, "User not found in organization"),
         Ok(None) => return scim_error(StatusCode::NOT_FOUND, "User not found"),
-        Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
+        Err(e) => return scim_db_error(e),
     }
 
     if let Err(e) = user_repo.update_status(user_id, "suspended").await {
-        return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+        return scim_db_error(e);
     }
 
     info!(user_id = %user_id, org_id = %auth.org_id, "SCIM user deactivated");
