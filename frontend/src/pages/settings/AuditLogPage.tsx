@@ -34,7 +34,7 @@ function exportToCsv(filename: string, rows: AuditEntry[]) {
     ...rows.map((row) =>
       headers
         .map((h) => {
-          const val = (row as Record<string, unknown>)[h]
+          const val = (row as unknown as Record<string, unknown>)[h]
           const str =
             typeof val === 'number' || typeof val === 'boolean'
               ? String(val)
@@ -66,13 +66,14 @@ function exportToJson(filename: string, data: AuditEntry[]) {
 }
 
 export default function AuditLogPage() {
-  const { org } = useAuth()
+  const { user } = useAuth()
+  const orgId = user?.organizations?.[0]?.org_id || ''
   const [filters, setFilters] = useState<AuditLogFilters>({})
-  const [limit, setLimit] = useState(50)
+  const [limit, _setLimit] = useState(50)
   const [offset, setOffset] = useState(0)
   const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null)
 
-  const { data, isLoading } = useAuditLog(org?.id || '', filters, limit, offset)
+  const { data, isLoading } = useAuditLog(orgId, filters, limit, offset)
 
   const total = data?.total ?? 0
   const hasNext = offset + limit < total

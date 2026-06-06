@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Search, Download, ChevronLeft, ChevronRight, Database, AlertCircle } from 'lucide-react'
+import { Search, Download, ChevronLeft, ChevronRight, Database } from 'lucide-react'
 import { useRequestLogs, type RequestItem } from '@/hooks/useRequestLogs'
 import { RequestDetail } from '@/components/logs/RequestDetail'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
+
 
 function StatusBadge({ status, cacheHit }: { status: string; cacheHit: boolean }) {
   if (cacheHit) {

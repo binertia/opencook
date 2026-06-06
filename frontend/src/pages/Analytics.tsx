@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, DollarSign, Zap, AlertTriangle, TrendingUp, Clock, FileSpreadsheet, FileJson } from 'lucide-react'
+import { Activity, DollarSign, TrendingUp, Clock, FileSpreadsheet, FileJson } from 'lucide-react'
 import { useAnalytics } from '@/hooks/useAnalytics'
 import { CostByProviderChart } from '@/components/analytics/CostByProviderChart'
 import { CostOverTimeChart } from '@/components/analytics/CostOverTimeChart'

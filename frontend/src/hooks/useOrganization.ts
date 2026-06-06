@@ -17,6 +17,11 @@ export interface Organization {
       cost_budget_usd: number | null
       alert_threshold_percent: number
     }
+    semantic_cache?: {
+      enabled: boolean
+      threshold: number
+      max_entries_per_org: number
+    }
   }
   created_at: string
   updated_at: string
@@ -36,6 +41,11 @@ export interface OrganizationUpdate {
       monthly_limit?: number | null
       cost_budget_usd?: number | null
       alert_threshold_percent?: number
+    }
+    semantic_cache?: {
+      enabled: boolean
+      threshold: number
+      max_entries_per_org: number
     }
   }
 }

@@ -43,9 +43,10 @@ export function CostByProviderChart({ data }: CostByProviderChartProps) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number, _name: string, props: { payload: { name: string; requests: number } }) => {
+            formatter={(value: number, _name: string, props: unknown) => {
+              const p = props as { payload: { name: string; requests: number } }
               const pct = totalCost > 0 ? ((value / totalCost) * 100).toFixed(1) : '0.0'
-              return [`$${value.toFixed(4)} (${pct}%) — ${props.payload.requests} reqs`, props.payload.name]
+              return [`$${value.toFixed(4)} (${pct}%) — ${p.payload.requests} reqs`, p.payload.name]
             }}
           />
           <Legend wrapperStyle={{ fontSize: 12 }} />
