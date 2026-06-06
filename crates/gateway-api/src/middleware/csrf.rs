@@ -50,7 +50,16 @@ pub async fn csrf_middleware(
             | axum::http::Method::PATCH
     );
 
-    if is_state_changing && path.starts_with("/api/v1/") {
+    // Bearer-token-authenticated requests are inherently CSRF-safe because
+    // the Authorization header is not automatically sent by the browser.
+    let has_bearer_auth = req
+        .headers()
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .map(|h| h.to_lowercase().starts_with("bearer "))
+        .unwrap_or(false);
+
+    if is_state_changing && path.starts_with("/api/v1/") && !has_bearer_auth {
         let cookie_token = cookies.get(CSRF_COOKIE_NAME).map(|c| c.value().to_string());
 
         let header_token = req

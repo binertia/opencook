@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, parseApiError } from '@/lib/api'
+import { useAuthStore } from '@/store/authStore'
 import type { ApiError } from '@/lib/api'
 
 export interface UserOrg {
@@ -45,13 +46,16 @@ export function useOrganizations() {
 
 export function useSwitchOrg() {
   const queryClient = useQueryClient()
+  const login = useAuthStore((s) => s.login)
 
   return useMutation<SwitchOrgResponse, ApiError, SwitchOrgRequest>({
     mutationFn: async (data) => {
       const response = await api.post('v1/auth/switch-org', { json: data })
       return response.json<SwitchOrgResponse>()
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // Update auth store with new tokens for the switched org.
+      login(data.user, data.access_token, data.refresh_token, data.expires_in)
       // Invalidate all queries to ensure fresh data for the new org context.
       queryClient.invalidateQueries({ queryKey: ['organization'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
@@ -61,8 +65,6 @@ export function useSwitchOrg() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       queryClient.invalidateQueries({ queryKey: ['webhooks'] })
       queryClient.invalidateQueries({ queryKey: ['quotas'] })
-      // Hard reload to ensure all state is fresh with the new org context.
-      window.location.reload()
     },
   })
 }

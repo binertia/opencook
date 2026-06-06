@@ -190,6 +190,60 @@ async fn record_failed_login(
     Ok(())
 }
 
+// ── Token blocklist helpers ──────────────────────────────────────────
+
+const BLOCKLIST_TTL_SEC: i64 = 604_800; // 7 days, matching refresh token expiry
+
+async fn blocklist_refresh_token(state: &AppState, token: &str) -> Result<(), ApiError> {
+    let claims = state.jwt.verify_refresh(token).map_err(|e| match e {
+        gateway_auth::AuthError::TokenExpired => ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "token_expired",
+            "Refresh token expired",
+        ),
+        _ => ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid refresh token",
+        ),
+    })?;
+
+    let mut conn = state.redis.clone();
+    let key = format!("auth:blocklist:refresh:{}", claims.jti);
+    let _: () = redis::cmd("SETEX")
+        .arg(&key)
+        .arg(BLOCKLIST_TTL_SEC)
+        .arg("1")
+        .query_async(&mut conn)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
+
+    Ok(())
+}
+
+async fn is_refresh_token_blocklisted(state: &AppState, jti: &str) -> Result<bool, ApiError> {
+    let mut conn = state.redis.clone();
+    let key = format!("auth:blocklist:refresh:{jti}");
+    let exists: bool = redis::cmd("EXISTS")
+        .arg(&key)
+        .query_async(&mut conn)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
+    Ok(exists)
+}
+
 // ── Handlers ─────────────────────────────────────────────────────────
 
 /// POST /v1/auth/login
@@ -359,11 +413,21 @@ pub async fn login(
     }))
 }
 
+#[derive(Debug, Deserialize, Validate)]
+pub struct LogoutRequest {
+    #[validate(length(min = 1, message = "Refresh token is required"))]
+    pub refresh_token: String,
+}
+
 /// POST /v1/auth/logout
-pub async fn logout() -> impl IntoResponse {
-    // Client is responsible for discarding tokens.
-    // In a full implementation, add the refresh token JTI to a Redis blocklist.
-    Json(json!({ "status": "ok" }))
+///
+/// Revokes the provided refresh token by adding its JTI to a Redis blocklist.
+pub async fn logout(
+    State(state): State<AppState>,
+    ValidatedJson(body): ValidatedJson<LogoutRequest>,
+) -> Result<impl IntoResponse, ApiError> {
+    blocklist_refresh_token(&state, &body.refresh_token).await?;
+    Ok(Json(json!({ "status": "ok" })))
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -393,6 +457,15 @@ pub async fn refresh(
                 "Invalid refresh token",
             ),
         })?;
+
+    // Check if the refresh token has been revoked (e.g., via logout).
+    if is_refresh_token_blocklisted(&state, &claims.jti).await? {
+        return Err(ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "token_revoked",
+            "Refresh token has been revoked",
+        ));
+    }
 
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
         ApiError::new(

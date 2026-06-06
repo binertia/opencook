@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/store/authStore'
+import { useAutoRefresh } from '@/hooks/useAutoRefresh'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import Login from '@/pages/Login'
 import Dashboard from '@/pages/Dashboard'
@@ -19,7 +21,8 @@ import ProviderDetailPage from '@/pages/providers/ProviderDetailPage'
 import WebhooksPage from '@/pages/webhooks/WebhooksPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isLoading = useAuthStore((s) => s.isLoading)
   const location = useLocation()
 
   if (isLoading) {
@@ -45,13 +48,27 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 function App() {
   const { fetchMe } = useAuth()
   const location = useLocation()
+  const hasChecked = useRef(false)
+
+  useAutoRefresh()
 
   useEffect(() => {
-    // Skip auth check on login page to avoid 401 spam before user logs in
-    if (location.pathname === '/login') return
-    fetchMe().catch(() => {
-      // Unauthenticated — handled by RequireAuth
-    })
+    if (hasChecked.current) return
+    hasChecked.current = true
+
+    if (location.pathname === '/login') {
+      useAuthStore.getState().setLoading(false)
+      return
+    }
+
+    const token = useAuthStore.getState().accessToken
+    if (token) {
+      fetchMe().catch(() => {
+        // Unauthenticated — logout already called inside fetchMe
+      })
+    } else {
+      useAuthStore.getState().setLoading(false)
+    }
   }, [fetchMe, location.pathname])
 
   return (

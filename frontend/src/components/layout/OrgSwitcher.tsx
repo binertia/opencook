@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Building2, Check, ChevronDown, Plus } from 'lucide-react'
 import { useOrganizations, useSwitchOrg } from '@/hooks/useOrganizations'
+import { useAuthStore } from '@/store/authStore'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -31,14 +32,15 @@ export function OrgSwitcher() {
   const [newOrgName, setNewOrgName] = useState('')
   const [newOrgEmail, setNewOrgEmail] = useState('')
 
-  // Determine active org from URL or fallback to first org.
-  // In a full implementation, the active org might be stored in Zustand or localStorage.
-  const activeOrgId = localStorage.getItem('active_org_id') || orgs?.[0]?.org_id
+  // Derive active org from the authenticated user's organizations.
+  const user = useAuthStore((s) => s.user)
+  const activeOrgId =
+    user?.organizations?.find((o) => o.org_id === user?.organizations?.[0]?.org_id)?.org_id ??
+    orgs?.[0]?.org_id
 
   const activeOrg = orgs?.find((o) => o.org_id === activeOrgId) || orgs?.[0]
 
   const handleSwitch = (orgId: string) => {
-    localStorage.setItem('active_org_id', orgId)
     switchOrg.mutate({ org_id: orgId })
   }
 

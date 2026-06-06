@@ -18,7 +18,15 @@ interface LoginResponse {
 
 export function useAuth() {
   const navigate = useNavigate()
-  const store = useAuthStore()
+  const user = useAuthStore((s) => s.user)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const isLoading = useAuthStore((s) => s.isLoading)
+  const loginAction = useAuthStore((s) => s.login)
+  const logoutAction = useAuthStore((s) => s.logout)
+  const setUser = useAuthStore((s) => s.setUser)
+  const setAuthenticated = useAuthStore((s) => s.setAuthenticated)
+  const setLoading = useAuthStore((s) => s.setLoading)
+  const refreshToken = useAuthStore((s) => s.refreshToken)
 
   const login = useCallback(
     async (credentials: LoginRequest): Promise<{ success: boolean; error?: string }> => {
@@ -27,60 +35,71 @@ export function useAuth() {
           json: credentials,
         })
         const data = await response.json<LoginResponse>()
-        store.login(data.user, data.access_token)
+        loginAction(data.user, data.access_token, data.refresh_token, data.expires_in)
         return { success: true }
       } catch (error) {
         const apiError = await parseApiError(error)
         return { success: false, error: apiError.message }
       }
     },
-    [store]
+    [loginAction]
   )
 
   const logout = useCallback(async () => {
+    const token = useAuthStore.getState().refreshToken
     try {
-      await api.post('v1/auth/logout')
+      if (token) {
+        await api.post('v1/auth/logout', { json: { refresh_token: token } })
+      }
     } catch {
       // Ignore errors on logout
     } finally {
-      store.logout()
+      logoutAction()
       navigate('/login')
     }
-  }, [store, navigate])
+  }, [logoutAction, navigate])
 
   const refresh = useCallback(async (): Promise<boolean> => {
-    try {
-      const response = await api.post('v1/auth/refresh')
-      const data = await response.json<LoginResponse>()
-      store.login(data.user, data.access_token)
-      return true
-    } catch {
-      store.logout()
+    const token = useAuthStore.getState().refreshToken
+    if (!token) {
+      logoutAction()
       return false
     }
-  }, [store])
+    try {
+      const response = await api.post('v1/auth/refresh', {
+        json: { refresh_token: token },
+      })
+      const data = await response.json<LoginResponse>()
+      loginAction(data.user, data.access_token, data.refresh_token, data.expires_in)
+      return true
+    } catch {
+      logoutAction()
+      return false
+    }
+  }, [loginAction, logoutAction])
 
   const fetchMe = useCallback(async (): Promise<boolean> => {
     try {
       const response = await api.get('v1/auth/me')
       const data = await response.json<User>()
-      store.setUser(data)
-      store.setAuthenticated(true)
-      store.setLoading(false)
+      setUser(data)
+      setAuthenticated(true)
+      setLoading(false)
       return true
     } catch {
-      store.logout()
+      logoutAction()
       return false
     }
-  }, [store])
+  }, [setUser, setAuthenticated, setLoading, logoutAction])
 
   return {
-    user: store.user,
-    isAuthenticated: store.isAuthenticated,
-    isLoading: store.isLoading,
+    user,
+    isAuthenticated,
+    isLoading,
     login,
     logout,
     refresh,
     fetchMe,
+    refreshToken,
   }
 }

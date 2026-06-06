@@ -58,9 +58,12 @@ async fn test_csrf_token_returned_on_login() {
 }
 
 #[tokio::test]
-async fn test_csrf_blocks_state_changing_request_without_token() {
+async fn test_csrf_skipped_for_bearer_auth_requests() {
+    // Bearer-token-authenticated requests are inherently CSRF-safe because
+    // the Authorization header is not automatically sent by the browser.
+    // Therefore CSRF validation is skipped when a Bearer token is present.
     let app = spawn_test_app().await;
-    let (token, _csrf) = login_admin(&app, "csrf-block@example.com").await;
+    let (token, _csrf) = login_admin(&app, "csrf-bearer@example.com").await;
     let org_id = Uuid::parse_str(DEFAULT_ORG_ID).unwrap();
 
     let resp = app
@@ -71,6 +74,7 @@ async fn test_csrf_blocks_state_changing_request_without_token() {
             org_id
         ))
         .header("Authorization", format!("Bearer {}", token))
+        // Intentionally omit X-CSRF-Token — Bearer auth should bypass CSRF.
         .json(&serde_json::json!({
             "name": "Test Quota",
             "metric": "requests",
@@ -83,9 +87,9 @@ async fn test_csrf_blocks_state_changing_request_without_token() {
         .await
         .expect("failed to send request");
 
-    assert_eq!(resp.status(), 403);
-    let body: serde_json::Value = resp.json().await.expect("failed to parse error");
-    assert_eq!(body["error"]["code"], "csrf_token_missing_or_invalid");
+    // Must NOT be blocked by CSRF (403). May fail for other reasons (e.g. validation),
+    // but CSRF should not be the cause.
+    assert_ne!(resp.status(), 403);
 }
 
 #[tokio::test]

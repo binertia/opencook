@@ -26,7 +26,9 @@ const PUBLIC_ROUTES: &[&str] = &[
     "/ready",
     "/login",
     "/v1/auth/login",
+    "/api/v1/auth/login",
     "/v1/auth/refresh",
+    "/api/v1/auth/refresh",
 ];
 
 /// Unified auth middleware: validates API keys or JWT session tokens.
