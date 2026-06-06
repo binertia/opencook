@@ -76,7 +76,7 @@ async fn test_admin_flow_create_org_user_api_key() {
 #[tokio::test]
 async fn test_request_is_logged_to_db() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let initial_count = fixtures::count_requests(&app.db_pool).await;
 

@@ -1,12 +1,13 @@
 //! E2E tests for analytics endpoint.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
 async fn test_analytics_endpoint_exists_and_returns_data() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .client

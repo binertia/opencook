@@ -14,7 +14,37 @@ use gateway_api::state::{AppConfig, AppState};
 use gateway_cache::TwoTierCache;
 use gateway_core::circuit_breaker::{BreakerConfig, CircuitBreaker};
 use gateway_db::pool::create_pool;
+use redis::aio::ConnectionManager;
 use tokio::net::TcpListener;
+
+async fn connect_redis() -> ConnectionManager {
+    // Try localhost first
+    if let Ok(client) = redis::Client::open("redis://127.0.0.1:6379") {
+        if let Ok(cm) = ConnectionManager::new(client).await {
+            return cm;
+        }
+    }
+
+    // Fallback: start Redis via testcontainers
+    use testcontainers::runners::AsyncRunner;
+    use testcontainers_modules::redis::Redis;
+
+    let container = Redis::default()
+        .start()
+        .await
+        .expect("failed to start testcontainers redis");
+
+    let host = container.get_host().await.expect("failed to get container host");
+    let port = container.get_host_port_ipv4(6379)
+        .await
+        .expect("failed to get container port");
+    let url = format!("redis://{}:{}", host, port);
+
+    let client = redis::Client::open(url).expect("failed to open redis client");
+    ConnectionManager::new(client)
+        .await
+        .expect("failed to create connection manager")
+}
 
 /// Build a minimal AppState for testing.
 async fn test_state(shutdown: ShutdownState) -> AppState {
@@ -22,11 +52,7 @@ async fn test_state(shutdown: ShutdownState) -> AppState {
         .await
         .expect("failed to create SQLite pool");
 
-    let redis = redis::Client::open("redis://127.0.0.1:6379")
-        .expect("Redis required")
-        .get_connection_manager()
-        .await
-        .expect("Redis connection failed");
+    let redis = connect_redis().await;
 
     let cache = TwoTierCache::new(redis.clone());
     let circuit_breaker = CircuitBreaker::new(BreakerConfig::default());
@@ -118,11 +144,7 @@ async fn spawn_test_server() -> (SocketAddr, ShutdownState) {
         .await
         .expect("failed to create SQLite pool");
 
-    let redis = redis::Client::open("redis://127.0.0.1:6379")
-        .expect("Redis required")
-        .get_connection_manager()
-        .await
-        .expect("Redis connection failed");
+    let redis = connect_redis().await;
 
     let cache = TwoTierCache::new(redis.clone());
     let circuit_breaker = CircuitBreaker::new(BreakerConfig::default());

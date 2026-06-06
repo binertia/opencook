@@ -30,7 +30,7 @@ async fn test_routing_rule_can_be_created_and_queried() {
 #[tokio::test]
 async fn test_request_with_valid_api_key_reaches_chat_endpoint() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .post_json_auth(

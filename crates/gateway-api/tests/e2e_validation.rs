@@ -1,6 +1,7 @@
 //! E2E tests for input validation and injection protection.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
@@ -45,7 +46,7 @@ async fn test_invalid_email_rejected() {
 #[tokio::test]
 async fn test_too_long_name_rejected() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let long_name = "x".repeat(129);
     let response = app
@@ -68,7 +69,7 @@ async fn test_too_long_name_rejected() {
 #[tokio::test]
 async fn test_invalid_url_rejected_for_webhook() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .post_json_auth(
@@ -92,7 +93,7 @@ async fn test_invalid_url_rejected_for_webhook() {
 #[tokio::test]
 async fn test_sql_injection_in_input_does_not_execute() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     // Try to create an API key with a SQL injection payload in the name.
     let response = app

@@ -1,12 +1,13 @@
 //! E2E tests for user management endpoints.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
 async fn test_user_crud_flow() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     // 1. List users (should be empty or have default)
     let list_resp = app
@@ -67,7 +68,7 @@ async fn test_user_crud_flow() {
 #[tokio::test]
 async fn test_user_list_with_search_and_status() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     // Create a user
     app.post_json_auth(

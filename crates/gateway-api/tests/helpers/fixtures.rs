@@ -188,6 +188,16 @@ pub async fn create_quota(
     id
 }
 
+/// Generate a valid API key and insert it into the default organization.
+/// Returns the full API key string for use in Authorization headers.
+pub async fn setup_api_key(db: &DbBackend) -> String {
+    let (api_key, hash, _prefix) = gateway_auth::generate_api_key();
+    let org_id = Uuid::parse_str("00000000-0000-0000-0000-000000000000").unwrap();
+    let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000000").unwrap();
+    create_api_key(db, org_id, user_id, "Test Key", &hash).await;
+    api_key
+}
+
 /// Count requests in the DB.
 pub async fn count_requests(db: &DbBackend) -> i64 {
     let pool = db.sqlite();

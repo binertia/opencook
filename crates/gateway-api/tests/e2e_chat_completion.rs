@@ -1,12 +1,13 @@
 //! E2E tests for the chat completion endpoint.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
 async fn test_chat_completion_non_streaming_returns_200() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .post_json_auth(
@@ -31,7 +32,7 @@ async fn test_chat_completion_non_streaming_returns_200() {
 #[tokio::test]
 async fn test_chat_completion_streaming_returns_sse() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .post_json_auth(
@@ -76,7 +77,7 @@ async fn test_chat_completion_missing_auth_returns_401() {
 #[tokio::test]
 async fn test_chat_completion_invalid_model_returns_400() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .post_json_auth(

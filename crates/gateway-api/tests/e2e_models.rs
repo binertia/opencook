@@ -1,12 +1,13 @@
 //! E2E tests for model listing endpoints (OpenCode compatibility).
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
 async fn test_list_models_returns_openai_compatible_format() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .client
@@ -34,7 +35,7 @@ async fn test_list_models_returns_openai_compatible_format() {
 #[tokio::test]
 async fn test_get_single_model_exists() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .client
@@ -56,7 +57,7 @@ async fn test_get_single_model_exists() {
 #[tokio::test]
 async fn test_get_single_model_not_found() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .client

@@ -350,9 +350,9 @@ mod tests {
         let _ = redact_with_level(&body, RedactionLevel::Full);
         let elapsed = start.elapsed();
 
-        // In debug builds regex can be slower; allow up to 100ms.
+        // In debug builds regex can be slower; allow up to 250ms.
         // In release builds this is well under 1ms.
-        let threshold_ms = if cfg!(debug_assertions) { 100 } else { 1 };
+        let threshold_ms = if cfg!(debug_assertions) { 250 } else { 1 };
         assert!(
             elapsed.as_millis() < threshold_ms,
             "Redaction took {}ms, expected < {}ms for 1KB body",

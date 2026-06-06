@@ -1,12 +1,13 @@
 //! E2E tests for the dashboard KPI endpoint.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
 async fn test_dashboard_endpoint_exists_and_returns_data() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .client
@@ -40,7 +41,7 @@ async fn test_dashboard_endpoint_exists_and_returns_data() {
 #[tokio::test]
 async fn test_dashboard_with_providers() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     // Create a provider first
     let create_resp = app

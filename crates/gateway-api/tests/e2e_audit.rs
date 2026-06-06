@@ -1,6 +1,7 @@
 //! E2E tests for the audit log system.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 use uuid::Uuid;
 
@@ -94,7 +95,7 @@ async fn login_viewer(app: &helpers::test_app::TestApp, email: &str) -> String {
 async fn test_audit_log_records_api_key_lifecycle() {
     let app = spawn_test_app().await;
     let admin_token = login_admin(&app, "audit-admin@example.com").await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     // 1. Create an API key — should produce an audit entry in the default org.
     let create_resp = app
@@ -178,7 +179,7 @@ async fn test_audit_log_records_api_key_lifecycle() {
 async fn test_audit_log_pagination() {
     let app = spawn_test_app().await;
     let admin_token = login_admin(&app, "audit-admin-paginate@example.com").await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     for name in ["Key One", "Key Two"] {
         let resp = app

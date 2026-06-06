@@ -34,7 +34,7 @@ async fn test_quota_endpoints_exist() {
     let org_id = fixtures::create_org(&app.db_pool, "Quota API Test Org").await;
 
     // The quota admin endpoints require auth (API key)
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .client

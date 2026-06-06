@@ -1,12 +1,13 @@
 //! E2E tests for provider management endpoints.
 
 mod helpers;
+use helpers::fixtures;
 use helpers::test_app::spawn_test_app;
 
 #[tokio::test]
 async fn test_provider_crud_flow() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     // 1. Create a provider
     let create_response = app
@@ -94,7 +95,7 @@ async fn test_provider_crud_flow() {
 #[tokio::test]
 async fn test_provider_test_connection_endpoint_exists() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     let response = app
         .post_json_auth(
@@ -120,7 +121,7 @@ async fn test_provider_test_connection_endpoint_exists() {
 #[tokio::test]
 async fn test_provider_new_kinds_accepted() {
     let app = spawn_test_app().await;
-    let (api_key, _hash, _prefix) = gateway_auth::generate_api_key();
+    let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
     for kind in ["groq", "mistral", "cohere", "azure", "qwen", "kimi", "tencent"] {
         let resp = app

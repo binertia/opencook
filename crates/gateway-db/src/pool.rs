@@ -432,8 +432,37 @@ mod tests {
             })
     }
 
+    /// Check if PostgreSQL is reachable before running PG-dependent tests.
+    async fn pg_available() -> bool {
+        let url = test_pg_url();
+        let host = url
+            .split("@")
+            .nth(1)
+            .and_then(|s| s.split("/").next())
+            .and_then(|s| s.split(":").next())
+            .unwrap_or("localhost");
+        let port = url
+            .split("@")
+            .nth(1)
+            .and_then(|s| s.split("/").next())
+            .and_then(|s| s.split(":").nth(1))
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(5432u16);
+
+        tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            tokio::net::TcpStream::connect((host, port)),
+        )
+        .await
+        .is_ok_and(|r| r.is_ok())
+    }
+
     #[tokio::test]
     async fn test_pg_pool_creation() {
+        if !pg_available().await {
+            eprintln!("Skipping PostgreSQL test — no database reachable at {}", test_pg_url());
+            return;
+        }
         let pool = create_postgres_pool(&test_pg_url()).await.expect("pool creation failed");
         let row: (i32,) = sqlx::query_as("SELECT 1")
             .fetch_one(&pool)
@@ -463,6 +492,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_rls_context_set() {
+        if !pg_available().await {
+            eprintln!("Skipping PostgreSQL test — no database reachable at {}", test_pg_url());
+            return;
+        }
         let pool = create_postgres_pool(&test_pg_url()).await.expect("pool creation failed");
         let org_id = verify_rls_context(&pool).await.expect("RLS verification failed");
         assert_eq!(org_id, DEFAULT_ORG_ID);
