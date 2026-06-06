@@ -114,7 +114,9 @@ pub async fn list_deliveries(Path(_id): Path<String>) -> Json<WebhookDeliveryLis
     Json(WebhookDeliveryListResponse { data: vec![] })
 }
 
-pub async fn retry_delivery(Path((_webhook_id, _delivery_id)): Path<(String, String)>) -> Json<WebhookDeliveryItem> {
+pub async fn retry_delivery(
+    Path((_webhook_id, _delivery_id)): Path<(String, String)>,
+) -> Json<WebhookDeliveryItem> {
     Json(WebhookDeliveryItem {
         id: "solo-dl-1".to_string(),
         event_type: "request.completed".to_string(),

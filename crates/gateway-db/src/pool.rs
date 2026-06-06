@@ -55,9 +55,13 @@ impl DbBackend {
 /// - Default (no URL) → SQLite at `./data/gateway.db`
 pub async fn create_pool(database_url: &str) -> Result<DbBackend, DbError> {
     if database_url.starts_with("postgres://") {
-        create_postgres_pool(database_url).await.map(DbBackend::Postgres)
+        create_postgres_pool(database_url)
+            .await
+            .map(DbBackend::Postgres)
     } else {
-        create_sqlite_pool(database_url).await.map(DbBackend::Sqlite)
+        create_sqlite_pool(database_url)
+            .await
+            .map(DbBackend::Sqlite)
     }
 }
 
@@ -426,10 +430,9 @@ mod tests {
     use super::*;
 
     fn test_pg_url() -> String {
-        std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| {
-                "postgres://gateway:gateway_dev_password@localhost:5432/gateway_dev".into()
-            })
+        std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+            "postgres://gateway:gateway_dev_password@localhost:5432/gateway_dev".into()
+        })
     }
 
     /// Check if PostgreSQL is reachable before running PG-dependent tests.
@@ -460,10 +463,15 @@ mod tests {
     #[tokio::test]
     async fn test_pg_pool_creation() {
         if !pg_available().await {
-            eprintln!("Skipping PostgreSQL test — no database reachable at {}", test_pg_url());
+            eprintln!(
+                "Skipping PostgreSQL test — no database reachable at {}",
+                test_pg_url()
+            );
             return;
         }
-        let pool = create_postgres_pool(&test_pg_url()).await.expect("pool creation failed");
+        let pool = create_postgres_pool(&test_pg_url())
+            .await
+            .expect("pool creation failed");
         let row: (i32,) = sqlx::query_as("SELECT 1")
             .fetch_one(&pool)
             .await
@@ -493,11 +501,18 @@ mod tests {
     #[tokio::test]
     async fn test_rls_context_set() {
         if !pg_available().await {
-            eprintln!("Skipping PostgreSQL test — no database reachable at {}", test_pg_url());
+            eprintln!(
+                "Skipping PostgreSQL test — no database reachable at {}",
+                test_pg_url()
+            );
             return;
         }
-        let pool = create_postgres_pool(&test_pg_url()).await.expect("pool creation failed");
-        let org_id = verify_rls_context(&pool).await.expect("RLS verification failed");
+        let pool = create_postgres_pool(&test_pg_url())
+            .await
+            .expect("pool creation failed");
+        let org_id = verify_rls_context(&pool)
+            .await
+            .expect("RLS verification failed");
         assert_eq!(org_id, DEFAULT_ORG_ID);
         pool.close().await;
     }

@@ -11,9 +11,8 @@ use once_cell::sync::Lazy;
 static API_KEY_RE: Lazy<regex::Regex> =
     Lazy::new(|| regex::Regex::new(r"sk_gw_[A-Za-z0-9]{38,}").unwrap());
 
-static EMAIL_RE: Lazy<regex::Regex> = Lazy::new(|| {
-    regex::Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap()
-});
+static EMAIL_RE: Lazy<regex::Regex> =
+    Lazy::new(|| regex::Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap());
 
 static PHONE_RE: Lazy<regex::Regex> = Lazy::new(|| {
     // US/international phone patterns: +1-xxx-xxx-xxxx, (xxx) xxx-xxxx, xxx-xxx-xxxx, xxxxxxxxxx
@@ -28,8 +27,9 @@ static CREDIT_CARD_RE: Lazy<regex::Regex> = Lazy::new(|| {
 static SSN_RE: Lazy<regex::Regex> =
     Lazy::new(|| regex::Regex::new(r"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b").unwrap());
 
-static BEARER_RE: Lazy<regex::Regex> =
-    Lazy::new(|| regex::Regex::new(r"Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap());
+static BEARER_RE: Lazy<regex::Regex> = Lazy::new(|| {
+    regex::Regex::new(r"Bearer\s+[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+").unwrap()
+});
 
 // ── Redaction level ──────────────────────────────────────────────────────────
 
@@ -60,7 +60,9 @@ impl RedactionLevel {
 
 /// Redact gateway API keys (`sk_gw_...`).
 pub fn redact_api_keys(input: &str) -> String {
-    API_KEY_RE.replace_all(input, "[REDACTED:api_key]").into_owned()
+    API_KEY_RE
+        .replace_all(input, "[REDACTED:api_key]")
+        .into_owned()
 }
 
 /// Redact email addresses.
@@ -95,7 +97,9 @@ pub fn redact_ssn(input: &str) -> String {
 
 /// Redact bearer tokens.
 pub fn redact_bearer_tokens(input: &str) -> String {
-    BEARER_RE.replace_all(input, "[REDACTED:bearer_token]").into_owned()
+    BEARER_RE
+        .replace_all(input, "[REDACTED:bearer_token]")
+        .into_owned()
 }
 
 // ── Combined redaction ───────────────────────────────────────────────────────
@@ -136,16 +140,21 @@ pub fn redact_json(value: &serde_json::Value) -> serde_json::Value {
 }
 
 /// Redact a JSON value recursively with an explicit level.
-pub fn redact_json_with_level(value: &serde_json::Value, level: RedactionLevel) -> serde_json::Value {
+pub fn redact_json_with_level(
+    value: &serde_json::Value,
+    level: RedactionLevel,
+) -> serde_json::Value {
     if level == RedactionLevel::None {
         return value.clone();
     }
 
     match value {
         serde_json::Value::String(s) => serde_json::Value::String(redact_with_level(s, level)),
-        serde_json::Value::Array(arr) => {
-            serde_json::Value::Array(arr.iter().map(|v| redact_json_with_level(v, level)).collect())
-        }
+        serde_json::Value::Array(arr) => serde_json::Value::Array(
+            arr.iter()
+                .map(|v| redact_json_with_level(v, level))
+                .collect(),
+        ),
         serde_json::Value::Object(map) => {
             let mut out = serde_json::Map::new();
             for (k, v) in map {
@@ -161,7 +170,10 @@ pub fn redact_json_with_level(value: &serde_json::Value, level: RedactionLevel) 
                     || key_lower.contains("phone");
 
                 if level == RedactionLevel::Full && is_sensitive_key {
-                    out.insert(k.clone(), serde_json::Value::String("[REDACTED]".to_string()));
+                    out.insert(
+                        k.clone(),
+                        serde_json::Value::String("[REDACTED]".to_string()),
+                    );
                 } else {
                     out.insert(k.clone(), redact_json_with_level(v, level));
                 }
@@ -341,7 +353,10 @@ mod tests {
         for i in 0..20 {
             body.push_str(&format!(
                 "User {} has email user{}@example.com and phone 555-{:03}-{:04}. ",
-                i, i, i * 10, i * 1000
+                i,
+                i,
+                i * 10,
+                i * 1000
             ));
         }
         assert!(body.len() >= 1000, "Body should be at least 1KB");

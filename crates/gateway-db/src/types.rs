@@ -6,7 +6,9 @@
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::ops::{Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::ops::{
+    Add, AddAssign, Deref, DerefMut, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign,
+};
 use std::str::FromStr;
 
 /// Wrapper around [`Decimal`] that supports both PostgreSQL and SQLite.
@@ -231,8 +233,12 @@ impl sqlx::Type<sqlx::Postgres> for DbDecimal {
 }
 
 impl<'r> sqlx::Decode<'r, sqlx::Postgres> for DbDecimal {
-    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        <Decimal as sqlx::Decode<'r, sqlx::Postgres>>::decode(value).map(Self).map_err(|e| e as _)
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        <Decimal as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)
+            .map(Self)
+            .map_err(|e| e as _)
     }
 }
 
@@ -255,7 +261,9 @@ impl sqlx::Type<sqlx::Sqlite> for DbDecimal {
 }
 
 impl<'r> sqlx::Decode<'r, sqlx::Sqlite> for DbDecimal {
-    fn decode(value: sqlx::sqlite::SqliteValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn decode(
+        value: sqlx::sqlite::SqliteValueRef<'r>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let s: &str = <&str as sqlx::Decode<'r, sqlx::Sqlite>>::decode(value)?;
         Decimal::from_str(s)
             .map(Self)
@@ -269,8 +277,7 @@ impl<'q> sqlx::Encode<'q, sqlx::Sqlite> for DbDecimal {
         buf: &mut Vec<sqlx::sqlite::SqliteArgumentValue<'q>>,
     ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
         let s = self.0.to_string();
-        <String as sqlx::Encode<'q, sqlx::Sqlite>>::encode_by_ref(&s, buf)
-            .map_err(|e| e as _)
+        <String as sqlx::Encode<'q, sqlx::Sqlite>>::encode_by_ref(&s, buf).map_err(|e| e as _)
     }
 }
 
@@ -331,26 +338,37 @@ impl<'a, T> IntoIterator for &'a JsonVec<T> {
 
 // ── sqlx PostgreSQL ──────────────────────────────────────────────────────────
 
-impl<T: sqlx::Type<sqlx::Postgres> + sqlx::postgres::PgHasArrayType + Send> sqlx::Type<sqlx::Postgres>
-    for JsonVec<T>
+impl<T: sqlx::Type<sqlx::Postgres> + sqlx::postgres::PgHasArrayType + Send>
+    sqlx::Type<sqlx::Postgres> for JsonVec<T>
 {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
         <Vec<T> as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 
-impl<'r, T: for<'a> sqlx::Decode<'a, sqlx::Postgres> + sqlx::Type<sqlx::Postgres> + sqlx::postgres::PgHasArrayType>
-    sqlx::Decode<'r, sqlx::Postgres> for JsonVec<T>
+impl<
+        'r,
+        T: for<'a> sqlx::Decode<'a, sqlx::Postgres>
+            + sqlx::Type<sqlx::Postgres>
+            + sqlx::postgres::PgHasArrayType,
+    > sqlx::Decode<'r, sqlx::Postgres> for JsonVec<T>
 {
-    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn decode(
+        value: sqlx::postgres::PgValueRef<'r>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         <Vec<T> as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)
             .map(JsonVec)
             .map_err(|e| e as _)
     }
 }
 
-impl<'q, T: for<'a> sqlx::Encode<'a, sqlx::Postgres> + sqlx::Type<sqlx::Postgres> + sqlx::postgres::PgHasArrayType + Send>
-    sqlx::Encode<'q, sqlx::Postgres> for JsonVec<T>
+impl<
+        'q,
+        T: for<'a> sqlx::Encode<'a, sqlx::Postgres>
+            + sqlx::Type<sqlx::Postgres>
+            + sqlx::postgres::PgHasArrayType
+            + Send,
+    > sqlx::Encode<'q, sqlx::Postgres> for JsonVec<T>
 {
     fn encode_by_ref(
         &self,
@@ -370,7 +388,9 @@ impl<T: Send> sqlx::Type<sqlx::Sqlite> for JsonVec<T> {
 }
 
 impl<'r, T: serde::Deserialize<'r>> sqlx::Decode<'r, sqlx::Sqlite> for JsonVec<T> {
-    fn decode(value: sqlx::sqlite::SqliteValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    fn decode(
+        value: sqlx::sqlite::SqliteValueRef<'r>,
+    ) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let s: &str = <&str as sqlx::Decode<'r, sqlx::Sqlite>>::decode(value)?;
         serde_json::from_str(s)
             .map(JsonVec)

@@ -5,11 +5,11 @@ use axum::{
     http::StatusCode,
     Extension, Json,
 };
-use gateway_auth::{AuthContext, rbac::{check_permission, Permission, Role}};
-use gateway_db::{
-    models::AuditAction,
-    repos::quota_repo::QuotaRepo,
+use gateway_auth::{
+    rbac::{check_permission, Permission, Role},
+    AuthContext,
 };
+use gateway_db::{models::AuditAction, repos::quota_repo::QuotaRepo};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -36,7 +36,10 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
-            format!("Role '{:?}' does not have permission '{:?}'", role, permission),
+            format!(
+                "Role '{:?}' does not have permission '{:?}'",
+                role, permission
+            ),
         )));
     }
     Ok(())
@@ -150,15 +153,21 @@ pub async fn list_quotas(
 ) -> Result<Json<ListQuotasResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasRead)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access quotas for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot access quotas for another organization",
+        ));
     }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
-    let quotas = repo.list_by_org(org_id).await.map_err(|e| ApiError::new(
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "database_error",
-        e.to_string(),
-    ))?;
+    let quotas = repo.list_by_org(org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     Ok(Json(ListQuotasResponse {
         data: quotas.into_iter().map(QuotaResponse::from).collect(),
@@ -174,7 +183,11 @@ pub async fn create_quota(
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasWrite)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot create quotas for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot create quotas for another organization",
+        ));
     }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
@@ -201,11 +214,13 @@ pub async fn create_quota(
             &status,
         )
         .await
-        .map_err(|e| ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "database_error",
-            e.to_string(),
-        ))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     audit::record(
         &state,
@@ -237,18 +252,21 @@ pub async fn get_quota(
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasRead)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access quotas for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot access quotas for another organization",
+        ));
     }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
-    let quota = repo
-        .get_by_id(org_id, quota_id)
-        .await
-        .map_err(|e| ApiError::new(
+    let quota = repo.get_by_id(org_id, quota_id).await.map_err(|e| {
+        ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "database_error",
             e.to_string(),
-        ))?;
+        )
+    })?;
 
     match quota {
         Some(q) => Ok(Json(QuotaResponse::from(q))),
@@ -269,23 +287,31 @@ pub async fn update_quota(
 ) -> Result<Json<QuotaResponse>, ApiError> {
     require_permission(&auth, Permission::QuotasWrite)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot update quotas for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot update quotas for another organization",
+        ));
     }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
     let existing = repo
         .get_by_id(org_id, quota_id)
         .await
-        .map_err(|e| ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "database_error",
-            e.to_string(),
-        ))?
-        .ok_or_else(|| ApiError::new(
-            StatusCode::NOT_FOUND,
-            "quota_not_found",
-            format!("Quota {} not found", quota_id),
-        ))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "quota_not_found",
+                format!("Quota {} not found", quota_id),
+            )
+        })?;
 
     let name = body.name.as_deref().map(sanitize_display_text);
     let description = body.description.as_deref().map(sanitize_display_text);
@@ -310,11 +336,13 @@ pub async fn update_quota(
             status.as_deref(),
         )
         .await
-        .map_err(|e| ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "database_error",
-            e.to_string(),
-        ))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     match quota {
         Some(ref q) => {
@@ -362,27 +390,29 @@ pub async fn delete_quota(
 ) -> Result<StatusCode, ApiError> {
     require_permission(&auth, Permission::QuotasDelete)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot delete quotas for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot delete quotas for another organization",
+        ));
     }
 
     let repo = QuotaRepo::new(state.db_pool.clone());
-    let existing = repo
-        .get_by_id(org_id, quota_id)
-        .await
-        .map_err(|e| ApiError::new(
+    let existing = repo.get_by_id(org_id, quota_id).await.map_err(|e| {
+        ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "database_error",
             e.to_string(),
-        ))?;
+        )
+    })?;
 
-    let deleted = repo
-        .delete(org_id, quota_id)
-        .await
-        .map_err(|e| ApiError::new(
+    let deleted = repo.delete(org_id, quota_id).await.map_err(|e| {
+        ApiError::new(
             StatusCode::INTERNAL_SERVER_ERROR,
             "database_error",
             e.to_string(),
-        ))?;
+        )
+    })?;
 
     if deleted {
         if let Some(q) = existing {

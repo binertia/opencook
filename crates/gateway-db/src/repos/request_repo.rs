@@ -34,14 +34,8 @@ impl RequestRepo {
         request_body: Option<&str>,
     ) -> Result<Request, DbError> {
         let body_truncated = request_body.map(|b| b.len() > 100_000).unwrap_or(false);
-        let body = request_body.map(|b| {
-            if b.len() > 100_000 {
-                &b[..100_000]
-            } else {
-                b
-            }
-            .to_string()
-        });
+        let body =
+            request_body.map(|b| if b.len() > 100_000 { &b[..100_000] } else { b }.to_string());
 
         match &self.pool {
             DbBackend::Postgres(pg) => {
@@ -232,11 +226,7 @@ impl RequestRepo {
     }
 
     /// Mark request as provider-sent (before awaiting response).
-    pub async fn mark_provider_sent(
-        &self,
-        request_id: Uuid,
-        org_id: Uuid,
-    ) -> Result<(), DbError> {
+    pub async fn mark_provider_sent(&self, request_id: Uuid, org_id: Uuid) -> Result<(), DbError> {
         match &self.pool {
             DbBackend::Postgres(pg) => {
                 sqlx::query(
@@ -435,11 +425,7 @@ impl RequestRepo {
     }
 
     /// List recent requests for an org.
-    pub async fn list_recent(
-        &self,
-        org_id: Uuid,
-        limit: i64,
-    ) -> Result<Vec<Request>, DbError> {
+    pub async fn list_recent(&self, org_id: Uuid, limit: i64) -> Result<Vec<Request>, DbError> {
         let sql_pg = r#"
             SELECT
                 id, org_id, api_key_id, user_id, provider_config_id, provider_model_id,

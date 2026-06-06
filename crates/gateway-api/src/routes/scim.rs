@@ -7,7 +7,7 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::scim::*;
-use gateway_db::{ScimTokenRepo, UserRepo, OrgMemberRepo, DbBackend};
+use gateway_db::{DbBackend, OrgMemberRepo, ScimTokenRepo, UserRepo};
 use serde::Deserialize;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -32,8 +32,12 @@ pub struct ScimListQuery {
     pub filter: Option<String>,
 }
 
-fn default_start_index() -> usize { 1 }
-fn default_count() -> usize { 100 }
+fn default_start_index() -> usize {
+    1
+}
+fn default_count() -> usize {
+    100
+}
 
 // ── Middleware: SCIM Token Auth ──────────────────────────────────────
 
@@ -43,14 +47,15 @@ pub async fn scim_auth_middleware(
     mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Response {
-    let auth_header = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok());
+    let auth_header = headers.get("authorization").and_then(|v| v.to_str().ok());
 
     let token = match auth_header {
         Some(h) if h.starts_with("Bearer ") => &h[7..],
         _ => {
-            return scim_error(StatusCode::UNAUTHORIZED, "Missing or invalid Authorization header");
+            return scim_error(
+                StatusCode::UNAUTHORIZED,
+                "Missing or invalid Authorization header",
+            );
         }
     };
 
@@ -88,17 +93,29 @@ fn scim_error(status: StatusCode, detail: &str) -> Response {
 
 pub async fn service_provider_config() -> impl IntoResponse {
     let config = gateway_auth::scim::service_provider_config("");
-    (StatusCode::OK, [("Content-Type", "application/scim+json")], Json(config))
+    (
+        StatusCode::OK,
+        [("Content-Type", "application/scim+json")],
+        Json(config),
+    )
 }
 
 pub async fn resource_types() -> impl IntoResponse {
     let types = gateway_auth::scim::resource_types();
-    (StatusCode::OK, [("Content-Type", "application/scim+json")], Json(types))
+    (
+        StatusCode::OK,
+        [("Content-Type", "application/scim+json")],
+        Json(types),
+    )
 }
 
 pub async fn schemas() -> impl IntoResponse {
     let schemas = gateway_auth::scim::schemas();
-    (StatusCode::OK, [("Content-Type", "application/scim+json")], Json(schemas))
+    (
+        StatusCode::OK,
+        [("Content-Type", "application/scim+json")],
+        Json(schemas),
+    )
 }
 
 pub async fn list_users(
@@ -122,7 +139,10 @@ pub async fn list_users(
 
     let resp = ScimListResponse::new(scim_users, total, query.start_index, query.count);
     let mut response = Json(resp).into_response();
-    response.headers_mut().insert("Content-Type", axum::http::HeaderValue::from_static("application/scim+json"));
+    response.headers_mut().insert(
+        "Content-Type",
+        axum::http::HeaderValue::from_static("application/scim+json"),
+    );
     response
 }
 
@@ -136,7 +156,10 @@ pub async fn get_user(
     match user_repo.find_by_id(user_id).await {
         Ok(Some(u)) if u.org_id == auth.org_id => {
             let mut resp = Json(db_user_to_scim(&u)).into_response();
-            resp.headers_mut().insert("Content-Type", axum::http::HeaderValue::from_static("application/scim+json"));
+            resp.headers_mut().insert(
+                "Content-Type",
+                axum::http::HeaderValue::from_static("application/scim+json"),
+            );
             resp
         }
         Ok(Some(_)) => scim_error(StatusCode::NOT_FOUND, "User not found in organization"),
@@ -155,8 +178,12 @@ pub async fn create_user(
 
     let display_name = body.name.as_ref().and_then(|n| {
         let mut parts = Vec::new();
-        if let Some(g) = &n.given_name { parts.push(g.clone()); }
-        if let Some(f) = &n.family_name { parts.push(f.clone()); }
+        if let Some(g) = &n.given_name {
+            parts.push(g.clone());
+        }
+        if let Some(f) = &n.family_name {
+            parts.push(f.clone());
+        }
         if parts.is_empty() {
             n.formatted.clone()
         } else {
@@ -164,25 +191,33 @@ pub async fn create_user(
         }
     });
 
-    let user = match user_repo.create(
-        auth.org_id,
-        &body.user_name,
-        None,
-        display_name.as_deref(),
-        "member",
-        if body.active { "active" } else { "suspended" },
-    ).await {
+    let user = match user_repo
+        .create(
+            auth.org_id,
+            &body.user_name,
+            None,
+            display_name.as_deref(),
+            "member",
+            if body.active { "active" } else { "suspended" },
+        )
+        .await
+    {
         Ok(u) => u,
         Err(e) => return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()),
     };
 
     // Link to org
-    let _ = member_repo.create(user.id, auth.org_id, "member", None).await;
+    let _ = member_repo
+        .create(user.id, auth.org_id, "member", None)
+        .await;
 
     info!(user_id = %user.id, org_id = %auth.org_id, "SCIM user created");
 
     let mut resp = Json(db_user_to_scim(&user)).into_response();
-    resp.headers_mut().insert("Content-Type", axum::http::HeaderValue::from_static("application/scim+json"));
+    resp.headers_mut().insert(
+        "Content-Type",
+        axum::http::HeaderValue::from_static("application/scim+json"),
+    );
     *resp.status_mut() = StatusCode::CREATED;
     resp
 }
@@ -216,7 +251,10 @@ pub async fn update_user(
     };
 
     let mut resp = Json(db_user_to_scim(&user)).into_response();
-    resp.headers_mut().insert("Content-Type", axum::http::HeaderValue::from_static("application/scim+json"));
+    resp.headers_mut().insert(
+        "Content-Type",
+        axum::http::HeaderValue::from_static("application/scim+json"),
+    );
     resp
 }
 
@@ -249,16 +287,15 @@ pub async fn patch_user(
     };
 
     for op in &body.operations {
-        if op.op.as_str() == "Replace"
-            && op.path.as_deref() == Some("active") {
-                let active = op.value.as_ref().and_then(|v| v.as_bool()).unwrap_or(true);
-                let new_status = if active { "active" } else { "suspended" };
-                if existing.status != new_status {
-                    if let Err(e) = user_repo.update_status(user_id, new_status).await {
-                        return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
-                    }
+        if op.op.as_str() == "Replace" && op.path.as_deref() == Some("active") {
+            let active = op.value.as_ref().and_then(|v| v.as_bool()).unwrap_or(true);
+            let new_status = if active { "active" } else { "suspended" };
+            if existing.status != new_status {
+                if let Err(e) = user_repo.update_status(user_id, new_status).await {
+                    return scim_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
                 }
             }
+        }
     }
 
     let user = match user_repo.find_by_id(user_id).await {
@@ -267,7 +304,10 @@ pub async fn patch_user(
     };
 
     let mut resp = Json(db_user_to_scim(&user)).into_response();
-    resp.headers_mut().insert("Content-Type", axum::http::HeaderValue::from_static("application/scim+json"));
+    resp.headers_mut().insert(
+        "Content-Type",
+        axum::http::HeaderValue::from_static("application/scim+json"),
+    );
     resp
 }
 
@@ -297,18 +337,17 @@ pub async fn list_groups() -> Response {
     let groups: Vec<ScimGroup> = vec![];
     let resp = ScimListResponse::new(groups, 0, 1, 100);
     let mut response = Json(resp).into_response();
-    response.headers_mut().insert("Content-Type", axum::http::HeaderValue::from_static("application/scim+json"));
+    response.headers_mut().insert(
+        "Content-Type",
+        axum::http::HeaderValue::from_static("application/scim+json"),
+    );
     response
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
 fn db_user_to_scim(user: &gateway_db::User) -> ScimUser {
-    let mut scim = ScimUser::new(
-        &user.id.to_string(),
-        &user.email,
-        user.status == "active",
-    );
+    let mut scim = ScimUser::new(&user.id.to_string(), &user.email, user.status == "active");
     scim.display_name = user.display_name.clone();
     scim.name = user.display_name.as_ref().map(|d| ScimName {
         formatted: Some(d.clone()),

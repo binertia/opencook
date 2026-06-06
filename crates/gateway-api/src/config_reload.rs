@@ -59,14 +59,11 @@ pub async fn handle_reload(config: Arc<AppConfig>) {
     };
 
     // TLS cert reload check.
-    let tls_changed = new_config.tls_cert != config.tls_cert || new_config.tls_key != config.tls_key;
+    let tls_changed =
+        new_config.tls_cert != config.tls_cert || new_config.tls_key != config.tls_key;
     if tls_changed {
         tracing::info!("TLS certificate configuration changed — will take effect on next restart");
     }
 
-    tracing::info!(
-        jwt_reloaded,
-        tls_changed,
-        "config reload complete"
-    );
+    tracing::info!(jwt_reloaded, tls_changed, "config reload complete");
 }

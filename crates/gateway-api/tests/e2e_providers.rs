@@ -25,9 +25,17 @@ async fn test_provider_crud_flow() {
         )
         .await;
 
-    assert_eq!(create_response.status(), 200, "Create provider failed: {:?}", create_response.text().await);
+    assert_eq!(
+        create_response.status(),
+        200,
+        "Create provider failed: {:?}",
+        create_response.text().await
+    );
 
-    let create_body: serde_json::Value = create_response.json().await.expect("failed to parse create");
+    let create_body: serde_json::Value = create_response
+        .json()
+        .await
+        .expect("failed to parse create");
     let provider_id = create_body["id"].as_str().unwrap();
     assert_eq!(create_body["name"], "Test OpenAI");
     assert_eq!(create_body["kind"], "openai");
@@ -58,7 +66,10 @@ async fn test_provider_crud_flow() {
         .expect("failed to get provider");
 
     assert_eq!(detail_response.status(), 200);
-    let detail_body: serde_json::Value = detail_response.json().await.expect("failed to parse detail");
+    let detail_body: serde_json::Value = detail_response
+        .json()
+        .await
+        .expect("failed to parse detail");
     assert_eq!(detail_body["name"], "Test OpenAI");
     assert_eq!(detail_body["kind"], "openai");
 
@@ -76,7 +87,10 @@ async fn test_provider_crud_flow() {
         .expect("failed to update provider");
 
     assert_eq!(update_response.status(), 200);
-    let update_body: serde_json::Value = update_response.json().await.expect("failed to parse update");
+    let update_body: serde_json::Value = update_response
+        .json()
+        .await
+        .expect("failed to parse update");
     assert_eq!(update_body["name"], "Updated OpenAI");
     assert_eq!(update_body["status"], "inactive");
 
@@ -123,7 +137,9 @@ async fn test_provider_new_kinds_accepted() {
     let app = spawn_test_app().await;
     let api_key = fixtures::setup_api_key(&app.db_pool).await;
 
-    for kind in ["groq", "mistral", "cohere", "azure", "qwen", "kimi", "tencent"] {
+    for kind in [
+        "groq", "mistral", "cohere", "azure", "qwen", "kimi", "tencent",
+    ] {
         let resp = app
             .post_json_auth(
                 "/v1/providers",

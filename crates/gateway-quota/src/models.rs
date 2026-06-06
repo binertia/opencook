@@ -93,7 +93,10 @@ impl QuotaPeriod {
     }
 
     /// Compute the period boundary for a given timestamp.
-    pub fn period_start(&self, now: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
+    pub fn period_start(
+        &self,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> chrono::DateTime<chrono::Utc> {
         use chrono::{Datelike, Timelike};
         match self {
             QuotaPeriod::Minute => now.with_second(0).unwrap().with_nanosecond(0).unwrap(),
@@ -129,7 +132,10 @@ impl QuotaPeriod {
     }
 
     /// Compute the period end for a given start.
-    pub fn period_end(&self, start: chrono::DateTime<chrono::Utc>) -> chrono::DateTime<chrono::Utc> {
+    pub fn period_end(
+        &self,
+        start: chrono::DateTime<chrono::Utc>,
+    ) -> chrono::DateTime<chrono::Utc> {
         match self {
             QuotaPeriod::Minute => start + chrono::Duration::minutes(1),
             QuotaPeriod::Hour => start + chrono::Duration::hours(1),

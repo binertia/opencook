@@ -24,18 +24,52 @@ async fn test_success_response_includes_timing_headers() {
     assert_eq!(response.status(), 200);
 
     let headers = response.headers();
-    assert!(headers.contains_key("x-gateway-request-id"), "missing x-gateway-request-id");
-    assert!(headers.contains_key("x-total-latency-ms"), "missing x-total-latency-ms");
-    assert!(headers.contains_key("x-gateway-latency-ms"), "missing x-gateway-latency-ms");
-    assert!(headers.contains_key("x-provider-latency-ms"), "missing x-provider-latency-ms");
-    assert!(headers.contains_key("x-request-time-ms"), "missing x-request-time-ms");
+    assert!(
+        headers.contains_key("x-gateway-request-id"),
+        "missing x-gateway-request-id"
+    );
+    assert!(
+        headers.contains_key("x-total-latency-ms"),
+        "missing x-total-latency-ms"
+    );
+    assert!(
+        headers.contains_key("x-gateway-latency-ms"),
+        "missing x-gateway-latency-ms"
+    );
+    assert!(
+        headers.contains_key("x-provider-latency-ms"),
+        "missing x-provider-latency-ms"
+    );
+    assert!(
+        headers.contains_key("x-request-time-ms"),
+        "missing x-request-time-ms"
+    );
 
-    let total: u64 = headers["x-total-latency-ms"].to_str().unwrap().parse().unwrap();
-    let gateway: u64 = headers["x-gateway-latency-ms"].to_str().unwrap().parse().unwrap();
-    let provider: u64 = headers["x-provider-latency-ms"].to_str().unwrap().parse().unwrap();
+    let total: u64 = headers["x-total-latency-ms"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let gateway: u64 = headers["x-gateway-latency-ms"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let provider: u64 = headers["x-provider-latency-ms"]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
 
-    assert!(total >= gateway, "total latency should be >= gateway latency");
-    assert_eq!(gateway + provider, total, "gateway + provider should equal total");
+    assert!(
+        total >= gateway,
+        "total latency should be >= gateway latency"
+    );
+    assert_eq!(
+        gateway + provider,
+        total,
+        "gateway + provider should equal total"
+    );
 }
 
 #[tokio::test]
@@ -66,7 +100,10 @@ async fn test_error_response_includes_trace_id_and_error_code() {
     assert!(error.get("code").is_some(), "error.code missing");
     assert!(error.get("message").is_some(), "error.message missing");
     assert!(error.get("type").is_some(), "error.type missing");
-    assert!(error.get("request_id").is_some(), "error.request_id missing");
+    assert!(
+        error.get("request_id").is_some(),
+        "error.request_id missing"
+    );
 }
 
 #[tokio::test]

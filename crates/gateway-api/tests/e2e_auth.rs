@@ -40,9 +40,17 @@ async fn test_auth_login_with_valid_credentials() {
         )
         .await;
 
-    assert_eq!(response.status(), 200, "Expected 200, got {}", response.status());
+    assert_eq!(
+        response.status(),
+        200,
+        "Expected 200, got {}",
+        response.status()
+    );
 
-    let body: serde_json::Value = response.json().await.expect("failed to parse login response");
+    let body: serde_json::Value = response
+        .json()
+        .await
+        .expect("failed to parse login response");
     assert!(!body["access_token"].as_str().unwrap().is_empty());
     assert!(!body["refresh_token"].as_str().unwrap().is_empty());
     assert_eq!(body["token_type"], "Bearer");
@@ -119,7 +127,10 @@ async fn test_auth_me_returns_user_info() {
 
     assert_eq!(me_response.status(), 200);
 
-    let me_body: serde_json::Value = me_response.json().await.expect("failed to parse me response");
+    let me_body: serde_json::Value = me_response
+        .json()
+        .await
+        .expect("failed to parse me response");
     assert_eq!(me_body["email"], "me-test@example.com");
     assert_eq!(me_body["role"], "member");
     assert_eq!(me_body["name"], "Me Test User");
@@ -191,7 +202,10 @@ async fn test_auth_refresh_issues_new_access_token() {
 
     assert_eq!(refresh_response.status(), 200);
 
-    let refresh_body: serde_json::Value = refresh_response.json().await.expect("failed to parse refresh");
+    let refresh_body: serde_json::Value = refresh_response
+        .json()
+        .await
+        .expect("failed to parse refresh");
     assert!(!refresh_body["access_token"].as_str().unwrap().is_empty());
     assert!(!refresh_body["refresh_token"].as_str().unwrap().is_empty());
     assert_eq!(refresh_body["user"]["email"], "refresh-test@example.com");

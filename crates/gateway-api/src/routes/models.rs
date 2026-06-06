@@ -1,6 +1,10 @@
 //! Model listing endpoints.
 
-use axum::{extract::{Path, State}, http::{HeaderMap, StatusCode}, Extension, Json};
+use axum::{
+    extract::{Path, State},
+    http::{HeaderMap, StatusCode},
+    Extension, Json,
+};
 use gateway_auth::AuthContext;
 use gateway_db::ModelRegistry;
 use rust_decimal::Decimal;
@@ -128,7 +132,11 @@ pub async fn get_model(
                     return Ok(Json(m));
                 }
             }
-            Err(ApiError::new(StatusCode::NOT_FOUND, "model_not_found", "Model not found"))
+            Err(ApiError::new(
+                StatusCode::NOT_FOUND,
+                "model_not_found",
+                "Model not found",
+            ))
         }
         Err(_) => {
             for m in static_fallback_models() {
@@ -136,7 +144,11 @@ pub async fn get_model(
                     return Ok(Json(m));
                 }
             }
-            Err(ApiError::new(StatusCode::NOT_FOUND, "model_not_found", "Model not found"))
+            Err(ApiError::new(
+                StatusCode::NOT_FOUND,
+                "model_not_found",
+                "Model not found",
+            ))
         }
     }
 }

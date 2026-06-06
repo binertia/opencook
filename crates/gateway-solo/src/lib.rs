@@ -110,7 +110,9 @@ pub async fn run_server() -> anyhow::Result<()> {
 pub fn print_banner(port: u16, state: &state::AppState) {
     let version = env!("CARGO_PKG_VERSION");
     let profile = state.config.profile.display_name();
-    let db_mode = if state.config.database_url.starts_with("sqlite:") || state.config.database_url == ":memory:" {
+    let db_mode = if state.config.database_url.starts_with("sqlite:")
+        || state.config.database_url == ":memory:"
+    {
         "SQLite (local file)"
     } else {
         "PostgreSQL"
@@ -145,15 +147,33 @@ pub fn print_banner(port: u16, state: &state::AppState) {
 
     println!("\n╔{}╗", hr);
     println!("{}", line(&format!("🍳 OpenCook v{}", version)));
-    println!("{}", line("Cook locally. GPT when the stacktrace speaking Thai"));
+    println!(
+        "{}",
+        line("Cook locally. GPT when the stacktrace speaking Thai")
+    );
     println!("╠{}╣", hr);
-    println!("{}", line(&format!("🌐  API     http://localhost:{}/v1/chat_completions", port)));
-    println!("{}", line(&format!("📊  Metrics http://localhost:{}/metrics", port)));
+    println!(
+        "{}",
+        line(&format!(
+            "🌐  API     http://localhost:{}/v1/chat_completions",
+            port
+        ))
+    );
+    println!(
+        "{}",
+        line(&format!("📊  Metrics http://localhost:{}/metrics", port))
+    );
     println!("{}", line(&format!("💾  DB      {}", db_mode)));
     println!("{}", line(&format!("🧠  Profile {}", profile)));
     println!("╠{}╣", hr);
     println!("{}", line("Quick start:"));
-    println!("{}", line(&format!("  curl -X POST http://localhost:{}/v1/chat_completions", port)));
+    println!(
+        "{}",
+        line(&format!(
+            "  curl -X POST http://localhost:{}/v1/chat_completions",
+            port
+        ))
+    );
     println!("{}", line("    -H 'Content-Type: application/json'"));
     println!("{}", line("    -d '{\"model\":\"gpt-4o\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}'"));
     println!("╚{}╝\n", hr);

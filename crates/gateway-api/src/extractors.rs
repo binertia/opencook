@@ -3,7 +3,7 @@
 //! `ValidatedJson<T>` — deserializes JSON and runs `validator::Validate`.
 
 use axum::{
-    extract::{FromRequest, rejection::JsonRejection},
+    extract::{rejection::JsonRejection, FromRequest},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -26,7 +26,9 @@ where
     type Rejection = ValidationRejection;
 
     async fn from_request(req: axum::extract::Request, state: &S) -> Result<Self, Self::Rejection> {
-        let Json(value) = Json::<T>::from_request(req, state).await.map_err(ValidationRejection::Json)?;
+        let Json(value) = Json::<T>::from_request(req, state)
+            .await
+            .map_err(ValidationRejection::Json)?;
         value.validate().map_err(ValidationRejection::Validation)?;
         Ok(ValidatedJson(value))
     }

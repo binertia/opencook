@@ -16,7 +16,12 @@ use tracing::{debug, warn};
 
 use crate::{error::ApiError, state::AppState};
 
-fn publish_quota_webhook(state: &AppState, org_id: uuid::Uuid, event: gateway_db::WebhookEvent, data: serde_json::Value) {
+fn publish_quota_webhook(
+    state: &AppState,
+    org_id: uuid::Uuid,
+    event: gateway_db::WebhookEvent,
+    data: serde_json::Value,
+) {
     if let Some(ref publisher) = state.webhook_publisher {
         let publisher = publisher.clone();
         tokio::spawn(async move {
@@ -38,16 +43,14 @@ pub async fn quota_middleware(
         .extensions()
         .get::<AuthContext>()
         .cloned()
-        .unwrap_or_else(|| {
-            AuthContext {
-                auth_type: gateway_auth::AuthType::ApiKey,
-                org_id: uuid::Uuid::nil(),
-                user_id: None,
-                key_id: None,
-                role: None,
-                permissions: vec![],
-                rate_limit_rps: Some(100),
-            }
+        .unwrap_or_else(|| AuthContext {
+            auth_type: gateway_auth::AuthType::ApiKey,
+            org_id: uuid::Uuid::nil(),
+            user_id: None,
+            key_id: None,
+            role: None,
+            permissions: vec![],
+            rate_limit_rps: Some(100),
         });
 
     let quota_repo = QuotaRepo::new(state.db_pool.clone());
@@ -77,7 +80,10 @@ pub async fn quota_middleware(
             );
             Ok(next.run(req).await)
         }
-        QuotaResult::Warning { threshold, remaining } => {
+        QuotaResult::Warning {
+            threshold,
+            remaining,
+        } => {
             warn!(
                 org_id = %auth.org_id,
                 threshold = threshold,
@@ -100,7 +106,9 @@ pub async fn quota_middleware(
             )
             .parse()
             {
-                response.headers_mut().insert("X-Quota-Warning", header_value);
+                response
+                    .headers_mut()
+                    .insert("X-Quota-Warning", header_value);
             }
             Ok(response)
         }

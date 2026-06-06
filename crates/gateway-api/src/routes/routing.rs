@@ -5,13 +5,13 @@ use axum::{
     http::StatusCode,
     Extension, Json,
 };
-use gateway_auth::{AuthContext, rbac::{check_permission, Permission, Role}};
+use gateway_auth::{
+    rbac::{check_permission, Permission, Role},
+    AuthContext,
+};
 use gateway_db::{
     models::{AuditAction, RoutingRule, Target},
-    repos::{
-        provider_config_repo::ProviderConfigRepo,
-        routing_repo::RoutingRepo,
-    },
+    repos::{provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -37,7 +37,10 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
-            format!("Role '{:?}' does not have permission '{:?}'", role, permission),
+            format!(
+                "Role '{:?}' does not have permission '{:?}'",
+                role, permission
+            ),
         )));
     }
     Ok(())
@@ -99,8 +102,12 @@ pub struct ListRulesQuery {
     pub offset: i64,
 }
 
-fn default_limit() -> i64 { 50 }
-fn default_offset() -> i64 { 0 }
+fn default_limit() -> i64 {
+    50
+}
+fn default_offset() -> i64 {
+    0
+}
 
 #[derive(Debug, Serialize)]
 pub struct RuleResponse {
@@ -134,7 +141,8 @@ fn validate_strategy(s: &str) -> Result<(), validator::ValidationError> {
         "single" | "fallback" | "weighted" | "conditional" => Ok(()),
         _ => {
             let mut err = validator::ValidationError::new("invalid_strategy");
-            err.message = Some("Strategy must be one of: single, fallback, weighted, conditional".into());
+            err.message =
+                Some("Strategy must be one of: single, fallback, weighted, conditional".into());
             Err(err)
         }
     }
@@ -173,12 +181,16 @@ async fn validate_targets(
     org_id: Uuid,
     targets: &serde_json::Value,
 ) -> Result<(), ApiError> {
-    let targets_arr: Vec<Target> = serde_json::from_value(targets.clone())
-        .map_err(|e| ApiError::new(
+    let targets_arr: Vec<Target> = serde_json::from_value(targets.clone()).map_err(|e| {
+        ApiError::new(
             StatusCode::BAD_REQUEST,
             "invalid_targets",
-            format!("Targets must be a valid JSON array of target objects: {}", e),
-        ))?;
+            format!(
+                "Targets must be a valid JSON array of target objects: {}",
+                e
+            ),
+        )
+    })?;
 
     if targets_arr.is_empty() {
         return Err(ApiError::new(
@@ -189,11 +201,19 @@ async fn validate_targets(
     }
 
     let provider_repo = ProviderConfigRepo::new(state.db_pool.clone());
-    let active_providers = provider_repo.list_active_by_org(org_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
-    })?;
+    let active_providers = provider_repo
+        .list_active_by_org(org_id)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
-    let active_ids: std::collections::HashSet<Uuid> = active_providers.into_iter().map(|p| p.id).collect();
+    let active_ids: std::collections::HashSet<Uuid> =
+        active_providers.into_iter().map(|p| p.id).collect();
 
     for (idx, target) in targets_arr.iter().enumerate() {
         if !active_ids.contains(&target.provider_config_id) {
@@ -268,7 +288,11 @@ pub async fn list_rules(
 
     let repo = RoutingRepo::new(state.db_pool.clone());
     let rules = repo.list_rules(auth.org_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     let total = rules.len() as i64;
@@ -293,9 +317,17 @@ pub async fn create_rule(
     let repo = RoutingRepo::new(state.db_pool.clone());
 
     // Name uniqueness per org
-    if let Some(existing) = repo.get_by_name(auth.org_id, &body.name).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
-    })? {
+    if let Some(existing) = repo
+        .get_by_name(auth.org_id, &body.name)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+    {
         return Err(ApiError::new(
             StatusCode::CONFLICT,
             "duplicate_rule_name",
@@ -336,7 +368,11 @@ pub async fn create_rule(
     };
 
     let created = repo.create_rule(auth.org_id, &rule).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     invalidate_routing_cache(&state, auth.org_id).await;
@@ -371,7 +407,11 @@ pub async fn get_rule(
 
     let repo = RoutingRepo::new(state.db_pool.clone());
     let rule = repo.get_by_id(auth.org_id, rule_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     match rule {
@@ -394,21 +434,39 @@ pub async fn update_rule(
     require_permission(&auth, Permission::RoutingWrite)?;
 
     let repo = RoutingRepo::new(state.db_pool.clone());
-    let existing = repo.get_by_id(auth.org_id, rule_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
-    })?.ok_or_else(|| ApiError::new(
-        StatusCode::NOT_FOUND,
-        "routing_rule_not_found",
-        format!("Routing rule {} not found", rule_id),
-    ))?;
+    let existing = repo
+        .get_by_id(auth.org_id, rule_id)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "routing_rule_not_found",
+                format!("Routing rule {} not found", rule_id),
+            )
+        })?;
 
     // Name uniqueness if changing name
     if let Some(ref new_name) = body.name {
         let sanitized = sanitize_display_text(new_name);
         if sanitized != existing.name {
-            if let Some(other) = repo.get_by_name(auth.org_id, &sanitized).await.map_err(|e| {
-                ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
-            })? {
+            if let Some(other) = repo
+                .get_by_name(auth.org_id, &sanitized)
+                .await
+                .map_err(|e| {
+                    ApiError::new(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "database_error",
+                        e.to_string(),
+                    )
+                })?
+            {
                 if other.id != rule_id {
                     return Err(ApiError::new(
                         StatusCode::CONFLICT,
@@ -442,13 +500,19 @@ pub async fn update_rule(
     let updated_rule = RoutingRule {
         id: rule_id,
         org_id: auth.org_id,
-        name: body.name.map(|n| sanitize_display_text(&n)).unwrap_or(existing.name),
+        name: body
+            .name
+            .map(|n| sanitize_display_text(&n))
+            .unwrap_or(existing.name),
         description: match body.description {
             Some(Some(d)) => Some(sanitize_display_text(&d)),
             Some(None) => None,
             None => existing.description,
         },
-        strategy: body.strategy.map(|s| sanitize_display_text(&s)).unwrap_or(existing.strategy),
+        strategy: body
+            .strategy
+            .map(|s| sanitize_display_text(&s))
+            .unwrap_or(existing.strategy),
         priority: body.priority.unwrap_or(existing.priority),
         match_model: match body.match_model {
             Some(Some(m)) => Some(sanitize_display_text(&m)),
@@ -473,9 +537,16 @@ pub async fn update_rule(
         deleted_at: None,
     };
 
-    let updated = repo.update_rule(auth.org_id, rule_id, &updated_rule).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
-    })?;
+    let updated = repo
+        .update_rule(auth.org_id, rule_id, &updated_rule)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     invalidate_routing_cache(&state, auth.org_id).await;
 
@@ -512,13 +583,21 @@ pub async fn delete_rule(
 
     let repo = RoutingRepo::new(state.db_pool.clone());
     let existing = repo.get_by_id(auth.org_id, rule_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     match existing {
         Some(rule) => {
             repo.delete_rule(auth.org_id, rule_id).await.map_err(|e| {
-                ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+                ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "database_error",
+                    e.to_string(),
+                )
             })?;
 
             invalidate_routing_cache(&state, auth.org_id).await;

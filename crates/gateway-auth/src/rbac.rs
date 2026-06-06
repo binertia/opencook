@@ -103,7 +103,10 @@ impl Permission {
 pub fn check_permission(role: Role, permission: Permission) -> bool {
     match role {
         Role::Owner => true,
-        Role::Admin => !matches!(permission, Permission::OrganizationsDelete | Permission::Superadmin),
+        Role::Admin => !matches!(
+            permission,
+            Permission::OrganizationsDelete | Permission::Superadmin
+        ),
         Role::Member => matches!(
             permission,
             Permission::KeysRead
@@ -186,7 +189,10 @@ mod tests {
 
     #[test]
     fn test_admin_cannot_delete_org() {
-        assert!(!check_permission(Role::Admin, Permission::OrganizationsDelete));
+        assert!(!check_permission(
+            Role::Admin,
+            Permission::OrganizationsDelete
+        ));
         assert!(check_permission(Role::Admin, Permission::KeysDelete));
     }
 

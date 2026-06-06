@@ -426,6 +426,9 @@ mod tests {
 
         let entry = row_to_entry(row, "openai".to_string());
         assert_eq!(entry.model_id, "gpt-4o");
-        assert_eq!(entry.pricing.input_cost_per_1k.into_inner(), rust_decimal::Decimal::new(5, 3));
+        assert_eq!(
+            entry.pricing.input_cost_per_1k.into_inner(),
+            rust_decimal::Decimal::new(5, 3)
+        );
     }
 }

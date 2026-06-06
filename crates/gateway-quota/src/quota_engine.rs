@@ -186,9 +186,7 @@ impl QuotaEngine {
         // Check warning threshold
         let threshold_value = limit_value * (warning_threshold / Decimal::from(100));
         if projected >= threshold_value {
-            let remaining = (limit_value - projected)
-                .try_into()
-                .unwrap_or(0.0);
+            let remaining = (limit_value - projected).try_into().unwrap_or(0.0);
 
             debug!(
                 quota_id = %quota.id,
@@ -214,9 +212,7 @@ impl QuotaEngine {
         }
 
         // Within limit
-        let remaining = (limit_value - projected)
-            .try_into()
-            .unwrap_or(0.0);
+        let remaining = (limit_value - projected).try_into().unwrap_or(0.0);
         let limit = limit_value.try_into().unwrap_or(f64::MAX);
 
         QuotaResult::Allowed { remaining, limit }
@@ -234,7 +230,10 @@ impl QuotaEngine {
     ) -> Result<(), gateway_db::error::DbError> {
         // For now, we increment usage for all active quotas matching the metric.
         // In production, you'd want to match the exact quota.
-        let quotas = self.quota_repo.find_active_for_context(org_id, api_key_id).await?;
+        let quotas = self
+            .quota_repo
+            .find_active_for_context(org_id, api_key_id)
+            .await?;
         let now = Utc::now();
 
         for quota in quotas {
@@ -313,7 +312,10 @@ mod tests {
             "requests".parse::<QuotaMetric>().unwrap(),
             QuotaMetric::Requests
         );
-        assert_eq!("tokens".parse::<QuotaMetric>().unwrap(), QuotaMetric::Tokens);
+        assert_eq!(
+            "tokens".parse::<QuotaMetric>().unwrap(),
+            QuotaMetric::Tokens
+        );
         assert_eq!(
             "cost_usd".parse::<QuotaMetric>().unwrap(),
             QuotaMetric::CostUsd

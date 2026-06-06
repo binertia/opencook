@@ -38,7 +38,11 @@ async fn test_quota_endpoints_exist() {
 
     let response = app
         .client
-        .get(format!("{}/api/v1/organizations/{}/quotas", app.base_url(), org_id))
+        .get(format!(
+            "{}/api/v1/organizations/{}/quotas",
+            app.base_url(),
+            org_id
+        ))
         .header("Authorization", format!("Bearer {}", api_key))
         .send()
         .await

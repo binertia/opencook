@@ -1,15 +1,10 @@
 //! Tenant isolation enforcement.
 
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 use tracing;
 
-use crate::models::AuthContext;
 use crate::error::AuthError;
+use crate::models::AuthContext;
 
 /// Middleware that validates the request org_id matches the auth context org_id.
 pub async fn tenant_isolation_middleware(
@@ -65,12 +60,11 @@ mod tests {
     #[test]
     fn test_extract_org_id_from_path() {
         assert_eq!(
-            extract_org_id_from_path("/api/v1/organizations/550e8400-e29b-41d4-a716-446655440000/keys"),
+            extract_org_id_from_path(
+                "/api/v1/organizations/550e8400-e29b-41d4-a716-446655440000/keys"
+            ),
             Some("550e8400-e29b-41d4-a716-446655440000".to_string())
         );
-        assert_eq!(
-            extract_org_id_from_path("/api/v1/health"),
-            None
-        );
+        assert_eq!(extract_org_id_from_path("/api/v1/health"), None);
     }
 }

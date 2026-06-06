@@ -97,10 +97,7 @@ fn pick_weighted(targets: &[Target]) -> Target {
         return targets[0].clone();
     }
 
-    let total_weight: i32 = targets
-        .iter()
-        .map(|t| t.weight.unwrap_or(1))
-        .sum();
+    let total_weight: i32 = targets.iter().map(|t| t.weight.unwrap_or(1)).sum();
 
     if total_weight <= 0 {
         return targets[0].clone();
@@ -221,7 +218,15 @@ mod tests {
         }
 
         // Statistical test — should be roughly 70/30
-        assert!(a_count > 600, "A should be selected ~70% of time, got {}", a_count);
-        assert!(b_count > 200, "B should be selected ~30% of time, got {}", b_count);
+        assert!(
+            a_count > 600,
+            "A should be selected ~70% of time, got {}",
+            a_count
+        );
+        assert!(
+            b_count > 200,
+            "B should be selected ~30% of time, got {}",
+            b_count
+        );
     }
 }

@@ -34,8 +34,12 @@ async fn connect_redis() -> ConnectionManager {
         .await
         .expect("failed to start testcontainers redis");
 
-    let host = container.get_host().await.expect("failed to get container host");
-    let port = container.get_host_port_ipv4(6379)
+    let host = container
+        .get_host()
+        .await
+        .expect("failed to get container host");
+    let port = container
+        .get_host_port_ipv4(6379)
         .await
         .expect("failed to get container port");
     let url = format!("redis://{}:{}", host, port);

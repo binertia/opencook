@@ -86,7 +86,10 @@ impl CircuitBreaker {
 
         match state.status {
             Status::Closed => {
-                debug!(provider = provider_key, "Circuit breaker closed — request allowed");
+                debug!(
+                    provider = provider_key,
+                    "Circuit breaker closed — request allowed"
+                );
                 Ok(())
             }
             Status::Open => {
@@ -94,14 +97,18 @@ impl CircuitBreaker {
                     .last_failure_at
                     .expect("Open state must have last_failure_at");
                 if opened_at.elapsed() >= self.config.open_duration {
-                    info!(provider = provider_key, "Circuit breaker transitioning Open → HalfOpen");
+                    info!(
+                        provider = provider_key,
+                        "Circuit breaker transitioning Open → HalfOpen"
+                    );
                     state.status = Status::HalfOpen;
                     state.consecutive_successes = 0;
                     Ok(())
                 } else {
                     warn!(
                         provider = provider_key,
-                        remaining_ms = (self.config.open_duration - opened_at.elapsed()).as_millis() as u64,
+                        remaining_ms =
+                            (self.config.open_duration - opened_at.elapsed()).as_millis() as u64,
                         "Circuit breaker open — request rejected"
                     );
                     Err(BreakerError::Open {
@@ -110,7 +117,10 @@ impl CircuitBreaker {
                 }
             }
             Status::HalfOpen => {
-                debug!(provider = provider_key, "Circuit breaker half-open — request allowed (trial)");
+                debug!(
+                    provider = provider_key,
+                    "Circuit breaker half-open — request allowed (trial)"
+                );
                 Ok(())
             }
         }
@@ -202,7 +212,10 @@ impl CircuitBreaker {
     pub fn reset(&self, provider_key: &str) {
         let mut map = self.inner.write().unwrap();
         if let Some(state) = map.get_mut(provider_key) {
-            info!(provider = provider_key, "Circuit breaker manually reset to Closed");
+            info!(
+                provider = provider_key,
+                "Circuit breaker manually reset to Closed"
+            );
             state.status = Status::Closed;
             state.consecutive_failures = 0;
             state.consecutive_successes = 0;

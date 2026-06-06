@@ -94,10 +94,7 @@ fn is_https(req: &Request<Body>) -> bool {
 /// Handler that returns an empty response with security headers.
 /// Useful for tests.
 pub async fn _empty_with_headers() -> impl IntoResponse {
-    Response::builder()
-        .status(200)
-        .body(Body::empty())
-        .unwrap()
+    Response::builder().status(200).body(Body::empty()).unwrap()
 }
 
 #[cfg(test)]
@@ -137,7 +134,10 @@ mod tests {
 
         assert_eq!(resp.headers()["x-content-type-options"], "nosniff");
         assert_eq!(resp.headers()["x-frame-options"], "DENY");
-        assert!(resp.headers()["content-security-policy"].to_str().unwrap().contains("default-src"));
+        assert!(resp.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .contains("default-src"));
         assert_eq!(resp.headers()["x-xss-protection"], "1; mode=block");
         assert_eq!(
             resp.headers()["referrer-policy"],

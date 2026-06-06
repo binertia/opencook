@@ -33,7 +33,11 @@ async fn test_user_crud_flow() {
             }),
         )
         .await;
-    assert!(create_resp.status().is_success(), "Create user failed: {:?}", create_resp.text().await);
+    assert!(
+        create_resp.status().is_success(),
+        "Create user failed: {:?}",
+        create_resp.text().await
+    );
     let create_body: serde_json::Value = create_resp.json().await.expect("Failed to parse create");
     let user_id = create_body["id"].as_str().unwrap();
     assert_eq!(create_body["email"], "newuser@example.com");

@@ -1,7 +1,7 @@
 //! API key generation, hashing, and validation.
 
-use sha2::{Sha256, Digest};
 use rand::RngCore;
+use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
 /// Generate a new API key.

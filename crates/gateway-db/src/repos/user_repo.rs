@@ -352,12 +352,11 @@ impl UserRepo {
                 .bind(user_id)
                 .execute(sqlite)
                 .await?;
-                let row: (i32,) = sqlx::query_as(
-                    "SELECT failed_login_attempts FROM users WHERE id = ?1",
-                )
-                .bind(user_id)
-                .fetch_one(sqlite)
-                .await?;
+                let row: (i32,) =
+                    sqlx::query_as("SELECT failed_login_attempts FROM users WHERE id = ?1")
+                        .bind(user_id)
+                        .fetch_one(sqlite)
+                        .await?;
                 Ok(row.0)
             }
         }
@@ -469,7 +468,9 @@ mod tests {
     async fn setup_sqlite() -> (DbBackend, TempDir) {
         let tmp = tempfile::tempdir().unwrap();
         let db_path = tmp.path().join("test.db");
-        let pool = create_pool(&db_path.to_string_lossy()).await.expect("sqlite pool creation failed");
+        let pool = create_pool(&db_path.to_string_lossy())
+            .await
+            .expect("sqlite pool creation failed");
         (pool, tmp)
     }
 
@@ -479,8 +480,21 @@ mod tests {
         let repo = UserRepo::new(pool.clone());
         let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool);
 
-        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
-        let user = repo.create(org.id, "test@example.com", Some("hash"), Some("Test"), "member", "active").await.unwrap();
+        let org = org_repo
+            .create("Test Org", "test-org", None, "free")
+            .await
+            .unwrap();
+        let user = repo
+            .create(
+                org.id,
+                "test@example.com",
+                Some("hash"),
+                Some("Test"),
+                "member",
+                "active",
+            )
+            .await
+            .unwrap();
 
         // Initially 0
         assert_eq!(user.failed_login_attempts, 0);
@@ -505,8 +519,21 @@ mod tests {
         let repo = UserRepo::new(pool.clone());
         let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool);
 
-        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
-        let user = repo.create(org.id, "test@example.com", Some("hash"), Some("Test"), "member", "active").await.unwrap();
+        let org = org_repo
+            .create("Test Org", "test-org", None, "free")
+            .await
+            .unwrap();
+        let user = repo
+            .create(
+                org.id,
+                "test@example.com",
+                Some("hash"),
+                Some("Test"),
+                "member",
+                "active",
+            )
+            .await
+            .unwrap();
 
         // Lock for 30 minutes
         repo.lock_account(user.id, 30).await.unwrap();
@@ -520,8 +547,21 @@ mod tests {
         let repo = UserRepo::new(pool.clone());
         let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool);
 
-        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
-        let user = repo.create(org.id, "test@example.com", Some("old_hash"), Some("Test"), "member", "active").await.unwrap();
+        let org = org_repo
+            .create("Test Org", "test-org", None, "free")
+            .await
+            .unwrap();
+        let user = repo
+            .create(
+                org.id,
+                "test@example.com",
+                Some("old_hash"),
+                Some("Test"),
+                "member",
+                "active",
+            )
+            .await
+            .unwrap();
 
         // Set some failed attempts and lock
         repo.increment_failed_login(user.id).await.unwrap();

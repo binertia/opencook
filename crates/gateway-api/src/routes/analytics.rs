@@ -8,7 +8,10 @@ use axum::{
 use chrono::{DateTime, Timelike, Utc};
 use gateway_auth::AuthContext;
 use gateway_db::{
-    repos::{api_key_repo::ApiKeyRepo, provider_config_repo::ProviderConfigRepo, request_repo::RequestRepo},
+    repos::{
+        api_key_repo::ApiKeyRepo, provider_config_repo::ProviderConfigRepo,
+        request_repo::RequestRepo,
+    },
     Request,
 };
 use serde::{Deserialize, Serialize};
@@ -110,20 +113,31 @@ pub async fn get_analytics(
     let stats = repo
         .aggregate_stats(auth.org_id, start, end)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
-    let requests = repo
-        .list_recent(auth.org_id, 1000)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let requests = repo.list_recent(auth.org_id, 1000).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     // Fetch providers for lookup
     let provider_repo = ProviderConfigRepo::new(state.db_pool.clone());
-    let providers = provider_repo.list_by_org(auth.org_id).await.ok().unwrap_or_default();
-    let provider_map: std::collections::HashMap<uuid::Uuid, String> = providers
-        .into_iter()
-        .map(|p| (p.id, p.kind))
-        .collect();
+    let providers = provider_repo
+        .list_by_org(auth.org_id)
+        .await
+        .ok()
+        .unwrap_or_default();
+    let provider_map: std::collections::HashMap<uuid::Uuid, String> =
+        providers.into_iter().map(|p| (p.id, p.kind)).collect();
 
     let time_series = build_time_series(&requests, start, end, &query.range);
     let by_model = build_model_breakdown(&requests);
@@ -220,10 +234,19 @@ fn build_time_series(
     }
 
     for r in requests {
-        let bucket = r.gateway_received_at.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let bucket = r
+            .gateway_received_at
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
         let bucket = if range == "today" {
             let hour = r.gateway_received_at.hour();
-            r.gateway_received_at.date_naive().and_hms_opt(hour, 0, 0).unwrap().and_utc()
+            r.gateway_received_at
+                .date_naive()
+                .and_hms_opt(hour, 0, 0)
+                .unwrap()
+                .and_utc()
         } else {
             bucket
         };
@@ -260,10 +283,11 @@ fn build_model_breakdown(requests: &[Request]) -> Vec<BreakdownItem> {
         std::collections::HashMap::new();
 
     for r in requests {
-        let model = r
-            .model_routed
-            .clone()
-            .unwrap_or_else(|| r.model_requested.clone().unwrap_or_else(|| "unknown".to_string()));
+        let model = r.model_routed.clone().unwrap_or_else(|| {
+            r.model_requested
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string())
+        });
 
         let entry = map.entry(model.clone()).or_insert_with(|| BreakdownItem {
             dimension: "model".to_string(),
@@ -292,12 +316,7 @@ fn build_status_breakdown(requests: &[Request]) -> Vec<BreakdownItem> {
         std::collections::HashMap::new();
 
     for r in requests {
-        let status = if r.cache_hit {
-            "cached"
-        } else {
-            &r.status
-        }
-        .to_string();
+        let status = if r.cache_hit { "cached" } else { &r.status }.to_string();
 
         let entry = map.entry(status.clone()).or_insert_with(|| BreakdownItem {
             dimension: "status".to_string(),
@@ -323,7 +342,8 @@ fn build_provider_breakdown(
     requests: &[Request],
     provider_map: &std::collections::HashMap<uuid::Uuid, String>,
 ) -> Vec<BreakdownItem> {
-    let mut map: std::collections::HashMap<String, BreakdownItem> = std::collections::HashMap::new();
+    let mut map: std::collections::HashMap<String, BreakdownItem> =
+        std::collections::HashMap::new();
 
     for r in requests {
         let provider_name = r
@@ -350,7 +370,11 @@ fn build_provider_breakdown(
     }
 
     let mut items: Vec<BreakdownItem> = map.into_values().collect();
-    items.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+    items.sort_by(|a, b| {
+        b.cost_usd
+            .partial_cmp(&a.cost_usd)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     items
 }
 
@@ -359,10 +383,11 @@ fn build_cache_breakdown(requests: &[Request]) -> Vec<CacheBreakdownItem> {
         std::collections::HashMap::new();
 
     for r in requests {
-        let model = r
-            .model_routed
-            .clone()
-            .unwrap_or_else(|| r.model_requested.clone().unwrap_or_else(|| "unknown".to_string()));
+        let model = r.model_routed.clone().unwrap_or_else(|| {
+            r.model_requested
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string())
+        });
 
         let (total, hits, saved) = map.entry(model.clone()).or_insert((0, 0, 0.0));
         *total += 1;
@@ -410,12 +435,21 @@ pub async fn get_key_usage(
     let requests = request_repo
         .list_recent(auth.org_id, 1000)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
-    let keys = key_repo
-        .list_by_org(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let keys = key_repo.list_by_org(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     // Aggregate by api_key_id
     let mut aggregates: std::collections::HashMap<uuid::Uuid, KeyUsageAggregate> =
@@ -423,8 +457,9 @@ pub async fn get_key_usage(
 
     for r in &requests {
         if let Some(key_id) = r.api_key_id {
-            let (reqs, tokens, prompt, completion, cost, lat_sum, lat_count) =
-                aggregates.entry(key_id).or_insert((0, 0, 0, 0, 0.0, 0.0, 0));
+            let (reqs, tokens, prompt, completion, cost, lat_sum, lat_count) = aggregates
+                .entry(key_id)
+                .or_insert((0, 0, 0, 0, 0.0, 0.0, 0));
             *reqs += 1;
             *tokens += r.total_tokens as i64;
             *prompt += r.prompt_tokens as i64;
@@ -452,13 +487,23 @@ pub async fn get_key_usage(
                 completion_tokens: agg.map(|a| a.3).unwrap_or(0),
                 cost_usd: agg.map(|a| a.4).unwrap_or(0.0),
                 avg_latency_ms: agg
-                    .and_then(|a| if a.6 > 0 { Some(a.5 / a.6 as f64) } else { None })
+                    .and_then(|a| {
+                        if a.6 > 0 {
+                            Some(a.5 / a.6 as f64)
+                        } else {
+                            None
+                        }
+                    })
                     .unwrap_or(0.0),
             }
         })
         .collect();
 
-    items.sort_by(|a, b| b.cost_usd.partial_cmp(&a.cost_usd).unwrap_or(std::cmp::Ordering::Equal));
+    items.sort_by(|a, b| {
+        b.cost_usd
+            .partial_cmp(&a.cost_usd)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     Ok(Json(KeyUsageResponse { data: items }))
 }

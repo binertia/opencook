@@ -10,8 +10,8 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::{
-    AuthContext,
     rbac::{check_permission, Permission, Role},
+    AuthContext,
 };
 use gateway_db::{
     models::AuditAction,
@@ -20,7 +20,9 @@ use gateway_db::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{audit::record as audit_record, audit::AuditRequestContext, error::ApiError, state::AppState};
+use crate::{
+    audit::record as audit_record, audit::AuditRequestContext, error::ApiError, state::AppState,
+};
 
 /// Require the caller to have `audit:read` and be accessing their own org.
 fn require_audit_access(auth: &AuthContext, org_id: Uuid) -> Result<(), Box<ApiError>> {
@@ -119,9 +121,8 @@ pub async fn list_audit_entries(
 
     let repo = AuditRepo::new(state.db_pool.clone());
 
-    let filter = build_filter(&query).map_err(|e| {
-        ApiError::new(StatusCode::BAD_REQUEST, "invalid_filter", e.to_string())
-    })?;
+    let filter = build_filter(&query)
+        .map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, "invalid_filter", e.to_string()))?;
 
     let limit = query.limit.clamp(1, 200);
     let offset = query.offset.max(0);
@@ -129,7 +130,13 @@ pub async fn list_audit_entries(
     let result = repo
         .list(org_id, filter, limit, offset)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     Ok(Json(AuditListResponse {
         object: "list".to_string(),
@@ -149,14 +156,31 @@ pub async fn get_audit_entry(
 
     let repo = AuditRepo::new(state.db_pool.clone());
 
-    let id = Uuid::parse_str(&entry_id)
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_entry_id", "Invalid audit entry ID"))?;
+    let id = Uuid::parse_str(&entry_id).map_err(|_| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_entry_id",
+            "Invalid audit entry ID",
+        )
+    })?;
 
     let entry = repo
         .get_by_id(org_id, id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "audit_entry_not_found", "Audit entry not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "audit_entry_not_found",
+                "Audit entry not found",
+            )
+        })?;
 
     Ok(Json(AuditEntryResponse {
         object: "audit_entry".to_string(),
@@ -203,7 +227,11 @@ fn build_filter(query: &AuditListQuery) -> Result<AuditListFilter, anyhow::Error
         filter.api_key_id = Some(Uuid::parse_str(s)?);
     }
     if let Some(s) = &query.action {
-        let parts: Vec<&str> = s.split(',').map(str::trim).filter(|x| !x.is_empty()).collect();
+        let parts: Vec<&str> = s
+            .split(',')
+            .map(str::trim)
+            .filter(|x| !x.is_empty())
+            .collect();
         let mut actions = Vec::new();
         for part in parts {
             actions.push(parse_action(part)?);

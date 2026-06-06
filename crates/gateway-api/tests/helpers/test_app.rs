@@ -75,7 +75,7 @@ pub async fn spawn_test_app() -> TestApp {
     // Connect to Redis — try localhost first, then testcontainers
     let redis = connect_redis().await.expect(
         "Redis is required for E2E tests. \
-         Start Redis with: docker run -d -p 6379:6379 redis:7-alpine"
+         Start Redis with: docker run -d -p 6379:6379 redis:7-alpine",
     );
 
     let cache = TwoTierCache::new(redis.clone());
@@ -161,12 +161,10 @@ async fn connect_redis() -> anyhow::Result<ConnectionManager> {
 
 #[allow(dead_code)]
 async fn start_testcontainers_redis() -> anyhow::Result<ConnectionManager> {
-    use testcontainers_modules::redis::Redis;
     use testcontainers::runners::AsyncRunner;
+    use testcontainers_modules::redis::Redis;
 
-    let container = Redis::default()
-        .start()
-        .await?;
+    let container = Redis::default().start().await?;
 
     let host = container.get_host().await?;
     let port = container.get_host_port_ipv4(6379).await?;

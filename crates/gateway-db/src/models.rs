@@ -75,14 +75,14 @@ pub struct Quota {
     pub api_key_id: Option<Uuid>,
     pub name: String,
     pub description: Option<String>,
-    pub metric: String,      // 'requests' | 'tokens' | 'cost_usd'
-    pub period: String,      // 'minute' | 'hour' | 'day' | 'month' | 'total'
+    pub metric: String, // 'requests' | 'tokens' | 'cost_usd'
+    pub period: String, // 'minute' | 'hour' | 'day' | 'month' | 'total'
     pub limit_value: crate::types::DbDecimal,
     pub warning_threshold: crate::types::DbDecimal,
-    pub applies_to: String,  // 'all' | 'api_key' | 'model' | 'provider'
+    pub applies_to: String, // 'all' | 'api_key' | 'model' | 'provider'
     pub scope_filter: serde_json::Value,
-    pub action: String,      // 'block' | 'warn' | 'throttle'
-    pub status: String,      // 'active' | 'inactive'
+    pub action: String, // 'block' | 'warn' | 'throttle'
+    pub status: String, // 'active' | 'inactive'
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,

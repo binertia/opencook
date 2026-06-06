@@ -24,12 +24,12 @@ pub use repos::quota_repo::QuotaRepo;
 pub use repos::quota_usage_repo::QuotaUsageRepo;
 pub use repos::request_repo::{RequestRepo, RequestStats};
 pub use repos::routing_repo::RoutingRepo;
-pub use repos::scim_token_repo::{ScimTokenRepo, ScimToken};
-pub use repos::sso_config_repo::{SsoConfigRepo, SsoConfig, SsoProviderType};
+pub use repos::scim_token_repo::{ScimToken, ScimTokenRepo};
+pub use repos::sso_config_repo::{SsoConfig, SsoConfigRepo, SsoProviderType};
 pub use repos::usage_repo::UsageRepo;
 pub use repos::user_repo::UserRepo;
-pub use repos::webhook_repo::WebhookRepo;
 pub use repos::webhook_delivery_repo::WebhookDeliveryRepo;
+pub use repos::webhook_repo::WebhookRepo;
 pub use types::{DbDecimal, JsonVec};
 
 use sqlx::PgPool;

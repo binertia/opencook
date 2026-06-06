@@ -23,7 +23,9 @@ pub struct DashboardResponse {
     pub avg_latency_ms: f64,
 }
 
-pub async fn get_dashboard(State(state): State<AppState>) -> Result<Json<DashboardResponse>, ApiError> {
+pub async fn get_dashboard(
+    State(state): State<AppState>,
+) -> Result<Json<DashboardResponse>, ApiError> {
     let org_id = uuid::Uuid::parse_str(DEFAULT_ORG_ID).expect("valid uuid");
     let repo = RequestRepo::new(state.db_pool);
 
@@ -86,10 +88,23 @@ pub async fn list_providers() -> Json<ProviderListResponse> {
             status: "active".to_string(),
             base_url: "https://api.openai.com".to_string(),
             models: vec![
-                ProviderModel { id: "gpt-4o".to_string(), name: "GPT-4o".to_string(), status: "active".to_string() },
-                ProviderModel { id: "gpt-4o-mini".to_string(), name: "GPT-4o Mini".to_string(), status: "active".to_string() },
+                ProviderModel {
+                    id: "gpt-4o".to_string(),
+                    name: "GPT-4o".to_string(),
+                    status: "active".to_string(),
+                },
+                ProviderModel {
+                    id: "gpt-4o-mini".to_string(),
+                    name: "GPT-4o Mini".to_string(),
+                    status: "active".to_string(),
+                },
             ],
-            health_status: if std::env::var("OPENAI_API_KEY").is_ok() { "healthy" } else { "no_key" }.to_string(),
+            health_status: if std::env::var("OPENAI_API_KEY").is_ok() {
+                "healthy"
+            } else {
+                "no_key"
+            }
+            .to_string(),
             last_error: None,
         },
         ProviderItem {
@@ -98,10 +113,17 @@ pub async fn list_providers() -> Json<ProviderListResponse> {
             kind: "anthropic".to_string(),
             status: "active".to_string(),
             base_url: "https://api.anthropic.com".to_string(),
-            models: vec![
-                ProviderModel { id: "claude-3-5-sonnet".to_string(), name: "Claude 3.5 Sonnet".to_string(), status: "active".to_string() },
-            ],
-            health_status: if std::env::var("ANTHROPIC_API_KEY").is_ok() { "healthy" } else { "no_key" }.to_string(),
+            models: vec![ProviderModel {
+                id: "claude-3-5-sonnet".to_string(),
+                name: "Claude 3.5 Sonnet".to_string(),
+                status: "active".to_string(),
+            }],
+            health_status: if std::env::var("ANTHROPIC_API_KEY").is_ok() {
+                "healthy"
+            } else {
+                "no_key"
+            }
+            .to_string(),
             last_error: None,
         },
     ];
@@ -134,7 +156,9 @@ pub struct StatusStat {
     pub count: i64,
 }
 
-pub async fn get_analytics(State(state): State<AppState>) -> Result<Json<AnalyticsResponse>, ApiError> {
+pub async fn get_analytics(
+    State(state): State<AppState>,
+) -> Result<Json<AnalyticsResponse>, ApiError> {
     let org_id = uuid::Uuid::parse_str(DEFAULT_ORG_ID).expect("valid uuid");
     let repo = RequestRepo::new(state.db_pool);
 
@@ -152,8 +176,14 @@ pub async fn get_analytics(State(state): State<AppState>) -> Result<Json<Analyti
         total_cost: stats.total_cost,
         requests_by_model: vec![],
         requests_by_status: vec![
-            StatusStat { status: "success".to_string(), count: stats.total_requests - stats.cache_misses },
-            StatusStat { status: "cache_hit".to_string(), count: stats.cache_hits },
+            StatusStat {
+                status: "success".to_string(),
+                count: stats.total_requests - stats.cache_misses,
+            },
+            StatusStat {
+                status: "cache_hit".to_string(),
+                count: stats.cache_hits,
+            },
         ],
     }))
 }

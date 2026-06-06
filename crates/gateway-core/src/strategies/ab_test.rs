@@ -91,13 +91,7 @@ impl Default for StrategyConfig {
 
 /// Valid routing strategy names.
 pub const VALID_STRATEGIES: &[&str] = &[
-    "single",
-    "fallback",
-    "weighted",
-    "cost",
-    "latency",
-    "quality",
-    "balanced",
+    "single", "fallback", "weighted", "cost", "latency", "quality", "balanced",
 ];
 
 /// Check if a strategy name is valid.

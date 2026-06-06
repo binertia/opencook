@@ -16,8 +16,8 @@ use tracing::Level;
 use crate::{
     middleware::timing::timing_middleware,
     routes::{
-        analytics_solo, auth_solo, chat, dashboard, health, metrics, models,
-        quotas, requests, routing_solo, usage, webhooks_solo,
+        analytics_solo, auth_solo, chat, dashboard, health, metrics, models, quotas, requests,
+        routing_solo, usage, webhooks_solo,
     },
     state::AppState,
     static_files::build_static_router,
@@ -27,7 +27,13 @@ use crate::{
 pub fn build_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
         .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
         .allow_headers(Any);
 
     let body_limit = RequestBodyLimitLayer::new(10 * 1024 * 1024);
@@ -67,15 +73,37 @@ pub fn build_router(state: AppState) -> Router {
         .route("/v1/requests", get(requests::list_requests))
         .route("/v1/requests/:request_id", get(requests::get_request))
         // Webhooks
-        .route("/v1/webhooks", get(webhooks_solo::list_webhooks).post(webhooks_solo::create_webhook))
-        .route("/v1/webhooks/:webhook_id", get(webhooks_solo::get_webhook).put(webhooks_solo::update_webhook).delete(webhooks_solo::delete_webhook))
-        .route("/v1/webhooks/:webhook_id/deliveries", get(webhooks_solo::list_deliveries))
-        .route("/v1/webhooks/:webhook_id/deliveries/:delivery_id/retry", post(webhooks_solo::retry_delivery))
+        .route(
+            "/v1/webhooks",
+            get(webhooks_solo::list_webhooks).post(webhooks_solo::create_webhook),
+        )
+        .route(
+            "/v1/webhooks/:webhook_id",
+            get(webhooks_solo::get_webhook)
+                .put(webhooks_solo::update_webhook)
+                .delete(webhooks_solo::delete_webhook),
+        )
+        .route(
+            "/v1/webhooks/:webhook_id/deliveries",
+            get(webhooks_solo::list_deliveries),
+        )
+        .route(
+            "/v1/webhooks/:webhook_id/deliveries/:delivery_id/retry",
+            post(webhooks_solo::retry_delivery),
+        )
         // Routing rules
         .route("/v1/routing-rules", get(routing_solo::list_routing_rules))
         // Quota management (also available under /api/v1 for compatibility)
-        .route("/api/v1/quotas", get(quotas::list_quotas).post(quotas::create_quota))
-        .route("/api/v1/quotas/:quota_id", get(quotas::get_quota).put(quotas::update_quota).delete(quotas::delete_quota))
+        .route(
+            "/api/v1/quotas",
+            get(quotas::list_quotas).post(quotas::create_quota),
+        )
+        .route(
+            "/api/v1/quotas/:quota_id",
+            get(quotas::get_quota)
+                .put(quotas::update_quota)
+                .delete(quotas::delete_quota),
+        )
         // Usage analytics (also available under /api/v1 for compatibility)
         .route("/api/v1/usage", get(usage::get_usage))
         .route("/api/v1/costs", get(usage::get_costs))

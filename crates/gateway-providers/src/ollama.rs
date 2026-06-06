@@ -428,7 +428,10 @@ mod tests {
 
         let canonical = ollama_resp.into_canonical("ollama", "llama3.2");
 
-        assert_eq!(canonical.choices[0].message.content, Some("Hello there!".to_string()));
+        assert_eq!(
+            canonical.choices[0].message.content,
+            Some("Hello there!".to_string())
+        );
         assert_eq!(canonical.choices[0].finish_reason, Some("stop".to_string()));
         assert_eq!(canonical.usage.prompt_tokens, 10);
         assert_eq!(canonical.usage.completion_tokens, 5);

@@ -13,7 +13,7 @@ pub async fn create_org(db: &DbBackend, name: &str) -> Uuid {
         r#"
         INSERT INTO organizations (id, name, slug, status, settings, billing_email, plan_tier)
         VALUES (?1, ?2, ?3, 'active', '{}', NULL, 'free')
-        "#
+        "#,
     )
     .bind(id.as_bytes().as_slice())
     .bind(name)
@@ -34,7 +34,7 @@ pub async fn create_user(db: &DbBackend, org_id: Uuid, email: &str, role: &str) 
         r#"
         INSERT INTO users (id, org_id, email, password_hash, display_name, role, status)
         VALUES (?1, ?2, ?3, 'hash', 'Test User', ?4, 'active')
-        "#
+        "#,
     )
     .bind(id.as_bytes().as_slice())
     .bind(org_id.as_bytes().as_slice())
@@ -48,7 +48,13 @@ pub async fn create_user(db: &DbBackend, org_id: Uuid, email: &str, role: &str) 
 }
 
 /// Create an API key and return its ID.
-pub async fn create_api_key(db: &DbBackend, org_id: Uuid, user_id: Uuid, name: &str, key_hash: &str) -> Uuid {
+pub async fn create_api_key(
+    db: &DbBackend,
+    org_id: Uuid,
+    user_id: Uuid,
+    name: &str,
+    key_hash: &str,
+) -> Uuid {
     let pool = db.sqlite();
     let id = Uuid::new_v4();
 

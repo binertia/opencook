@@ -1,17 +1,9 @@
 //! Authentication routes — login, logout, refresh, current user, org switching,
 //! password reset, and account lockout.
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    Extension, Json,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Extension, Json};
 use gateway_auth::{AuthContext, PasswordHasherService};
-use gateway_db::{
-    models::AuditAction,
-    OrgMemberRepo, UserRepo,
-};
+use gateway_db::{models::AuditAction, OrgMemberRepo, UserRepo};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -101,10 +93,13 @@ async fn build_user_response(
     user: &gateway_db::models::User,
     org_repo: &OrgMemberRepo,
 ) -> Result<MeResponse, ApiError> {
-    let orgs = org_repo
-        .list_orgs_for_user(user.id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let orgs = org_repo.list_orgs_for_user(user.id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     let organizations = orgs
         .into_iter()
@@ -119,7 +114,10 @@ async fn build_user_response(
     Ok(MeResponse {
         id: user.id.to_string(),
         email: user.email.clone(),
-        name: user.display_name.clone().unwrap_or_else(|| "User".to_string()),
+        name: user
+            .display_name
+            .clone()
+            .unwrap_or_else(|| "User".to_string()),
         role: user.role.clone(),
         permissions: gateway_auth::permissions_for_role(
             gateway_auth::Role::from_str(&user.role).unwrap_or(gateway_auth::Role::Viewer),
@@ -132,10 +130,7 @@ async fn build_user_response(
 }
 
 /// Check per-email login rate limit (10 attempts per hour via Redis).
-async fn check_login_rate_limit(
-    state: &AppState,
-    email: &str,
-) -> Result<(), ApiError> {
+async fn check_login_rate_limit(state: &AppState, email: &str) -> Result<(), ApiError> {
     let key = format!("rate_limit:login:{}", email);
     let mut conn = state.redis.clone();
 
@@ -174,15 +169,22 @@ async fn record_failed_login(
     repo: &UserRepo,
     user: &gateway_db::models::User,
 ) -> Result<(), ApiError> {
-    let attempts = repo
-        .increment_failed_login(user.id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let attempts = repo.increment_failed_login(user.id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     if attempts >= 5 {
-        repo.lock_account(user.id, 30)
-            .await
-            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        repo.lock_account(user.id, 30).await.map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
     }
 
     Ok(())
@@ -211,7 +213,13 @@ pub async fn login(
     let user = repo
         .find_by_email(&email)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(
                 StatusCode::UNAUTHORIZED,
@@ -278,9 +286,13 @@ pub async fn login(
     }
 
     // Successful login: reset failed attempts.
-    repo.reset_failed_login(user.id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    repo.reset_failed_login(user.id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     // Update last login
     let _ = repo.update_last_login(user.id).await;
@@ -292,12 +304,21 @@ pub async fn login(
     let (access_token, _access_jti) = state
         .jwt
         .issue_access(user.id, active_org_id, &user.email, &user.role)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "token_error",
+                e.to_string(),
+            )
+        })?;
 
-    let (refresh_token, _refresh_jti) = state
-        .jwt
-        .issue_refresh(user.id)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
+    let (refresh_token, _refresh_jti) = state.jwt.issue_refresh(user.id).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "token_error",
+            e.to_string(),
+        )
+    })?;
 
     // Record successful login audit event.
     let auth = AuthContext {
@@ -361,14 +382,24 @@ pub async fn refresh(
         .jwt
         .verify_refresh(&body.refresh_token)
         .map_err(|e| match e {
-            gateway_auth::AuthError::TokenExpired => {
-                ApiError::new(StatusCode::UNAUTHORIZED, "token_expired", "Refresh token expired")
-            }
-            _ => ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid refresh token"),
+            gateway_auth::AuthError::TokenExpired => ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "token_expired",
+                "Refresh token expired",
+            ),
+            _ => ApiError::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_token",
+                "Invalid refresh token",
+            ),
         })?;
 
     let user_id = Uuid::parse_str(&claims.sub).map_err(|_| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid token subject")
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid token subject",
+        )
     })?;
 
     let repo = UserRepo::new(state.db_pool.clone());
@@ -376,7 +407,13 @@ pub async fn refresh(
     let user = repo
         .find_by_id(user_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(StatusCode::UNAUTHORIZED, "user_not_found", "User not found")
         })?;
@@ -387,12 +424,21 @@ pub async fn refresh(
     let (access_token, _access_jti) = state
         .jwt
         .issue_access(user.id, active_org_id, &user.email, &user.role)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "token_error",
+                e.to_string(),
+            )
+        })?;
 
-    let (refresh_token, _refresh_jti) = state
-        .jwt
-        .issue_refresh(user.id)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
+    let (refresh_token, _refresh_jti) = state.jwt.issue_refresh(user.id).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "token_error",
+            e.to_string(),
+        )
+    })?;
 
     let csrf_token = generate_token();
     let secure_cookie = state.config.tls_cert.is_some();
@@ -416,7 +462,11 @@ pub async fn me(
     Extension(auth): Extension<AuthContext>,
 ) -> Result<Json<MeResponse>, ApiError> {
     let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "unauthenticated", "Not authenticated")
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+            "Not authenticated",
+        )
     })?;
 
     let repo = UserRepo::new(state.db_pool.clone());
@@ -424,7 +474,13 @@ pub async fn me(
     let user = repo
         .find_by_id(user_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(StatusCode::UNAUTHORIZED, "user_not_found", "User not found")
         })?;
@@ -446,11 +502,19 @@ pub async fn switch_org(
     ValidatedJson(body): ValidatedJson<SwitchOrgRequest>,
 ) -> Result<Json<SwitchOrgResponse>, ApiError> {
     let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "unauthenticated", "Not authenticated")
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+            "Not authenticated",
+        )
     })?;
 
     let target_org_id = Uuid::parse_str(&body.org_id).map_err(|_| {
-        ApiError::new(StatusCode::BAD_REQUEST, "invalid_org_id", "Invalid organization ID format")
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_org_id",
+            "Invalid organization ID format",
+        )
     })?;
 
     // SECURITY: Verify the user is actually a member of the target org.
@@ -458,7 +522,13 @@ pub async fn switch_org(
     let membership = org_repo
         .get_membership(user_id, target_org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(
                 StatusCode::FORBIDDEN,
@@ -471,7 +541,13 @@ pub async fn switch_org(
     let user = user_repo
         .find_by_id(user_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(StatusCode::UNAUTHORIZED, "user_not_found", "User not found")
         })?;
@@ -480,12 +556,21 @@ pub async fn switch_org(
     let (access_token, _access_jti) = state
         .jwt
         .issue_access(user.id, target_org_id, &user.email, &membership.role)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "token_error",
+                e.to_string(),
+            )
+        })?;
 
-    let (refresh_token, _refresh_jti) = state
-        .jwt
-        .issue_refresh(user.id)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "token_error", e.to_string()))?;
+    let (refresh_token, _refresh_jti) = state.jwt.issue_refresh(user.id).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "token_error",
+            e.to_string(),
+        )
+    })?;
 
     // Audit log the organization switch.
     let switch_auth = AuthContext {
@@ -560,11 +645,25 @@ pub async fn forgot_password(
         .arg(user.id.to_string())
         .query_async(&mut conn)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
 
     // Send email if configured.
     if let Some(ref email_svc) = state.email {
-        let reset_url = format!("{}/reset-password?token={}", state.config.allowed_origins.first().unwrap_or(&"".to_string()), token);
+        let reset_url = format!(
+            "{}/reset-password?token={}",
+            state
+                .config
+                .allowed_origins
+                .first()
+                .unwrap_or(&"".to_string()),
+            token
+        );
         if let Err(e) = email_svc.send_password_reset(&user.email, &reset_url).await {
             tracing::warn!(error = %e, user_id = %user.id, "Failed to send password reset email");
         }
@@ -612,9 +711,8 @@ pub async fn reset_password(
     let new_password = sanitize_input(&body.password);
 
     // Validate password strength.
-    gateway_auth::validate_password_strength(&new_password).map_err(|e| {
-        ApiError::new(StatusCode::BAD_REQUEST, "weak_password", e.to_string())
-    })?;
+    gateway_auth::validate_password_strength(&new_password)
+        .map_err(|e| ApiError::new(StatusCode::BAD_REQUEST, "weak_password", e.to_string()))?;
 
     // Look up token in Redis.
     let mut conn = state.redis.clone();
@@ -623,21 +721,41 @@ pub async fn reset_password(
         .arg(&redis_key)
         .query_async(&mut conn)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
 
     let user_id_str = user_id_str.ok_or_else(|| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "invalid_token", "Invalid or expired reset token")
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid_token",
+            "Invalid or expired reset token",
+        )
     })?;
 
     let user_id = Uuid::parse_str(&user_id_str).map_err(|_| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "invalid_token", "Invalid user ID in token")
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "invalid_token",
+            "Invalid user ID in token",
+        )
     })?;
 
     let repo = UserRepo::new(state.db_pool.clone());
     let user = repo
         .find_by_id(user_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(StatusCode::UNAUTHORIZED, "user_not_found", "User not found")
         })?;
@@ -656,14 +774,24 @@ pub async fn reset_password(
 
     // Hash new password.
     let hasher = PasswordHasherService::new();
-    let new_hash = hasher
-        .hash_password(&new_password)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "hash_error", e.to_string()))?;
+    let new_hash = hasher.hash_password(&new_password).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "hash_error",
+            e.to_string(),
+        )
+    })?;
 
     // Update password and clear lockout/failed attempts.
     repo.update_password(user_id, &new_hash)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Delete token from Redis (single-use).
     let _: () = redis::cmd("DEL")

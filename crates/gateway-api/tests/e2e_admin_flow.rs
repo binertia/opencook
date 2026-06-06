@@ -46,7 +46,8 @@ async fn test_admin_flow_create_org_user_api_key() {
 
     let org_id = fixtures::create_org(&app.db_pool, "Test Org").await;
     let user_id = fixtures::create_user(&app.db_pool, org_id, "test@example.com", "admin").await;
-    let key_id = fixtures::create_api_key(&app.db_pool, org_id, user_id, "Test Key", "hash123").await;
+    let key_id =
+        fixtures::create_api_key(&app.db_pool, org_id, user_id, "Test Key", "hash123").await;
 
     // Verify data exists in DB
     let pool = app.db_pool.sqlite();

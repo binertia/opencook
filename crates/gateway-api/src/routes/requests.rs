@@ -21,8 +21,12 @@ pub struct ListRequestsQuery {
     pub offset: i64,
 }
 
-fn default_limit() -> i64 { 50 }
-fn default_offset() -> i64 { 0 }
+fn default_limit() -> i64 {
+    50
+}
+fn default_offset() -> i64 {
+    0
+}
 
 #[derive(Debug, Serialize)]
 pub struct RequestItem {
@@ -68,28 +72,38 @@ pub async fn list_requests(
     let rows = repo
         .list_recent(auth.org_id, limit + 1)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     let _has_more = rows.len() > limit as usize;
     let total_count = rows.len() as i64;
-    let items: Vec<RequestItem> = rows.into_iter().take(limit as usize).map(|r| RequestItem {
-        id: r.id.to_string(),
-        trace_id: r.trace_id,
-        model_requested: r.model_requested,
-        model_routed: r.model_routed,
-        status: r.status,
-        status_code: r.status_code,
-        prompt_tokens: r.prompt_tokens,
-        completion_tokens: r.completion_tokens,
-        total_tokens: r.total_tokens,
-        total_cost: r.total_cost.to_string(),
-        latency_total_ms: r.latency_total_ms,
-        cache_hit: r.cache_hit,
-        gateway_received_at: Some(r.gateway_received_at.to_rfc3339()),
-        completed_at: r.completed_at.map(|d| d.to_rfc3339()),
-        error_message: r.error_message,
-        provider: None, // Could be populated from provider_config lookup
-    }).collect();
+    let items: Vec<RequestItem> = rows
+        .into_iter()
+        .take(limit as usize)
+        .map(|r| RequestItem {
+            id: r.id.to_string(),
+            trace_id: r.trace_id,
+            model_requested: r.model_requested,
+            model_routed: r.model_routed,
+            status: r.status,
+            status_code: r.status_code,
+            prompt_tokens: r.prompt_tokens,
+            completion_tokens: r.completion_tokens,
+            total_tokens: r.total_tokens,
+            total_cost: r.total_cost.to_string(),
+            latency_total_ms: r.latency_total_ms,
+            cache_hit: r.cache_hit,
+            gateway_received_at: Some(r.gateway_received_at.to_rfc3339()),
+            completed_at: r.completed_at.map(|d| d.to_rfc3339()),
+            error_message: r.error_message,
+            provider: None, // Could be populated from provider_config lookup
+        })
+        .collect();
 
     Ok(Json(RequestsListResponse {
         data: items,

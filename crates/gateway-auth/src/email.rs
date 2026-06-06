@@ -1,9 +1,8 @@
 //! Email dispatch service for password reset and notifications.
 
 use lettre::{
-    message::Mailbox,
-    transport::smtp::authentication::Credentials,
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::Mailbox, transport::smtp::authentication::Credentials, AsyncSmtpTransport,
+    AsyncTransport, Message, Tokio1Executor,
 };
 
 /// Email service configuration.
@@ -29,11 +28,7 @@ impl EmailService {
     }
 
     /// Send a password reset email.
-    pub async fn send_password_reset(
-        &self,
-        to: &str,
-        reset_url: &str,
-    ) -> Result<(), EmailError> {
+    pub async fn send_password_reset(&self, to: &str, reset_url: &str) -> Result<(), EmailError> {
         let body = format!(
             "You requested a password reset for your AI Gateway account.\n\n\
              Click the link below to reset your password (expires in 1 hour):\n\n\
@@ -46,19 +41,16 @@ impl EmailService {
     }
 
     /// Send a generic plain-text email.
-    async fn send_email(
-        &self,
-        to: &str,
-        subject: &str,
-        body: &str,
-    ) -> Result<(), EmailError> {
-        let to_mailbox: Mailbox = to.parse().map_err(|_| {
-            EmailError::InvalidAddress(to.to_string())
-        })?;
+    async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), EmailError> {
+        let to_mailbox: Mailbox = to
+            .parse()
+            .map_err(|_| EmailError::InvalidAddress(to.to_string()))?;
 
-        let from_mailbox: Mailbox = self.config.from.parse().map_err(|_| {
-            EmailError::InvalidAddress(self.config.from.clone())
-        })?;
+        let from_mailbox: Mailbox = self
+            .config
+            .from
+            .parse()
+            .map_err(|_| EmailError::InvalidAddress(self.config.from.clone()))?;
 
         let message = Message::builder()
             .from(from_mailbox)
@@ -72,8 +64,9 @@ impl EmailService {
             _ => None,
         };
 
-        let mut builder = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&self.config.host)
-            .port(self.config.port);
+        let mut builder =
+            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&self.config.host)
+                .port(self.config.port);
 
         if let Some(creds) = creds {
             builder = builder.credentials(creds);

@@ -235,10 +235,7 @@ impl WebhookDeliveryRepo {
     }
 
     /// Get a single delivery by ID.
-    pub async fn get_by_id(
-        &self,
-        delivery_id: Uuid,
-    ) -> Result<Option<WebhookDelivery>, DbError> {
+    pub async fn get_by_id(&self, delivery_id: Uuid) -> Result<Option<WebhookDelivery>, DbError> {
         let row = match &self.pool {
             DbBackend::Postgres(pg) => {
                 sqlx::query_as::<_, WebhookDelivery>(
@@ -344,7 +341,10 @@ mod tests {
 
         assert_eq!(delivery.status, "failed");
         assert_eq!(delivery.attempt_number, 3);
-        assert_eq!(delivery.error_message, Some("Connection timeout".to_string()));
+        assert_eq!(
+            delivery.error_message,
+            Some("Connection timeout".to_string())
+        );
     }
 
     #[test]

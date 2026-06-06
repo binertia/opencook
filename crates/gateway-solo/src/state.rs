@@ -65,9 +65,10 @@ impl AppConfig {
         });
 
         // SOLO mode defaults: SQLite local file
-        let database_url = raw.database_url.or_else(|| {
-            std::env::var("DATABASE_URL").ok()
-        }).unwrap_or_else(|| "sqlite://./data/gateway.db".into());
+        let database_url = raw
+            .database_url
+            .or_else(|| std::env::var("DATABASE_URL").ok())
+            .unwrap_or_else(|| "sqlite://./data/gateway.db".into());
 
         Self {
             port: if raw.port != 0 {

@@ -52,10 +52,7 @@ where
             Ok(result) => return Ok(result),
             Err(err) => {
                 if attempt >= config.max_retries {
-                    warn!(
-                        attempts = attempt + 1,
-                        "Operation failed after max retries"
-                    );
+                    warn!(attempts = attempt + 1, "Operation failed after max retries");
                     return Err(err);
                 }
 
@@ -76,8 +73,8 @@ where
 
 /// Compute the delay for a given retry attempt.
 fn compute_delay(config: RetryConfig, attempt: u32) -> Duration {
-    let exponential = config.base_delay.as_secs_f64()
-        * config.backoff_multiplier.powi(attempt as i32);
+    let exponential =
+        config.base_delay.as_secs_f64() * config.backoff_multiplier.powi(attempt as i32);
     let capped = exponential.min(config.max_delay.as_secs_f64());
 
     let delay_ms = if config.jitter {

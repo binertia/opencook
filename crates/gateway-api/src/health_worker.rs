@@ -110,7 +110,10 @@ impl HealthWorker {
         master_key: &[u8; 32],
     ) -> Result<(), HealthWorkerError> {
         let configs = repo.list_all_active().await?;
-        debug!(provider_count = configs.len(), "Starting health check round");
+        debug!(
+            provider_count = configs.len(),
+            "Starting health check round"
+        );
 
         for config in configs {
             let provider_key = config.kind.clone(); // e.g. "openai", "anthropic"
@@ -233,7 +236,11 @@ impl HealthWorker {
         let api_key = if config.api_key_enc.is_empty() {
             String::new()
         } else {
-            gateway_auth::crypto::decrypt_with_keys(&config.api_key_enc, &gateway_auth::ActiveKeyPair::new(*master_key)).unwrap_or_default()
+            gateway_auth::crypto::decrypt_with_keys(
+                &config.api_key_enc,
+                &gateway_auth::ActiveKeyPair::new(*master_key),
+            )
+            .unwrap_or_default()
         };
 
         let provider_config = ProviderConfig {
@@ -249,11 +256,7 @@ impl HealthWorker {
             .map_err(|e| format!("Failed to create provider: {}", e))?;
 
         // Use timeout for the health check call
-        match tokio::time::timeout(
-            Duration::from_secs(timeout_secs),
-            provider.health_check(),
-        )
-        .await
+        match tokio::time::timeout(Duration::from_secs(timeout_secs), provider.health_check()).await
         {
             Ok(gateway_providers::traits::HealthStatus::Healthy) => Ok(()),
             Ok(gateway_providers::traits::HealthStatus::Degraded(msg)) => {

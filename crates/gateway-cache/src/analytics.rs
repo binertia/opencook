@@ -1,8 +1,8 @@
 //! Cache analytics queries.
 
 use chrono::{DateTime, Utc};
-use gateway_db::repos::cache_meta_repo::{CacheMetaRepo, ModelCacheStats};
 use gateway_db::pool::DbBackend;
+use gateway_db::repos::cache_meta_repo::{CacheMetaRepo, ModelCacheStats};
 use uuid::Uuid;
 
 /// Cache analytics engine.
@@ -23,11 +23,16 @@ impl CacheAnalytics {
     ///
     /// `period` is a human-readable duration string like "1h", "24h", "7d", "30d".
     /// Returns a value between 0.0 and 1.0.
-    pub async fn get_hit_rate(&self, org_id: Uuid, period: &str) -> Result<f64, CacheAnalyticsError> {
+    pub async fn get_hit_rate(
+        &self,
+        org_id: Uuid,
+        period: &str,
+    ) -> Result<f64, CacheAnalyticsError> {
         let start = parse_period(period)?;
-        self.repo.get_hit_rate(org_id, start).await.map_err(|e| {
-            CacheAnalyticsError::Database(e.to_string())
-        })
+        self.repo
+            .get_hit_rate(org_id, start)
+            .await
+            .map_err(|e| CacheAnalyticsError::Database(e.to_string()))
     }
 
     /// Get estimated cost saved from caching for an organization over a time period.
@@ -45,9 +50,11 @@ impl CacheAnalytics {
         let total_cost = self.fetch_total_cost(org_id, start).await?;
 
         // Fetch hit rate for the same period
-        let hit_rate = self.repo.get_hit_rate(org_id, start).await.map_err(|e| {
-            CacheAnalyticsError::Database(e.to_string())
-        })?;
+        let hit_rate = self
+            .repo
+            .get_hit_rate(org_id, start)
+            .await
+            .map_err(|e| CacheAnalyticsError::Database(e.to_string()))?;
 
         // Estimated cost saved = total_cost × hit_rate / (1 - hit_rate)
         // (assuming cached hits would have generated additional cost)
@@ -65,16 +72,18 @@ impl CacheAnalytics {
         org_id: Uuid,
         limit: i64,
     ) -> Result<Vec<ModelCacheStats>, CacheAnalyticsError> {
-        self.repo.get_top_models(org_id, limit).await.map_err(|e| {
-            CacheAnalyticsError::Database(e.to_string())
-        })
+        self.repo
+            .get_top_models(org_id, limit)
+            .await
+            .map_err(|e| CacheAnalyticsError::Database(e.to_string()))
     }
 
     /// Get total number of active cache entries for an organization.
     pub async fn get_entry_count(&self, org_id: Uuid) -> Result<i64, CacheAnalyticsError> {
-        self.repo.get_entry_count(org_id).await.map_err(|e| {
-            CacheAnalyticsError::Database(e.to_string())
-        })
+        self.repo
+            .get_entry_count(org_id)
+            .await
+            .map_err(|e| CacheAnalyticsError::Database(e.to_string()))
     }
 
     /// Internal: fetch total cost from usage_records for the period.

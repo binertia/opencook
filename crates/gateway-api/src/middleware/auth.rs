@@ -156,7 +156,13 @@ async fn fetch_api_key_from_db(state: &AppState, key_hash: &str) -> Result<ApiKe
     let repo = ApiKeyRepo::new(state.db_pool.clone());
     repo.find_by_key_hash(key_hash)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| {
             ApiError::new(
                 StatusCode::UNAUTHORIZED,

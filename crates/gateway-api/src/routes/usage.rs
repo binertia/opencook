@@ -6,7 +6,10 @@ use axum::{
     Extension, Json,
 };
 use chrono::{DateTime, Utc};
-use gateway_auth::{AuthContext, rbac::{check_permission, Permission, Role}};
+use gateway_auth::{
+    rbac::{check_permission, Permission, Role},
+    AuthContext,
+};
 use gateway_db::repos::usage_repo::UsageRepo;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -25,7 +28,10 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
-            format!("Role '{:?}' does not have permission '{:?}'", role, permission),
+            format!(
+                "Role '{:?}' does not have permission '{:?}'",
+                role, permission
+            ),
         )));
     }
     Ok(())
@@ -138,21 +144,29 @@ pub async fn get_usage(
 ) -> Result<Json<UsageListResponse>, ApiError> {
     require_permission(&auth, Permission::UsageRead)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access usage for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot access usage for another organization",
+        ));
     }
 
     let end = query.end_time.unwrap_or_else(Utc::now);
-    let start = query.start_time.unwrap_or_else(|| end - chrono::Duration::days(7));
+    let start = query
+        .start_time
+        .unwrap_or_else(|| end - chrono::Duration::days(7));
 
     let repo = UsageRepo::new(state.db_pool);
     let records = repo
         .list_by_org_and_period(org_id, &query.granularity, start, end)
         .await
-        .map_err(|e| ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "database_error",
-            e.to_string(),
-        ))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     Ok(Json(UsageListResponse {
         data: records.into_iter().map(UsageRecordResponse::from).collect(),
@@ -167,47 +181,63 @@ pub async fn get_costs(
 ) -> Result<Json<CostBreakdownResponse>, ApiError> {
     require_permission(&auth, Permission::UsageRead)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access costs for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot access costs for another organization",
+        ));
     }
 
     let end = query.end_time.unwrap_or_else(Utc::now);
-    let start = query.start_time.unwrap_or_else(|| end - chrono::Duration::days(7));
+    let start = query
+        .start_time
+        .unwrap_or_else(|| end - chrono::Duration::days(7));
 
     let repo = UsageRepo::new(state.db_pool);
     let records = repo
         .list_by_org_and_period(org_id, &query.granularity, start, end)
         .await
-        .map_err(|e| ApiError::new(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "database_error",
-            e.to_string(),
-        ))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     let mut total_cost = Decimal::ZERO;
-    let mut by_provider: std::collections::HashMap<Option<Uuid>, CostBreakdownItem> = std::collections::HashMap::new();
-    let mut by_model: std::collections::HashMap<Option<Uuid>, CostBreakdownItem> = std::collections::HashMap::new();
+    let mut by_provider: std::collections::HashMap<Option<Uuid>, CostBreakdownItem> =
+        std::collections::HashMap::new();
+    let mut by_model: std::collections::HashMap<Option<Uuid>, CostBreakdownItem> =
+        std::collections::HashMap::new();
 
     for r in &records {
         total_cost += r.total_cost;
 
-        let provider_entry = by_provider.entry(r.provider_config_id).or_insert_with(|| CostBreakdownItem {
-            dimension: "provider".to_string(),
-            dimension_id: r.provider_config_id,
-            total_cost: Decimal::ZERO,
-            request_count: 0,
-            total_tokens: 0,
-        });
+        let provider_entry =
+            by_provider
+                .entry(r.provider_config_id)
+                .or_insert_with(|| CostBreakdownItem {
+                    dimension: "provider".to_string(),
+                    dimension_id: r.provider_config_id,
+                    total_cost: Decimal::ZERO,
+                    request_count: 0,
+                    total_tokens: 0,
+                });
         provider_entry.total_cost += r.total_cost;
         provider_entry.request_count += r.request_count;
         provider_entry.total_tokens += r.total_tokens;
 
-        let model_entry = by_model.entry(r.provider_model_id).or_insert_with(|| CostBreakdownItem {
-            dimension: "model".to_string(),
-            dimension_id: r.provider_model_id,
-            total_cost: Decimal::ZERO,
-            request_count: 0,
-            total_tokens: 0,
-        });
+        let model_entry =
+            by_model
+                .entry(r.provider_model_id)
+                .or_insert_with(|| CostBreakdownItem {
+                    dimension: "model".to_string(),
+                    dimension_id: r.provider_model_id,
+                    total_cost: Decimal::ZERO,
+                    request_count: 0,
+                    total_tokens: 0,
+                });
         model_entry.total_cost += r.total_cost;
         model_entry.request_count += r.request_count;
         model_entry.total_tokens += r.total_tokens;

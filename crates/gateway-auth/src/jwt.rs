@@ -10,7 +10,7 @@ use crate::error::AuthError;
 /// JWT access token claims.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AccessClaims {
-    pub sub: String,      // user_id
+    pub sub: String, // user_id
     #[serde(default)]
     pub active_org_id: String,
     /// Deprecated: kept for backward compatibility with old tokens.
@@ -18,7 +18,7 @@ pub struct AccessClaims {
     pub org_id: Option<String>,
     pub email: String,
     pub role: String,
-    pub jti: String,      // token ID for revocation
+    pub jti: String, // token ID for revocation
     pub iat: i64,
     pub exp: i64,
     #[serde(rename = "type")]
@@ -28,8 +28,8 @@ pub struct AccessClaims {
 /// JWT refresh token claims.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RefreshClaims {
-    pub sub: String,      // user_id
-    pub jti: String,      // token ID
+    pub sub: String, // user_id
+    pub jti: String, // token ID
     pub iat: i64,
     pub exp: i64,
     #[serde(rename = "type")]
@@ -124,8 +124,10 @@ impl JwtService {
         let mut validation = Validation::new(self.algorithm);
         validation.set_required_spec_claims(&["exp", "sub", "jti"]);
 
-        let token_data = decode::<AccessClaims>(token, &self.decoding_key, &validation)
-            .map_err(|e| match e.kind() {
+        let token_data =
+            decode::<AccessClaims>(token, &self.decoding_key, &validation).map_err(|e| match e
+                .kind()
+            {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 _ => AuthError::InvalidToken,
             })?;
@@ -150,8 +152,10 @@ impl JwtService {
         let mut validation = Validation::new(self.algorithm);
         validation.set_required_spec_claims(&["exp", "sub", "jti"]);
 
-        let token_data = decode::<RefreshClaims>(token, &self.decoding_key, &validation)
-            .map_err(|e| match e.kind() {
+        let token_data =
+            decode::<RefreshClaims>(token, &self.decoding_key, &validation).map_err(|e| match e
+                .kind()
+            {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 _ => AuthError::InvalidToken,
             })?;
@@ -190,10 +194,7 @@ impl RotatingJwtService {
     }
 
     /// Create from primary shared secret, with optional secondary.
-    pub fn from_secret_pair(
-        primary_secret: &[u8],
-        secondary_secret: Option<&[u8]>,
-    ) -> Self {
+    pub fn from_secret_pair(primary_secret: &[u8], secondary_secret: Option<&[u8]>) -> Self {
         let primary = JwtService::from_secret(primary_secret);
         let secondary = secondary_secret.map(JwtService::from_secret);
         Self { primary, secondary }
@@ -207,7 +208,8 @@ impl RotatingJwtService {
         email: &str,
         role: &str,
     ) -> Result<(String, String), AuthError> {
-        self.primary.issue_access(user_id, active_org_id, email, role)
+        self.primary
+            .issue_access(user_id, active_org_id, email, role)
     }
 
     /// Issue refresh token using primary key.
@@ -252,12 +254,15 @@ mod tests {
 
     fn test_keys() -> JwtService {
         // Generate a 2048-bit RSA key pair for testing
-        use rsa::{RsaPrivateKey, RsaPublicKey, pkcs8::EncodePrivateKey, pkcs8::LineEnding};
         use rsa::pkcs1::EncodeRsaPublicKey;
+        use rsa::{pkcs8::EncodePrivateKey, pkcs8::LineEnding, RsaPrivateKey, RsaPublicKey};
         let mut rng = rand::thread_rng();
         let private_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let public_key = RsaPublicKey::from(&private_key);
-        let private_pem = private_key.to_pkcs8_pem(LineEnding::LF).unwrap().to_string();
+        let private_pem = private_key
+            .to_pkcs8_pem(LineEnding::LF)
+            .unwrap()
+            .to_string();
         let public_pem = public_key.to_pkcs1_pem(LineEnding::LF).unwrap();
         JwtService::from_pem(private_pem.as_bytes(), public_pem.as_bytes()).unwrap()
     }
@@ -267,7 +272,9 @@ mod tests {
         let svc = test_keys();
         let user_id = Uuid::new_v4();
         let org_id = Uuid::new_v4();
-        let (token, _jti) = svc.issue_access(user_id, org_id, "test@example.com", "admin").unwrap();
+        let (token, _jti) = svc
+            .issue_access(user_id, org_id, "test@example.com", "admin")
+            .unwrap();
         let claims = svc.verify_access(&token).unwrap();
         assert_eq!(claims.sub, user_id.to_string());
         assert_eq!(claims.active_org_id, org_id.to_string());

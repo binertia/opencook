@@ -12,9 +12,7 @@ async fn main() -> anyhow::Result<()> {
             println!("{}", gateway_api::cli::Command::help_text());
             Ok(())
         }
-        gateway_api::cli::Command::Config => {
-            gateway_api::config_wizard::run().await
-        }
+        gateway_api::cli::Command::Config => gateway_api::config_wizard::run().await,
         gateway_api::cli::Command::Profile => {
             let config = gateway_api::state::AppConfig::load();
             println!("AI Gateway Profile");
@@ -30,9 +28,7 @@ async fn main() -> anyhow::Result<()> {
             let config = gateway_api::state::AppConfig::load();
             gateway_api::dashboard::run(config.profile.display_name().to_string()).await
         }
-        gateway_api::cli::Command::Serve => {
-            run_server().await
-        }
+        gateway_api::cli::Command::Serve => run_server().await,
     }
 }
 

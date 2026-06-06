@@ -118,7 +118,11 @@ impl SsoConfigRepo {
         Ok(row.into())
     }
 
-    pub async fn delete(&self, org_id: Uuid, provider_type: SsoProviderType) -> Result<(), DbError> {
+    pub async fn delete(
+        &self,
+        org_id: Uuid,
+        provider_type: SsoProviderType,
+    ) -> Result<(), DbError> {
         sqlx::query(
             r#"
             DELETE FROM sso_configs

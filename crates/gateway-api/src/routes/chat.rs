@@ -3,7 +3,7 @@
 use axum::{
     extract::State,
     http::HeaderMap,
-    response::{sse::Event, IntoResponse, Sse, Response},
+    response::{sse::Event, IntoResponse, Response, Sse},
     Extension,
 };
 use futures::StreamExt;
@@ -13,11 +13,14 @@ use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError}
 use gateway_core::retry::{retry, RetryConfig};
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
+use gateway_db::repos::{
+    cache_meta_repo::CacheMetaRepo, provider_config_repo::ProviderConfigRepo,
+    routing_repo::RoutingRepo,
+};
 use gateway_db::RequestRepo;
-use tokio_util::sync::CancellationToken;
-use gateway_db::repos::{cache_meta_repo::CacheMetaRepo, provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo};
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::CancellationToken;
 
 use crate::{error::ApiError, extractors::ValidatedJson, state::AppState};
 
@@ -70,7 +73,10 @@ async fn build_provider_config_from_db(
     let api_key = if db_config.api_key_enc.is_empty() {
         String::new()
     } else {
-        state.config.decrypt_master(&db_config.api_key_enc).unwrap_or_default()
+        state
+            .config
+            .decrypt_master(&db_config.api_key_enc)
+            .unwrap_or_default()
     };
 
     Some(ProviderConfig {
@@ -90,47 +96,58 @@ async fn build_provider_config_from_env(target: &gateway_db::Target) -> Option<P
 
     let (base_url, api_key) = match kind {
         ProviderKind::OpenAi => (
-            std::env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "https://api.openai.com".to_string()),
+            std::env::var("OPENAI_BASE_URL")
+                .unwrap_or_else(|_| "https://api.openai.com".to_string()),
             std::env::var("OPENAI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Anthropic => (
-            std::env::var("ANTHROPIC_BASE_URL").unwrap_or_else(|_| "https://api.anthropic.com".to_string()),
+            std::env::var("ANTHROPIC_BASE_URL")
+                .unwrap_or_else(|_| "https://api.anthropic.com".to_string()),
             std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Gemini => (
-            std::env::var("GEMINI_BASE_URL").unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
+            std::env::var("GEMINI_BASE_URL")
+                .unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
             std::env::var("GEMINI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Ollama => (
-            std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".to_string()),
+            std::env::var("OLLAMA_BASE_URL")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string()),
             String::new(),
         ),
         ProviderKind::Qwen => (
-            std::env::var("QWEN_BASE_URL").unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode".to_string()),
+            std::env::var("QWEN_BASE_URL")
+                .unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode".to_string()),
             std::env::var("QWEN_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Kimi => (
-            std::env::var("KIMI_BASE_URL").unwrap_or_else(|_| "https://api.moonshot.cn".to_string()),
+            std::env::var("KIMI_BASE_URL")
+                .unwrap_or_else(|_| "https://api.moonshot.cn".to_string()),
             std::env::var("KIMI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Tencent => (
-            std::env::var("TENCENT_BASE_URL").unwrap_or_else(|_| "https://hunyuan.tencentcloudapi.com".to_string()),
+            std::env::var("TENCENT_BASE_URL")
+                .unwrap_or_else(|_| "https://hunyuan.tencentcloudapi.com".to_string()),
             std::env::var("TENCENT_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Groq => (
-            std::env::var("GROQ_BASE_URL").unwrap_or_else(|_| "https://api.groq.com/openai".to_string()),
+            std::env::var("GROQ_BASE_URL")
+                .unwrap_or_else(|_| "https://api.groq.com/openai".to_string()),
             std::env::var("GROQ_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Mistral => (
-            std::env::var("MISTRAL_BASE_URL").unwrap_or_else(|_| "https://api.mistral.ai".to_string()),
+            std::env::var("MISTRAL_BASE_URL")
+                .unwrap_or_else(|_| "https://api.mistral.ai".to_string()),
             std::env::var("MISTRAL_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Cohere => (
-            std::env::var("COHERE_BASE_URL").unwrap_or_else(|_| "https://api.cohere.ai/compatibility".to_string()),
+            std::env::var("COHERE_BASE_URL")
+                .unwrap_or_else(|_| "https://api.cohere.ai/compatibility".to_string()),
             std::env::var("COHERE_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Azure => (
-            std::env::var("AZURE_OPENAI_BASE_URL").unwrap_or_else(|_| "https://your-resource.openai.azure.com".to_string()),
+            std::env::var("AZURE_OPENAI_BASE_URL")
+                .unwrap_or_else(|_| "https://your-resource.openai.azure.com".to_string()),
             std::env::var("AZURE_OPENAI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Custom => return None,
@@ -170,7 +187,10 @@ async fn resolve_routing(
     request: &ChatCompletionRequest,
 ) -> Option<(ProviderConfig, Vec<ProviderConfig>)> {
     let repo = RoutingRepo::new(state.db_pool.clone());
-    let rules = match repo.get_active_rules(auth.org_id, Some(&request.model)).await {
+    let rules = match repo
+        .get_active_rules(auth.org_id, Some(&request.model))
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(error = %e, "Failed to fetch routing rules");
@@ -204,11 +224,17 @@ async fn default_provider_config(
         Ok(configs) => {
             for config in configs {
                 if let Some(kind) = parse_provider_kind(&config.kind) {
-                    let base_url = config.api_base.clone().unwrap_or_else(|| default_base_url(&kind));
+                    let base_url = config
+                        .api_base
+                        .clone()
+                        .unwrap_or_else(|| default_base_url(&kind));
                     let api_key = if config.api_key_enc.is_empty() {
                         String::new()
                     } else {
-                        state.config.decrypt_master(&config.api_key_enc).unwrap_or_default()
+                        state
+                            .config
+                            .decrypt_master(&config.api_key_enc)
+                            .unwrap_or_default()
                     };
                     return ProviderConfig {
                         kind,
@@ -279,12 +305,13 @@ async fn non_stream_chat_completions(
         // Exact match first
         if let Some(cached) = state.cache.get(&cache_key.redis_key).await {
             let mut response: gateway_core::types::ChatCompletionResponse =
-                serde_json::from_str(&cached.body)
-                    .map_err(|e| ApiError::new(
+                serde_json::from_str(&cached.body).map_err(|e| {
+                    ApiError::new(
                         axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                         "cache_deserialize_error",
                         e.to_string(),
-                    ))?;
+                    )
+                })?;
 
             response.gateway = Some(gateway_core::types::GatewayMetadata {
                 provider: cached.provider.clone(),
@@ -300,16 +327,18 @@ async fn non_stream_chat_completions(
             let trace_id = request_id.clone();
             tokio::spawn(async move {
                 let repo = RequestRepo::new(db_pool);
-                let _ = repo.insert(
-                    org_id,
-                    key_id,
-                    &trace_id,
-                    "POST",
-                    "/v1/chat/completions",
-                    Some(&model),
-                    serde_json::json!({"x-cache": "HIT"}),
-                    None,
-                ).await;
+                let _ = repo
+                    .insert(
+                        org_id,
+                        key_id,
+                        &trace_id,
+                        "POST",
+                        "/v1/chat/completions",
+                        Some(&model),
+                        serde_json::json!({"x-cache": "HIT"}),
+                        None,
+                    )
+                    .await;
             });
 
             // Record cache metadata hit (fire-and-forget)
@@ -324,7 +353,8 @@ async fn non_stream_chat_completions(
             gateway_observability::metrics::record_cache_hit_by_model(&request.model);
 
             let mut resp = axum::Json(response).into_response();
-            resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("HIT"));
+            resp.headers_mut()
+                .insert("x-cache", axum::http::HeaderValue::from_static("HIT"));
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
                     .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
@@ -338,7 +368,11 @@ async fn non_stream_chat_completions(
 
         // Semantic match second (pgvector preferred, Redis fallback)
         let semantic_hit = if let Some(ref semantic) = state.pgvector_semantic_cache {
-            semantic.find_similar_text(auth.org_id, &request.model, &prompt_text).await.ok().flatten()
+            semantic
+                .find_similar_text(auth.org_id, &request.model, &prompt_text)
+                .await
+                .ok()
+                .flatten()
         } else if let Some(ref semantic) = state.semantic_cache {
             semantic.get(&request, auth.org_id).await
         } else {
@@ -347,12 +381,13 @@ async fn non_stream_chat_completions(
 
         if let Some(cached) = semantic_hit {
             let mut response: gateway_core::types::ChatCompletionResponse =
-                serde_json::from_str(&cached.body)
-                    .map_err(|e| ApiError::new(
+                serde_json::from_str(&cached.body).map_err(|e| {
+                    ApiError::new(
                         axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                         "cache_deserialize_error",
                         e.to_string(),
-                    ))?;
+                    )
+                })?;
 
             response.gateway = Some(gateway_core::types::GatewayMetadata {
                 provider: cached.provider.clone(),
@@ -368,16 +403,18 @@ async fn non_stream_chat_completions(
             let trace_id = request_id.clone();
             tokio::spawn(async move {
                 let repo = RequestRepo::new(db_pool);
-                let _ = repo.insert(
-                    org_id,
-                    key_id,
-                    &trace_id,
-                    "POST",
-                    "/v1/chat/completions",
-                    Some(&model),
-                    serde_json::json!({"x-cache": "SEMANTIC_HIT"}),
-                    None,
-                ).await;
+                let _ = repo
+                    .insert(
+                        org_id,
+                        key_id,
+                        &trace_id,
+                        "POST",
+                        "/v1/chat/completions",
+                        Some(&model),
+                        serde_json::json!({"x-cache": "SEMANTIC_HIT"}),
+                        None,
+                    )
+                    .await;
             });
 
             // Record cache metadata hit for semantic cache (fire-and-forget)
@@ -392,7 +429,10 @@ async fn non_stream_chat_completions(
             gateway_observability::metrics::record_cache_hit_by_model(&request.model);
 
             let mut resp = axum::Json(response).into_response();
-            resp.headers_mut().insert("x-cache", axum::http::HeaderValue::from_static("SEMANTIC_HIT"));
+            resp.headers_mut().insert(
+                "x-cache",
+                axum::http::HeaderValue::from_static("SEMANTIC_HIT"),
+            );
             gateway_observability::metrics::record_cache_hit_semantic();
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
@@ -407,11 +447,15 @@ async fn non_stream_chat_completions(
     }
 
     // ── Routing: resolve provider config(s) ────────────────────────────
-    let (primary_config, fallback_configs) = if let Some(result) = resolve_routing(&state, &auth, &request).await {
-        result
-    } else {
-        (default_provider_config(&state, &auth, &request).await, vec![])
-    };
+    let (primary_config, fallback_configs) =
+        if let Some(result) = resolve_routing(&state, &auth, &request).await {
+            result
+        } else {
+            (
+                default_provider_config(&state, &auth, &request).await,
+                vec![],
+            )
+        };
 
     // ── Cancellation token for client disconnect detection ────────────
     let cancel_token = CancellationToken::new();
@@ -435,9 +479,8 @@ async fn non_stream_chat_completions(
             let cancel = cancel_clone.clone();
 
             Box::pin(async move {
-                let configs: Vec<ProviderConfig> = std::iter::once(primary)
-                    .chain(fallbacks)
-                    .collect();
+                let configs: Vec<ProviderConfig> =
+                    std::iter::once(primary).chain(fallbacks).collect();
 
                 let mut last_error = String::new();
 
@@ -512,7 +555,8 @@ async fn non_stream_chat_completions(
 
                     // Call provider with retry + circuit breaker tracking
                     let retry_config = RetryConfig::default();
-                    let provider_result = retry(retry_config, || provider.chat_completion(req.clone())).await;
+                    let provider_result =
+                        retry(retry_config, || provider.chat_completion(req.clone())).await;
 
                     match provider_result {
                         Ok(mut resp) => {
@@ -544,15 +588,27 @@ async fn non_stream_chat_completions(
 
     // Orchestrate
     let start = std::time::Instant::now();
-    let response = orchestrate_chat_completion(state.db_pool.clone(), &auth, &request_id, request.clone(), cancel_token, provider_call)
-        .await;
+    let response = orchestrate_chat_completion(
+        state.db_pool.clone(),
+        &auth,
+        &request_id,
+        request.clone(),
+        cancel_token,
+        provider_call,
+    )
+    .await;
     let duration_ms = start.elapsed().as_millis() as f64;
 
     let response = match response {
         Ok(r) => r,
         Err(OrchestratorError::QuotaExceeded { metric, limit }) => {
             gateway_observability::metrics::record_quota_exceeded(&metric, "org");
-            gateway_observability::metrics::record_request(&request.model, "none", "quota_exceeded", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "quota_exceeded",
+                duration_ms,
+            );
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
                     .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
@@ -566,7 +622,12 @@ async fn non_stream_chat_completions(
             ));
         }
         Err(OrchestratorError::Provider(msg)) => {
-            gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "error",
+                duration_ms,
+            );
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
                     .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
@@ -580,7 +641,12 @@ async fn non_stream_chat_completions(
             ));
         }
         Err(OrchestratorError::Cancelled) => {
-            gateway_observability::metrics::record_request(&request.model, "none", "cancelled", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "cancelled",
+                duration_ms,
+            );
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
                     .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
@@ -588,13 +654,19 @@ async fn non_stream_chat_completions(
                     .with_latency_breakdown(duration_ms as u64, 0, duration_ms as u64),
             );
             return Err(ApiError::new(
-                axum::http::StatusCode::from_u16(499).unwrap_or(axum::http::StatusCode::BAD_REQUEST),
+                axum::http::StatusCode::from_u16(499)
+                    .unwrap_or(axum::http::StatusCode::BAD_REQUEST),
                 "request_cancelled",
                 "Request cancelled by client disconnect",
             ));
         }
         Err(OrchestratorError::Database(err)) => {
-            gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "error",
+                duration_ms,
+            );
             log_request(
                 &RequestLogEntry::new(&request_id, auth.org_id.to_string(), &request.model)
                     .with_api_key_id(auth.key_id.map(|id| id.to_string()).unwrap_or_default())
@@ -617,14 +689,20 @@ async fn non_stream_chat_completions(
         let body = serde_json::to_string(&response).unwrap_or_default();
         let cached = gateway_cache::CachedResponse {
             body: body.clone(),
-            provider: response.gateway.as_ref().map(|g| g.provider.clone()).unwrap_or_else(|| "unknown".to_string()),
+            provider: response
+                .gateway
+                .as_ref()
+                .map(|g| g.provider.clone())
+                .unwrap_or_else(|| "unknown".to_string()),
             prompt_tokens: response.usage.prompt_tokens,
             completion_tokens: response.usage.completion_tokens,
             total_tokens: response.usage.total_tokens,
             cached_at: chrono::Utc::now(),
         };
         tokio::spawn(async move {
-            cache.insert(redis_key, cached, std::time::Duration::from_secs(3600)).await;
+            cache
+                .insert(redis_key, cached, std::time::Duration::from_secs(3600))
+                .await;
         });
 
         // Store cache metadata for analytics (fire-and-forget)
@@ -632,7 +710,11 @@ async fn non_stream_chat_completions(
         let org_id_meta = auth.org_id;
         let key_hash_meta = request_hash;
         let model_id_meta = request.model.clone();
-        let prompt_preview = request.messages.first().and_then(|m| m.content.clone()).unwrap_or_default();
+        let prompt_preview = request
+            .messages
+            .first()
+            .and_then(|m| m.content.clone())
+            .unwrap_or_default();
         let prompt_preview = if prompt_preview.len() > 200 {
             format!("{}...", &prompt_preview[..200])
         } else {
@@ -642,18 +724,24 @@ async fn non_stream_chat_completions(
         tokio::spawn(async move {
             let repo = CacheMetaRepo::new(db_pool_meta);
             let expires_at = chrono::Utc::now() + chrono::Duration::hours(1);
-            let _ = repo.upsert(
-                org_id_meta,
-                &key_hash_meta,
-                Some(&key_hash_meta[..16.min(key_hash_meta.len())]),
-                &model_id_meta,
-                if prompt_preview.is_empty() { None } else { Some(&prompt_preview) },
-                prompt_tokens,
-                "redis",
-                3600,
-                expires_at,
-                None,
-            ).await;
+            let _ = repo
+                .upsert(
+                    org_id_meta,
+                    &key_hash_meta,
+                    Some(&key_hash_meta[..16.min(key_hash_meta.len())]),
+                    &model_id_meta,
+                    if prompt_preview.is_empty() {
+                        None
+                    } else {
+                        Some(&prompt_preview)
+                    },
+                    prompt_tokens,
+                    "redis",
+                    3600,
+                    expires_at,
+                    None,
+                )
+                .await;
         });
 
         // Also store in semantic cache (pgvector preferred, Redis fallback)
@@ -665,21 +753,27 @@ async fn non_stream_chat_completions(
             let response_hash = cache_key.request_hash.clone();
             let cached_clone = gateway_cache::CachedResponse {
                 body: body.clone(),
-                provider: response.gateway.as_ref().map(|g| g.provider.clone()).unwrap_or_else(|| "unknown".to_string()),
+                provider: response
+                    .gateway
+                    .as_ref()
+                    .map(|g| g.provider.clone())
+                    .unwrap_or_else(|| "unknown".to_string()),
                 prompt_tokens: response.usage.prompt_tokens,
                 completion_tokens: response.usage.completion_tokens,
                 total_tokens: response.usage.total_tokens,
                 cached_at: chrono::Utc::now(),
             };
             tokio::spawn(async move {
-                let _ = semantic_clone.store_text(
-                    org_id,
-                    &model,
-                    &prompt_text_clone,
-                    &response_hash,
-                    &cached_clone,
-                    std::time::Duration::from_secs(3600),
-                ).await;
+                let _ = semantic_clone
+                    .store_text(
+                        org_id,
+                        &model,
+                        &prompt_text_clone,
+                        &response_hash,
+                        &cached_clone,
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await;
             });
         } else if let Some(ref semantic) = state.semantic_cache {
             let semantic_clone = semantic.clone();
@@ -687,26 +781,54 @@ async fn non_stream_chat_completions(
             let org_id = auth.org_id;
             let cached_clone = gateway_cache::CachedResponse {
                 body,
-                provider: response.gateway.as_ref().map(|g| g.provider.clone()).unwrap_or_else(|| "unknown".to_string()),
+                provider: response
+                    .gateway
+                    .as_ref()
+                    .map(|g| g.provider.clone())
+                    .unwrap_or_else(|| "unknown".to_string()),
                 prompt_tokens: response.usage.prompt_tokens,
                 completion_tokens: response.usage.completion_tokens,
                 total_tokens: response.usage.total_tokens,
                 cached_at: chrono::Utc::now(),
             };
             tokio::spawn(async move {
-                semantic_clone.insert(&request_clone, org_id, cached_clone, std::time::Duration::from_secs(3600)).await;
+                semantic_clone
+                    .insert(
+                        &request_clone,
+                        org_id,
+                        cached_clone,
+                        std::time::Duration::from_secs(3600),
+                    )
+                    .await;
             });
         }
     }
 
     // Record metrics
-    let provider = response.gateway.as_ref().map(|g| g.provider.clone()).unwrap_or_else(|| "unknown".to_string());
+    let provider = response
+        .gateway
+        .as_ref()
+        .map(|g| g.provider.clone())
+        .unwrap_or_else(|| "unknown".to_string());
     let model = response.model.clone();
     let provider_latency_ms = response.gateway.as_ref().map(|g| g.latency_ms).unwrap_or(0);
     let gateway_latency_ms = (duration_ms as u64).saturating_sub(provider_latency_ms);
-    gateway_observability::metrics::record_request(&model, &provider, "success", provider_latency_ms as f64);
-    gateway_observability::metrics::record_tokens(&model, response.usage.prompt_tokens as u64, response.usage.completion_tokens as u64);
-    let cost = gateway_core::orchestrator::calculate_cost(&model, response.usage.prompt_tokens as u64, response.usage.completion_tokens as u64);
+    gateway_observability::metrics::record_request(
+        &model,
+        &provider,
+        "success",
+        provider_latency_ms as f64,
+    );
+    gateway_observability::metrics::record_tokens(
+        &model,
+        response.usage.prompt_tokens as u64,
+        response.usage.completion_tokens as u64,
+    );
+    let cost = gateway_core::orchestrator::calculate_cost(
+        &model,
+        response.usage.prompt_tokens as u64,
+        response.usage.completion_tokens as u64,
+    );
     gateway_observability::metrics::record_cost(&model, &provider, cost);
 
     log_request(
@@ -725,10 +847,8 @@ async fn non_stream_chat_completions(
     );
 
     let mut resp = axum::Json(response).into_response();
-    resp.headers_mut().insert(
-        "x-cache",
-        axum::http::HeaderValue::from_static("MISS"),
-    );
+    resp.headers_mut()
+        .insert("x-cache", axum::http::HeaderValue::from_static("MISS"));
     resp.headers_mut().insert(
         "x-provider-latency-ms",
         axum::http::HeaderValue::from_str(&provider_latency_ms.to_string())
@@ -760,18 +880,24 @@ async fn stream_chat_completions(
             req_body.as_deref(),
         )
         .await
-        .map_err(|e| ApiError::new(
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            "database_error",
-            e.to_string(),
-        ))?;
+        .map_err(|e| {
+            ApiError::new(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // ── Routing: resolve provider config ───────────────────────────────
-    let (provider_config, _fallback_configs) = if let Some(result) = resolve_routing(&state, &auth, &request).await {
-        result
-    } else {
-        (default_provider_config(&state, &auth, &request).await, vec![])
-    };
+    let (provider_config, _fallback_configs) =
+        if let Some(result) = resolve_routing(&state, &auth, &request).await {
+            result
+        } else {
+            (
+                default_provider_config(&state, &auth, &request).await,
+                vec![],
+            )
+        };
 
     // Circuit breaker check for streaming
     let provider_key = provider_config.provider_id.clone();
@@ -793,7 +919,9 @@ async fn stream_chat_completions(
         + 1;
     let estimated_completion_tokens = request.max_tokens.unwrap_or(0) as u64;
 
-    let logging_stream = if provider_config.api_key.is_empty() && provider_config.kind != ProviderKind::Ollama {
+    let logging_stream = if provider_config.api_key.is_empty()
+        && provider_config.kind != ProviderKind::Ollama
+    {
         // Mock streaming response
         state.circuit_breaker.record_success(&provider_key);
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, String>>(10);
@@ -826,7 +954,8 @@ async fn stream_chat_completions(
             let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
         });
         let stream = ReceiverStream::new(rx);
-        let boxed: std::pin::Pin<Box<dyn futures::Stream<Item = Result<Event, String>> + Send>> = Box::pin(stream);
+        let boxed: std::pin::Pin<Box<dyn futures::Stream<Item = Result<Event, String>> + Send>> =
+            Box::pin(stream);
         LoggingStream::new(
             boxed,
             state.db_pool,
@@ -869,8 +998,9 @@ async fn stream_chat_completions(
             Ok(event) => Ok(event),
             Err(e) => Err(e.to_string()),
         });
-        let boxed: std::pin::Pin<Box<dyn futures::Stream<Item = Result<Event, String>> + Send>> = Box::pin(mapped);
-        
+        let boxed: std::pin::Pin<Box<dyn futures::Stream<Item = Result<Event, String>> + Send>> =
+            Box::pin(mapped);
+
         LoggingStream::new(
             boxed,
             state.db_pool,
@@ -882,12 +1012,11 @@ async fn stream_chat_completions(
         )
     };
 
-    let sse = Sse::new(logging_stream)
-        .keep_alive(
-            axum::response::sse::KeepAlive::new()
-                .interval(std::time::Duration::from_secs(15))
-                .text(""),
-        );
+    let sse = Sse::new(logging_stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(std::time::Duration::from_secs(15))
+            .text(""),
+    );
 
     Ok(sse.into_response())
 }

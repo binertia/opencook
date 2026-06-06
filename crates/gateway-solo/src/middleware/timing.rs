@@ -1,11 +1,6 @@
 //! Request timing middleware — adds request ID and duration headers.
 
-use axum::{
-    extract::Request,
-    http::HeaderValue,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::HeaderValue, middleware::Next, response::Response};
 use std::time::Instant;
 
 /// Layer that injects `X-Gateway-Request-ID` and `X-Request-Time-Ms` headers.

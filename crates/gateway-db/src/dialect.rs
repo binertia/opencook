@@ -36,9 +36,7 @@ pub fn cast_param(backend: &DbBackend, param: &str, _enum_type: &str) -> String 
 /// PostgreSQL: `col IS NOT DISTINCT FROM val`
 /// SQLite:     `(col = val) OR (col IS NULL AND val IS NULL)`
 pub fn is_not_distinct_from(left: &str, right: &str) -> String {
-    format!(
-        "({left} = {right}) OR ({left} IS NULL AND {right} IS NULL)",
-    )
+    format!("({left} = {right}) OR ({left} IS NULL AND {right} IS NULL)",)
 }
 
 /// Build a SELECT column list with optional ::text casts for enums.

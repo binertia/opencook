@@ -1,12 +1,8 @@
 //! Provider factory — creates Provider instances from configuration.
 
 use crate::{
-    anthropic::AnthropicProvider,
-    error::ProviderError,
-    gemini::GeminiProvider,
-    ollama::OllamaProvider,
-    openai::OpenAiProvider,
-    traits::Provider,
+    anthropic::AnthropicProvider, error::ProviderError, gemini::GeminiProvider,
+    ollama::OllamaProvider, openai::OpenAiProvider, traits::Provider,
 };
 
 /// Provider kind discriminator.

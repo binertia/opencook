@@ -1,9 +1,9 @@
 //! Organization membership repository (multi-org support).
 
-use chrono::{DateTime, Utc};
 use crate::error::DbError;
 use crate::models::{Organization, UserOrganization};
 use crate::pool::DbBackend;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Repository for user-organization memberships.
@@ -35,12 +35,10 @@ impl OrgMemberRepo {
                 Ok(rows)
             }
             DbBackend::Sqlite(sqlite) => {
-                let rows = sqlx::query_as::<_, UserOrganization>(
-                    sql.replace("$1", "?1").as_str(),
-                )
-                .bind(user_id)
-                .fetch_all(sqlite)
-                .await?;
+                let rows = sqlx::query_as::<_, UserOrganization>(sql.replace("$1", "?1").as_str())
+                    .bind(user_id)
+                    .fetch_all(sqlite)
+                    .await?;
                 Ok(rows)
             }
         }
@@ -100,24 +98,28 @@ impl OrgMemberRepo {
                     .bind(org_id)
                     .fetch_all(pg)
                     .await?;
-                Ok(rows.into_iter().map(|r| {
-                    let email = r.user_email.clone();
-                    let name = r.user_name.clone();
-                    (r.to_membership(), email, name)
-                }).collect())
+                Ok(rows
+                    .into_iter()
+                    .map(|r| {
+                        let email = r.user_email.clone();
+                        let name = r.user_name.clone();
+                        (r.to_membership(), email, name)
+                    })
+                    .collect())
             }
             DbBackend::Sqlite(sqlite) => {
-                let rows = sqlx::query_as::<_, OrgMemberRow>(
-                    sql.replace("$1", "?1").as_str(),
-                )
-                .bind(org_id)
-                .fetch_all(sqlite)
-                .await?;
-                Ok(rows.into_iter().map(|r| {
-                    let email = r.user_email.clone();
-                    let name = r.user_name.clone();
-                    (r.to_membership(), email, name)
-                }).collect())
+                let rows = sqlx::query_as::<_, OrgMemberRow>(sql.replace("$1", "?1").as_str())
+                    .bind(org_id)
+                    .fetch_all(sqlite)
+                    .await?;
+                Ok(rows
+                    .into_iter()
+                    .map(|r| {
+                        let email = r.user_email.clone();
+                        let name = r.user_name.clone();
+                        (r.to_membership(), email, name)
+                    })
+                    .collect())
             }
         }
     }
@@ -172,29 +174,28 @@ impl OrgMemberRepo {
     pub async fn delete(&self, user_id: Uuid, org_id: Uuid) -> Result<(), DbError> {
         match &self.pool {
             DbBackend::Postgres(pg) => {
-                sqlx::query(
-                    "DELETE FROM user_organizations WHERE user_id = $1 AND org_id = $2",
-                )
-                .bind(user_id)
-                .bind(org_id)
-                .execute(pg)
-                .await?;
+                sqlx::query("DELETE FROM user_organizations WHERE user_id = $1 AND org_id = $2")
+                    .bind(user_id)
+                    .bind(org_id)
+                    .execute(pg)
+                    .await?;
             }
             DbBackend::Sqlite(sqlite) => {
-                sqlx::query(
-                    "DELETE FROM user_organizations WHERE user_id = ?1 AND org_id = ?2",
-                )
-                .bind(user_id)
-                .bind(org_id)
-                .execute(sqlite)
-                .await?;
+                sqlx::query("DELETE FROM user_organizations WHERE user_id = ?1 AND org_id = ?2")
+                    .bind(user_id)
+                    .bind(org_id)
+                    .execute(sqlite)
+                    .await?;
             }
         };
         Ok(())
     }
 
     /// Get organizations a user belongs to.
-    pub async fn list_orgs_for_user(&self, user_id: Uuid) -> Result<Vec<(Organization, String)>, DbError> {
+    pub async fn list_orgs_for_user(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<(Organization, String)>, DbError> {
         let sql = r#"
             SELECT
                 o.id, o.name, o.slug, o.status, o.settings, o.billing_email, o.plan_tier,
@@ -212,22 +213,26 @@ impl OrgMemberRepo {
                     .bind(user_id)
                     .fetch_all(pg)
                     .await?;
-                Ok(rows.into_iter().map(|r| {
-                    let role = r.membership_role.clone();
-                    (r.to_org(), role)
-                }).collect())
+                Ok(rows
+                    .into_iter()
+                    .map(|r| {
+                        let role = r.membership_role.clone();
+                        (r.to_org(), role)
+                    })
+                    .collect())
             }
             DbBackend::Sqlite(sqlite) => {
-                let rows = sqlx::query_as::<_, OrgWithRole>(
-                    sql.replace("$1", "?1").as_str(),
-                )
-                .bind(user_id)
-                .fetch_all(sqlite)
-                .await?;
-                Ok(rows.into_iter().map(|r| {
-                    let role = r.membership_role.clone();
-                    (r.to_org(), role)
-                }).collect())
+                let rows = sqlx::query_as::<_, OrgWithRole>(sql.replace("$1", "?1").as_str())
+                    .bind(user_id)
+                    .fetch_all(sqlite)
+                    .await?;
+                Ok(rows
+                    .into_iter()
+                    .map(|r| {
+                        let role = r.membership_role.clone();
+                        (r.to_org(), role)
+                    })
+                    .collect())
             }
         }
     }
@@ -299,7 +304,9 @@ mod tests {
     async fn setup_sqlite() -> (DbBackend, TempDir) {
         let tmp = tempfile::tempdir().unwrap();
         let db_path = tmp.path().join("test.db");
-        let pool = create_pool(&db_path.to_string_lossy()).await.expect("sqlite pool creation failed");
+        let pool = create_pool(&db_path.to_string_lossy())
+            .await
+            .expect("sqlite pool creation failed");
         (pool, tmp)
     }
 
@@ -311,11 +318,27 @@ mod tests {
         let user_repo = crate::repos::user_repo::UserRepo::new(pool);
 
         // Seed org and user
-        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
-        let user = user_repo.create(org.id, "test@example.com", Some("hash"), Some("Test User"), "member", "active").await.unwrap();
+        let org = org_repo
+            .create("Test Org", "test-org", None, "free")
+            .await
+            .unwrap();
+        let user = user_repo
+            .create(
+                org.id,
+                "test@example.com",
+                Some("hash"),
+                Some("Test User"),
+                "member",
+                "active",
+            )
+            .await
+            .unwrap();
 
         // Create membership
-        let membership = repo.create(user.id, org.id, "admin", Some(user.id)).await.unwrap();
+        let membership = repo
+            .create(user.id, org.id, "admin", Some(user.id))
+            .await
+            .unwrap();
         assert_eq!(membership.user_id, user.id);
         assert_eq!(membership.org_id, org.id);
         assert_eq!(membership.role, "admin");
@@ -351,13 +374,31 @@ mod tests {
         let org_repo = crate::repos::organization_repo::OrganizationRepo::new(pool.clone());
         let user_repo = crate::repos::user_repo::UserRepo::new(pool);
 
-        let org_a = org_repo.create("Org A", "org-a", None, "free").await.unwrap();
-        let org_b = org_repo.create("Org B", "org-b", None, "free").await.unwrap();
-        let user = user_repo.create(org_a.id, "user@example.com", Some("hash"), Some("User"), "member", "active").await.unwrap();
+        let org_a = org_repo
+            .create("Org A", "org-a", None, "free")
+            .await
+            .unwrap();
+        let org_b = org_repo
+            .create("Org B", "org-b", None, "free")
+            .await
+            .unwrap();
+        let user = user_repo
+            .create(
+                org_a.id,
+                "user@example.com",
+                Some("hash"),
+                Some("User"),
+                "member",
+                "active",
+            )
+            .await
+            .unwrap();
 
         // User is only in org A (via legacy user.org_id + migration not run in test)
         // Manually add membership to org A
-        repo.create(user.id, org_a.id, "member", Some(user.id)).await.unwrap();
+        repo.create(user.id, org_a.id, "member", Some(user.id))
+            .await
+            .unwrap();
 
         // Should succeed for org A
         let m = repo.get_membership(user.id, org_a.id).await.unwrap();

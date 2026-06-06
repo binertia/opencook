@@ -12,11 +12,11 @@ use gateway_auth::AuthContext;
 use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError};
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
-use gateway_db::RequestRepo;
-use tokio_util::sync::CancellationToken;
 use gateway_db::repos::routing_repo::RoutingRepo;
+use gateway_db::RequestRepo;
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::CancellationToken;
 
 use crate::{error::ApiError, extractors::ValidatedJson, state::AppState};
 
@@ -57,47 +57,58 @@ fn build_provider_config(target: &gateway_db::Target) -> Option<ProviderConfig> 
 
     let (base_url, api_key) = match kind {
         ProviderKind::OpenAi => (
-            std::env::var("OPENAI_BASE_URL").unwrap_or_else(|_| "https://api.openai.com".to_string()),
+            std::env::var("OPENAI_BASE_URL")
+                .unwrap_or_else(|_| "https://api.openai.com".to_string()),
             std::env::var("OPENAI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Anthropic => (
-            std::env::var("ANTHROPIC_BASE_URL").unwrap_or_else(|_| "https://api.anthropic.com".to_string()),
+            std::env::var("ANTHROPIC_BASE_URL")
+                .unwrap_or_else(|_| "https://api.anthropic.com".to_string()),
             std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Gemini => (
-            std::env::var("GEMINI_BASE_URL").unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
+            std::env::var("GEMINI_BASE_URL")
+                .unwrap_or_else(|_| "https://generativelanguage.googleapis.com".to_string()),
             std::env::var("GEMINI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Ollama => (
-            std::env::var("OLLAMA_BASE_URL").unwrap_or_else(|_| "http://localhost:11434".to_string()),
+            std::env::var("OLLAMA_BASE_URL")
+                .unwrap_or_else(|_| "http://localhost:11434".to_string()),
             String::new(),
         ),
         ProviderKind::Qwen => (
-            std::env::var("QWEN_BASE_URL").unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode".to_string()),
+            std::env::var("QWEN_BASE_URL")
+                .unwrap_or_else(|_| "https://dashscope.aliyuncs.com/compatible-mode".to_string()),
             std::env::var("QWEN_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Kimi => (
-            std::env::var("KIMI_BASE_URL").unwrap_or_else(|_| "https://api.moonshot.cn".to_string()),
+            std::env::var("KIMI_BASE_URL")
+                .unwrap_or_else(|_| "https://api.moonshot.cn".to_string()),
             std::env::var("KIMI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Tencent => (
-            std::env::var("TENCENT_BASE_URL").unwrap_or_else(|_| "https://hunyuan.tencentcloudapi.com".to_string()),
+            std::env::var("TENCENT_BASE_URL")
+                .unwrap_or_else(|_| "https://hunyuan.tencentcloudapi.com".to_string()),
             std::env::var("TENCENT_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Groq => (
-            std::env::var("GROQ_BASE_URL").unwrap_or_else(|_| "https://api.groq.com/openai".to_string()),
+            std::env::var("GROQ_BASE_URL")
+                .unwrap_or_else(|_| "https://api.groq.com/openai".to_string()),
             std::env::var("GROQ_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Mistral => (
-            std::env::var("MISTRAL_BASE_URL").unwrap_or_else(|_| "https://api.mistral.ai".to_string()),
+            std::env::var("MISTRAL_BASE_URL")
+                .unwrap_or_else(|_| "https://api.mistral.ai".to_string()),
             std::env::var("MISTRAL_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Cohere => (
-            std::env::var("COHERE_BASE_URL").unwrap_or_else(|_| "https://api.cohere.ai/compatibility".to_string()),
+            std::env::var("COHERE_BASE_URL")
+                .unwrap_or_else(|_| "https://api.cohere.ai/compatibility".to_string()),
             std::env::var("COHERE_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Azure => (
-            std::env::var("AZURE_OPENAI_BASE_URL").unwrap_or_else(|_| "https://your-resource.openai.azure.com".to_string()),
+            std::env::var("AZURE_OPENAI_BASE_URL")
+                .unwrap_or_else(|_| "https://your-resource.openai.azure.com".to_string()),
             std::env::var("AZURE_OPENAI_API_KEY").unwrap_or_default(),
         ),
         ProviderKind::Custom => return None,
@@ -118,7 +129,10 @@ async fn resolve_routing(
     request: &ChatCompletionRequest,
 ) -> Option<(ProviderConfig, Vec<ProviderConfig>)> {
     let repo = RoutingRepo::new(state.db_pool.clone());
-    let rules = match repo.get_active_rules(default_auth().org_id, Some(&request.model)).await {
+    let rules = match repo
+        .get_active_rules(default_auth().org_id, Some(&request.model))
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(error = %e, "Failed to fetch routing rules");
@@ -197,9 +211,8 @@ async fn non_stream_chat_completions(
             let cancel = cancel_clone.clone();
 
             Box::pin(async move {
-                let configs: Vec<ProviderConfig> = std::iter::once(primary)
-                    .chain(fallbacks)
-                    .collect();
+                let configs: Vec<ProviderConfig> =
+                    std::iter::once(primary).chain(fallbacks).collect();
 
                 let mut last_error = String::new();
 
@@ -311,22 +324,45 @@ async fn non_stream_chat_completions(
         Ok(r) => r,
         Err(OrchestratorError::QuotaExceeded { metric, limit }) => {
             gateway_observability::metrics::record_quota_exceeded(&metric, "org");
-            gateway_observability::metrics::record_request(&request.model, "none", "quota_exceeded", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "quota_exceeded",
+                duration_ms,
+            );
             return Err(ApiError::new(
                 "quota_exceeded",
                 format!("Quota exceeded for metric '{}'. Limit: {}", metric, limit),
             ));
         }
         Err(OrchestratorError::Provider(msg)) => {
-            gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "error",
+                duration_ms,
+            );
             return Err(ApiError::new("provider_error", msg));
         }
         Err(OrchestratorError::Cancelled) => {
-            gateway_observability::metrics::record_request(&request.model, "none", "cancelled", duration_ms);
-            return Err(ApiError::new("request_cancelled", "Request cancelled by client disconnect"));
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "cancelled",
+                duration_ms,
+            );
+            return Err(ApiError::new(
+                "request_cancelled",
+                "Request cancelled by client disconnect",
+            ));
         }
         Err(OrchestratorError::Database(err)) => {
-            gateway_observability::metrics::record_request(&request.model, "none", "error", duration_ms);
+            gateway_observability::metrics::record_request(
+                &request.model,
+                "none",
+                "error",
+                duration_ms,
+            );
             return Err(ApiError::new("database_error", err.to_string()));
         }
     };
@@ -393,7 +429,9 @@ async fn stream_chat_completions(
         + 1;
     let estimated_completion_tokens = request.max_tokens.unwrap_or(0) as u64;
 
-    let logging_stream = if provider_config.api_key.is_empty() && provider_config.kind != ProviderKind::Ollama {
+    let logging_stream = if provider_config.api_key.is_empty()
+        && provider_config.kind != ProviderKind::Ollama
+    {
         state.circuit_breaker.record_success(&provider_key);
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, String>>(10);
         let model = request.model.clone();

@@ -50,7 +50,9 @@ pub struct UpdateQuotaRequest {
 }
 
 /// List all quotas for the default org.
-pub async fn list_quotas(State(state): State<AppState>) -> Result<Json<QuotaListResponse>, ApiError> {
+pub async fn list_quotas(
+    State(state): State<AppState>,
+) -> Result<Json<QuotaListResponse>, ApiError> {
     let repo = QuotaRepo::new(state.db_pool);
     let quotas = repo.list_by_org(default_org()).await?;
     Ok(Json(QuotaListResponse { data: quotas }))
@@ -110,8 +112,12 @@ pub async fn update_quota(
     Json(req): Json<UpdateQuotaRequest>,
 ) -> Result<Json<gateway_db::models::Quota>, ApiError> {
     let repo = QuotaRepo::new(state.db_pool);
-    let limit = req.limit_value.and_then(|s| Decimal::from_str_exact(&s).ok());
-    let warning = req.warning_threshold.and_then(|s| Decimal::from_str_exact(&s).ok());
+    let limit = req
+        .limit_value
+        .and_then(|s| Decimal::from_str_exact(&s).ok());
+    let warning = req
+        .warning_threshold
+        .and_then(|s| Decimal::from_str_exact(&s).ok());
 
     match repo
         .update(

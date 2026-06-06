@@ -1,10 +1,10 @@
 //! Argon2id password hashing and validation.
 
+use crate::error::AuthError;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2, Params,
 };
-use crate::error::AuthError;
 
 /// Argon2id hasher with OWASP-recommended parameters.
 pub struct PasswordHasherService {
@@ -21,8 +21,7 @@ impl PasswordHasherService {
     /// Create a new hasher with secure parameters.
     /// time_cost=3, memory_cost=65536 (64MB), parallelism=4
     pub fn new() -> Self {
-        let params = Params::new(65536, 3, 4, None)
-            .expect("valid argon2 params");
+        let params = Params::new(65536, 3, 4, None).expect("valid argon2 params");
         let argon2 = Argon2::new(argon2::Algorithm::Argon2id, argon2::Version::V0x13, params);
         Self { argon2 }
     }
@@ -30,7 +29,8 @@ impl PasswordHasherService {
     /// Hash a plaintext password. Returns the PHC string.
     pub fn hash_password(&self, password: &str) -> Result<String, AuthError> {
         let salt = SaltString::generate(&mut OsRng);
-        let hash = self.argon2
+        let hash = self
+            .argon2
             .hash_password(password.as_bytes(), &salt)
             .map_err(|e| AuthError::Internal(format!("argon2 hash failed: {e}")))?;
         Ok(hash.to_string())

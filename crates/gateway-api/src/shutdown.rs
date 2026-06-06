@@ -65,19 +65,20 @@ impl Default for ShutdownState {
 ///
 /// On Unix: listens for SIGTERM, SIGINT, SIGHUP, SIGUSR1.
 /// On non-Unix: falls back to Ctrl-C (SIGINT equivalent).
-pub fn spawn_signal_handler(
-    shutdown: ShutdownState,
-    reload_tx: tokio::sync::mpsc::Sender<()>,
-) {
+pub fn spawn_signal_handler(shutdown: ShutdownState, reload_tx: tokio::sync::mpsc::Sender<()>) {
     tokio::spawn(async move {
         #[cfg(unix)]
         {
             use tokio::signal::unix::{signal, SignalKind};
 
-            let mut sigterm = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
-            let mut sigint = signal(SignalKind::interrupt()).expect("failed to install SIGINT handler");
-            let mut sighup = signal(SignalKind::hangup()).expect("failed to install SIGHUP handler");
-            let mut sigusr1 = signal(SignalKind::user_defined1()).expect("failed to install SIGUSR1 handler");
+            let mut sigterm =
+                signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+            let mut sigint =
+                signal(SignalKind::interrupt()).expect("failed to install SIGINT handler");
+            let mut sighup =
+                signal(SignalKind::hangup()).expect("failed to install SIGHUP handler");
+            let mut sigusr1 =
+                signal(SignalKind::user_defined1()).expect("failed to install SIGUSR1 handler");
 
             loop {
                 tokio::select! {
@@ -104,7 +105,9 @@ pub fn spawn_signal_handler(
 
         #[cfg(not(unix))]
         {
-            tokio::signal::ctrl_c().await.expect("failed to install Ctrl-C handler");
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to install Ctrl-C handler");
             tracing::info!("received Ctrl-C");
             shutdown.shutdown();
         }

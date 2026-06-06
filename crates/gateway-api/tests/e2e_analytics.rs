@@ -19,7 +19,12 @@ async fn test_analytics_endpoint_exists_and_returns_data() {
 
     let status = response.status();
     let body_text = response.text().await.unwrap_or_default();
-    assert!(status.is_success(), "Expected 200, got {}: {}", status, body_text);
+    assert!(
+        status.is_success(),
+        "Expected 200, got {}: {}",
+        status,
+        body_text
+    );
 
     let body: serde_json::Value = serde_json::from_str(&body_text).expect("Failed to parse JSON");
 

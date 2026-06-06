@@ -284,9 +284,9 @@ impl ProfileConfig {
 /// Provider configuration for a profile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderConfig {
-    pub kind: String,        // "openai", "anthropic", "ollama", etc.
-    pub model: String,       // e.g. "gpt-4o-mini"
-    pub api_key: Option<String>, // None for local/Ollama
+    pub kind: String,             // "openai", "anthropic", "ollama", etc.
+    pub model: String,            // e.g. "gpt-4o-mini"
+    pub api_key: Option<String>,  // None for local/Ollama
     pub base_url: Option<String>, // Custom endpoint
 }
 

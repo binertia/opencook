@@ -1,7 +1,7 @@
 //! Usage records repository — aggregated request metrics.
 
-use chrono::{DateTime, Utc};
 use crate::pool::DbBackend;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::error::DbError;
@@ -99,11 +99,9 @@ impl UsageRepo {
 
                 Ok(result.rows_affected())
             }
-            DbBackend::Sqlite(_) => {
-                Err(DbError::Unsupported(
-                    "aggregate_hourly is not supported on SQLite".into(),
-                ))
-            }
+            DbBackend::Sqlite(_) => Err(DbError::Unsupported(
+                "aggregate_hourly is not supported on SQLite".into(),
+            )),
         }
     }
 

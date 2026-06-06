@@ -115,7 +115,10 @@ pub struct FunctionDefinition {
 #[serde(untagged)]
 pub enum ToolChoice {
     String(String),
-    Object { tool_type: String, function: FunctionChoice },
+    Object {
+        tool_type: String,
+        function: FunctionChoice,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

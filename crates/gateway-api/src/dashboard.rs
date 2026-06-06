@@ -68,7 +68,11 @@ impl DashboardApp {
             KeyCode::Char('3') => self.selected_tab = 2,
             KeyCode::Right => self.selected_tab = (self.selected_tab + 1) % 3,
             KeyCode::Left => {
-                self.selected_tab = if self.selected_tab == 0 { 2 } else { self.selected_tab - 1 };
+                self.selected_tab = if self.selected_tab == 0 {
+                    2
+                } else {
+                    self.selected_tab - 1
+                };
             }
             _ => {}
         }
@@ -187,21 +191,31 @@ async fn data_fetcher(tx: mpsc::Sender<DashboardData>) {
                 let ht = h.text().await.unwrap_or_else(|_| "(parse error)".into());
                 (mt, ht, None)
             }
-            (Err(e), _) => (String::new(), String::new(), Some(format!("Metrics fetch failed: {}", e))),
-            (_, Err(e)) => (String::new(), String::new(), Some(format!("Health fetch failed: {}", e))),
+            (Err(e), _) => (
+                String::new(),
+                String::new(),
+                Some(format!("Metrics fetch failed: {}", e)),
+            ),
+            (_, Err(e)) => (
+                String::new(),
+                String::new(),
+                Some(format!("Health fetch failed: {}", e)),
+            ),
         };
 
         // Parse simple metrics
         let request_count = parse_counter(&metrics_text, "gateway_request_total");
         let avg_latency_ms = parse_avg_histogram(&metrics_text, "gateway_request_duration_ms");
 
-        let _ = tx.send(DashboardData {
-            metrics: metrics_text,
-            health: health_text,
-            error,
-            request_count,
-            avg_latency_ms,
-        }).await;
+        let _ = tx
+            .send(DashboardData {
+                metrics: metrics_text,
+                health: health_text,
+                error,
+                request_count,
+                avg_latency_ms,
+            })
+            .await;
     }
 }
 
@@ -228,7 +242,11 @@ fn parse_avg_histogram(_text: &str, _name: &str) -> u64 {
 fn draw_ui(f: &mut Frame, app: &DashboardApp) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(0), Constraint::Length(1)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ])
         .split(f.area());
 
     draw_header(f, app, chunks[0]);
@@ -242,16 +260,23 @@ fn draw_ui(f: &mut Frame, app: &DashboardApp) {
 }
 
 fn draw_header(f: &mut Frame, app: &DashboardApp, area: Rect) {
-    let header = Paragraph::new(vec![
-        Line::from(vec![
-            Span::styled("AI Gateway ", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
-            Span::raw("| Profile: "),
-            Span::styled(&app.profile_name, Style::default().fg(Color::Green)),
-            Span::raw(" | "),
-            Span::raw(format!("Last update: {:?} ago", app.last_update.elapsed())),
-        ]),
-    ])
-    .block(Block::default().borders(Borders::BOTTOM).border_style(Color::Cyan))
+    let header = Paragraph::new(vec![Line::from(vec![
+        Span::styled(
+            "AI Gateway ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::raw("| Profile: "),
+        Span::styled(&app.profile_name, Style::default().fg(Color::Green)),
+        Span::raw(" | "),
+        Span::raw(format!("Last update: {:?} ago", app.last_update.elapsed())),
+    ])])
+    .block(
+        Block::default()
+            .borders(Borders::BOTTOM)
+            .border_style(Color::Cyan),
+    )
     .alignment(Alignment::Center);
 
     f.render_widget(header, area);
@@ -262,10 +287,17 @@ fn draw_tabs_content(f: &mut Frame, app: &DashboardApp, area: Rect) {
     let tabs = Tabs::new(titles)
         .select(app.selected_tab)
         .block(Block::default().borders(Borders::ALL).title("Tabs"))
-        .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+        .highlight_style(
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
         .divider(Span::raw(" | "));
 
-    let inner = area.inner(Margin { horizontal: 1, vertical: 1 });
+    let inner = area.inner(Margin {
+        horizontal: 1,
+        vertical: 1,
+    });
     let tab_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(3), Constraint::Min(0)])
@@ -323,9 +355,21 @@ fn draw_providers(f: &mut Frame, app: &DashboardApp, area: Rect) {
         if line.starts_with("gateway_provider_health") {
             let provider = extract_label(line, "provider").unwrap_or_else(|| "unknown".into());
             let org = extract_label(line, "org").unwrap_or_else(|| "unknown".into());
-            let value = line.rsplit(' ').next().and_then(|v| v.parse::<f64>().ok()).unwrap_or(-1.0);
-            let status = if value >= 0.5 { "✓ Healthy" } else { "✗ Unhealthy" };
-            let color = if value >= 0.5 { Color::Green } else { Color::Red };
+            let value = line
+                .rsplit(' ')
+                .next()
+                .and_then(|v| v.parse::<f64>().ok())
+                .unwrap_or(-1.0);
+            let status = if value >= 0.5 {
+                "✓ Healthy"
+            } else {
+                "✗ Unhealthy"
+            };
+            let color = if value >= 0.5 {
+                Color::Green
+            } else {
+                Color::Red
+            };
 
             rows.push(Row::new(vec![
                 Cell::from(provider),
@@ -357,7 +401,11 @@ fn draw_providers(f: &mut Frame, app: &DashboardApp, area: Rect) {
         Row::new(vec!["Provider", "Org", "Status", "Value"])
             .style(Style::default().add_modifier(Modifier::BOLD)),
     )
-    .block(Block::default().title("Provider Health").borders(Borders::ALL))
+    .block(
+        Block::default()
+            .title("Provider Health")
+            .borders(Borders::ALL),
+    )
     .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
     f.render_widget(table, area);
@@ -365,7 +413,11 @@ fn draw_providers(f: &mut Frame, app: &DashboardApp, area: Rect) {
 
 fn draw_metrics_raw(f: &mut Frame, app: &DashboardApp, area: Rect) {
     let metrics = Paragraph::new(app.metrics_text.clone())
-        .block(Block::default().title("Prometheus Metrics").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title("Prometheus Metrics")
+                .borders(Borders::ALL),
+        )
         .wrap(Wrap { trim: false });
     f.render_widget(metrics, area);
 }
@@ -385,9 +437,7 @@ fn draw_error_popup(f: &mut Frame, error: &str) {
         .style(Style::default().bg(Color::Black));
 
     let area = centered_rect(60, 20, f.area());
-    let paragraph = Paragraph::new(error)
-        .block(block)
-        .wrap(Wrap { trim: true });
+    let paragraph = Paragraph::new(error).block(block).wrap(Wrap { trim: true });
 
     f.render_widget(Clear, area);
     f.render_widget(paragraph, area);

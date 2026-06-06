@@ -88,10 +88,7 @@ pub fn parse_master_key_pair(hex_str: &str) -> Result<ActiveKeyPair<[u8; 32]>, C
         None
     };
 
-    Ok(ActiveKeyPair {
-        primary,
-        secondary,
-    })
+    Ok(ActiveKeyPair { primary, secondary })
 }
 
 /// Parse comma-separated PEM-encoded key pairs.
@@ -105,7 +102,9 @@ pub fn parse_pem_pair(pem_str: &str) -> Result<ActiveKeyPair<Vec<u8>>, AuthError
     } else {
         // Split on the boundary between two PEM blocks
         let boundary = pem_str.find("-----BEGIN").unwrap_or(0);
-        let second_begin = pem_str[boundary + 1..].find("-----BEGIN").map(|i| boundary + 1 + i);
+        let second_begin = pem_str[boundary + 1..]
+            .find("-----BEGIN")
+            .map(|i| boundary + 1 + i);
 
         if let Some(second_pos) = second_begin {
             let first_pem = pem_str[..second_pos].trim().as_bytes().to_vec();
@@ -143,7 +142,11 @@ mod tests {
     fn test_try_both_primary_succeeds() {
         let pair = ActiveKeyPair::new(42);
         let result = pair.try_both(|k| {
-            if *k == 42 { Ok("primary") } else { Err("wrong") }
+            if *k == 42 {
+                Ok("primary")
+            } else {
+                Err("wrong")
+            }
         });
         assert_eq!(result.unwrap(), "primary");
     }
@@ -152,7 +155,11 @@ mod tests {
     fn test_try_both_fallback_to_secondary() {
         let pair = ActiveKeyPair::with_secondary(0, 42);
         let result = pair.try_both(|k| {
-            if *k == 42 { Ok("secondary") } else { Err("wrong") }
+            if *k == 42 {
+                Ok("secondary")
+            } else {
+                Err("wrong")
+            }
         });
         assert_eq!(result.unwrap(), "secondary");
     }
@@ -161,7 +168,11 @@ mod tests {
     fn test_try_both_no_secondary_fails() {
         let pair = ActiveKeyPair::<i32>::new(0);
         let result = pair.try_both(|k| {
-            if *k == 42 { Ok("success") } else { Err("failure") }
+            if *k == 42 {
+                Ok("success")
+            } else {
+                Err("failure")
+            }
         });
         assert_eq!(result.unwrap_err(), "failure");
     }
@@ -171,7 +182,11 @@ mod tests {
         let pair = ActiveKeyPair::with_secondary(0, 42);
         let result = pair
             .try_both_async(|k| async move {
-                if k == 42 { Ok("secondary") } else { Err("wrong") }
+                if k == 42 {
+                    Ok("secondary")
+                } else {
+                    Err("wrong")
+                }
             })
             .await;
         assert_eq!(result.unwrap(), "secondary");

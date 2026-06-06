@@ -34,12 +34,13 @@ impl TlsConfig {
         let certs = load_certs(&self.cert_path)?;
         let key = load_private_key(&self.key_path)?;
 
-        let cfg = ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
-            .with_protocol_versions(&[&rustls::version::TLS13, &rustls::version::TLS12])
-            .map_err(|e| TlsError::InvalidCertificate(rustls::Error::General(e.to_string())))?
-            .with_no_client_auth()
-            .with_single_cert(certs, key)
-            .map_err(TlsError::InvalidCertificate)?;
+        let cfg =
+            ServerConfig::builder_with_provider(Arc::new(rustls::crypto::ring::default_provider()))
+                .with_protocol_versions(&[&rustls::version::TLS13, &rustls::version::TLS12])
+                .map_err(|e| TlsError::InvalidCertificate(rustls::Error::General(e.to_string())))?
+                .with_no_client_auth()
+                .with_single_cert(certs, key)
+                .map_err(TlsError::InvalidCertificate)?;
 
         Ok(Arc::new(cfg))
     }
@@ -90,7 +91,5 @@ fn load_private_key(path: impl AsRef<Path>) -> Result<PrivateKeyDer<'static>, Tl
         return Ok(key.into());
     }
 
-    Err(TlsError::MissingKey(
-        path.as_ref().display().to_string(),
-    ))
+    Err(TlsError::MissingKey(path.as_ref().display().to_string()))
 }

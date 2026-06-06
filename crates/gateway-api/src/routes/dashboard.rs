@@ -81,26 +81,44 @@ pub async fn get_dashboard(
     let current_stats = req_repo
         .aggregate_stats(auth.org_id, current_start, current_end)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Previous period stats (for change calculation)
     let previous_stats = req_repo
         .aggregate_stats(auth.org_id, previous_start, previous_end)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Recent requests
-    let recent = req_repo
-        .list_recent(auth.org_id, 10)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let recent = req_repo.list_recent(auth.org_id, 10).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     // Active providers with health
     let provider_repo = ProviderConfigRepo::new(state.db_pool.clone());
-    let providers = provider_repo
-        .list_by_org(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let providers = provider_repo.list_by_org(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     let active_providers = build_active_providers(&state, &providers).await;
 
@@ -109,7 +127,9 @@ pub async fn get_dashboard(
         .map(|r| RecentRequestItem {
             id: r.id.to_string(),
             timestamp: r.gateway_received_at.to_rfc3339(),
-            model: r.model_routed.unwrap_or_else(|| r.model_requested.unwrap_or_default()),
+            model: r
+                .model_routed
+                .unwrap_or_else(|| r.model_requested.unwrap_or_default()),
             provider: "-".to_string(), // TODO: resolve provider name from provider_config_id
             status: if r.cache_hit {
                 "cached".to_string()
@@ -146,7 +166,10 @@ pub async fn get_dashboard(
         total_cost_usd,
         cache_hit_rate,
         avg_latency_ms,
-        requests_change: pct_change(previous_stats.total_requests as f64, current_stats.total_requests as f64),
+        requests_change: pct_change(
+            previous_stats.total_requests as f64,
+            current_stats.total_requests as f64,
+        ),
         cost_change: pct_change(prev_total_cost, total_cost_usd),
         cache_change: pct_change(prev_cache_hit_rate, cache_hit_rate),
         latency_change: pct_change(prev_avg_latency_ms, avg_latency_ms),
@@ -159,12 +182,7 @@ pub async fn get_dashboard(
 
 fn compute_time_ranges(
     range: &str,
-) -> (
-    DateTime<Utc>,
-    DateTime<Utc>,
-    DateTime<Utc>,
-    DateTime<Utc>,
-) {
+) -> (DateTime<Utc>, DateTime<Utc>, DateTime<Utc>, DateTime<Utc>) {
     let now = Utc::now();
     match range {
         "today" => {

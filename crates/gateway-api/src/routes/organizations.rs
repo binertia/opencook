@@ -1,15 +1,8 @@
 //! Organization routes — creation, listing, and management.
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Extension, Json,
-};
+use axum::{extract::State, http::StatusCode, Extension, Json};
 use gateway_auth::AuthContext;
-use gateway_db::{
-    models::AuditAction,
-    OrganizationRepo, OrgMemberRepo,
-};
+use gateway_db::{models::AuditAction, OrgMemberRepo, OrganizationRepo};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -27,7 +20,11 @@ use crate::{
 
 #[derive(Debug, Deserialize, Validate)]
 pub struct CreateOrgRequest {
-    #[validate(length(min = 1, max = 128, message = "Organization name must be 1-128 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 128,
+        message = "Organization name must be 1-128 characters"
+    ))]
     pub name: String,
     #[validate(length(max = 128, message = "Billing email must be at most 128 characters"))]
     pub billing_email: Option<String>,
@@ -56,22 +53,17 @@ fn slugify(name: &str) -> String {
 
 /// Append a short random suffix to ensure slug uniqueness.
 fn unique_slug(base: &str) -> String {
-    let suffix: String = rand::Rng::sample_iter(
-        &mut rand::thread_rng(),
-        rand::distributions::Alphanumeric,
-    )
-    .take(6)
-    .map(char::from)
-    .collect::<String>()
-    .to_lowercase();
+    let suffix: String =
+        rand::Rng::sample_iter(&mut rand::thread_rng(), rand::distributions::Alphanumeric)
+            .take(6)
+            .map(char::from)
+            .collect::<String>()
+            .to_lowercase();
     format!("{}-{}", base, suffix)
 }
 
 /// Rate-limit org creation: max 5 per hour per user (tracked in Redis).
-async fn check_org_creation_rate_limit(
-    state: &AppState,
-    user_id: Uuid,
-) -> Result<(), ApiError> {
+async fn check_org_creation_rate_limit(state: &AppState, user_id: Uuid) -> Result<(), ApiError> {
     let key = format!("rate_limit:org_create:{}", user_id);
     let mut conn = state.redis.clone();
 
@@ -119,7 +111,11 @@ pub async fn create_organization(
     ValidatedJson(body): ValidatedJson<CreateOrgRequest>,
 ) -> Result<Json<OrgResponse>, ApiError> {
     let user_id = auth.user_id.ok_or_else(|| {
-        ApiError::new(StatusCode::UNAUTHORIZED, "unauthenticated", "Not authenticated")
+        ApiError::new(
+            StatusCode::UNAUTHORIZED,
+            "unauthenticated",
+            "Not authenticated",
+        )
     })?;
 
     // Rate limit org creation to prevent spam/abuse.
@@ -147,9 +143,17 @@ pub async fn create_organization(
     let base_slug = slugify(&name);
     let mut slug = base_slug.clone();
     let mut attempts = 0;
-    while org_repo.find_by_slug(&slug).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
-    })?.is_some()
+    while org_repo
+        .find_by_slug(&slug)
+        .await
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .is_some()
     {
         slug = unique_slug(&base_slug);
         attempts += 1;
@@ -175,7 +179,11 @@ pub async fn create_organization(
                     "An organization with this slug already exists",
                 )
             } else {
-                ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+                ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "database_error",
+                    e.to_string(),
+                )
             }
         })?;
 
@@ -183,7 +191,13 @@ pub async fn create_organization(
     let membership = member_repo
         .create(user_id, org.id, "owner", Some(user_id))
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Audit log the creation.
     let owner_auth = AuthContext {

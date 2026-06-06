@@ -54,7 +54,11 @@ impl WebhookPublisher {
     ///
     /// Returns immediately; delivery happens asynchronously.
     pub async fn publish(&self, org_id: Uuid, event: WebhookEvent, data: serde_json::Value) {
-        let pending = PendingWebhook { org_id, event, data };
+        let pending = PendingWebhook {
+            org_id,
+            event,
+            data,
+        };
         if let Err(e) = self.tx.send(pending).await {
             warn!(error = %e, "Webhook queue full — dropping event");
         }
@@ -94,7 +98,8 @@ impl DeliveryWorker {
             let master_key = self.master_key;
             let http = self.http.clone();
             tokio::spawn(async move {
-                DeliveryWorker::process_event_with_resources(db_pool, master_key, http, pending).await;
+                DeliveryWorker::process_event_with_resources(db_pool, master_key, http, pending)
+                    .await;
             });
         }
 
@@ -189,7 +194,10 @@ impl DeliveryWorker {
         delivery_id: Uuid,
     ) -> Result<(), String> {
         let secret = match &webhook.secret_enc {
-            Some(enc) => match gateway_auth::crypto::decrypt_with_keys(enc, &gateway_auth::ActiveKeyPair::new(master_key)) {
+            Some(enc) => match gateway_auth::crypto::decrypt_with_keys(
+                enc,
+                &gateway_auth::ActiveKeyPair::new(master_key),
+            ) {
                 Ok(s) => s,
                 Err(e) => {
                     return Err(format!("Failed to decrypt secret: {}", e));
@@ -391,12 +399,18 @@ mod tests {
 
     #[test]
     fn test_webhook_event_display() {
-        assert_eq!(WebhookEvent::RequestCompleted.to_string(), "request.completed");
+        assert_eq!(
+            WebhookEvent::RequestCompleted.to_string(),
+            "request.completed"
+        );
         assert_eq!(WebhookEvent::RequestFailed.to_string(), "request.failed");
         assert_eq!(WebhookEvent::QuotaWarning.to_string(), "quota.warning");
         assert_eq!(WebhookEvent::QuotaExceeded.to_string(), "quota.exceeded");
         assert_eq!(WebhookEvent::ProviderError.to_string(), "provider.error");
-        assert_eq!(WebhookEvent::ProviderRecovered.to_string(), "provider.recovered");
+        assert_eq!(
+            WebhookEvent::ProviderRecovered.to_string(),
+            "provider.recovered"
+        );
     }
 
     #[test]

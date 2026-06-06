@@ -23,10 +23,7 @@ pub struct Cancelled;
 ///
 /// If the token is triggered, the future is dropped and [`Cancelled`] is
 /// returned. The abort is guaranteed to complete within [`ABORT_TIMEOUT`].
-pub async fn with_cancellation<T, F>(
-    token: &CancellationToken,
-    fut: F,
-) -> Result<T, Cancelled>
+pub async fn with_cancellation<T, F>(token: &CancellationToken, fut: F) -> Result<T, Cancelled>
 where
     F: Future<Output = T>,
 {

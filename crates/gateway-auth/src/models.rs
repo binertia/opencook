@@ -31,7 +31,11 @@ pub struct RegisterRequest {
     pub password: String,
     #[validate(length(max = 128, message = "Display name must be at most 128 characters"))]
     pub display_name: Option<String>,
-    #[validate(length(min = 1, max = 128, message = "Organization name must be 1-128 characters"))]
+    #[validate(length(
+        min = 1,
+        max = 128,
+        message = "Organization name must be 1-128 characters"
+    ))]
     pub organization_name: String,
 }
 

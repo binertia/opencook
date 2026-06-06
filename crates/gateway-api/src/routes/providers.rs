@@ -39,9 +39,17 @@ pub struct CreateProviderRequest {
     #[validate(custom(function = "crate::validation::validate_url_not_internal"))]
     pub base_url: Option<String>,
     pub models: Option<Vec<String>>,
-    #[validate(range(min = 10, max = 86400, message = "Health check interval must be 10-86400 seconds"))]
+    #[validate(range(
+        min = 10,
+        max = 86400,
+        message = "Health check interval must be 10-86400 seconds"
+    ))]
     pub health_check_interval_seconds: Option<u64>,
-    #[validate(range(min = 1, max = 300, message = "Health check timeout must be 1-300 seconds"))]
+    #[validate(range(
+        min = 1,
+        max = 300,
+        message = "Health check timeout must be 1-300 seconds"
+    ))]
     pub health_check_timeout_seconds: Option<u64>,
     pub health_check_model: Option<String>,
     #[validate(range(min = 0, max = 1000, message = "Weight must be 0-1000"))]
@@ -57,9 +65,17 @@ pub struct UpdateProviderRequest {
     pub api_key: Option<String>,
     pub base_url: Option<Option<String>>,
     pub models: Option<Vec<String>>,
-    #[validate(range(min = 10, max = 86400, message = "Health check interval must be 10-86400 seconds"))]
+    #[validate(range(
+        min = 10,
+        max = 86400,
+        message = "Health check interval must be 10-86400 seconds"
+    ))]
     pub health_check_interval_seconds: Option<u64>,
-    #[validate(range(min = 1, max = 300, message = "Health check timeout must be 1-300 seconds"))]
+    #[validate(range(
+        min = 1,
+        max = 300,
+        message = "Health check timeout must be 1-300 seconds"
+    ))]
     pub health_check_timeout_seconds: Option<u64>,
     pub health_check_model: Option<String>,
     #[validate(range(min = 0, max = 1000, message = "Weight must be 0-1000"))]
@@ -163,7 +179,11 @@ fn decrypt_api_key(api_key_enc: &[u8], master_key: &[u8; 32]) -> Option<String> 
     if api_key_enc.is_empty() {
         return Some(String::new());
     }
-    gateway_auth::crypto::decrypt_with_keys(api_key_enc, &gateway_auth::ActiveKeyPair::new(*master_key)).ok()
+    gateway_auth::crypto::decrypt_with_keys(
+        api_key_enc,
+        &gateway_auth::ActiveKeyPair::new(*master_key),
+    )
+    .ok()
 }
 
 fn parse_provider_kind(kind: &str) -> Option<ProviderKind> {
@@ -272,8 +292,7 @@ async fn fetch_health_history(
 ) -> Vec<HealthHistoryEntry> {
     let mut conn = redis.clone();
     let history_key = format!("health_history:{}", provider_id);
-    let cutoff = (chrono::Utc::now() - chrono::Duration::hours(hours as i64))
-        .timestamp() as f64;
+    let cutoff = (chrono::Utc::now() - chrono::Duration::hours(hours as i64)).timestamp() as f64;
 
     let values: Result<Vec<String>, _> = redis::cmd("ZRANGEBYSCORE")
         .arg(&history_key)
@@ -311,10 +330,13 @@ pub async fn list_providers(
     Extension(auth): Extension<AuthContext>,
 ) -> Result<Json<ListProvidersResponse>, ApiError> {
     let repo = ProviderConfigRepo::new(state.db_pool.clone());
-    let providers = repo
-        .list_by_org(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let providers = repo.list_by_org(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     Ok(Json(ListProvidersResponse {
         object: "list".to_string(),
@@ -329,7 +351,11 @@ pub async fn create_provider(
     ValidatedJson(body): ValidatedJson<CreateProviderRequest>,
 ) -> Result<Json<ProviderDetailResponse>, ApiError> {
     validate_provider_kind(&body.kind).map_err(|e| {
-        ApiError::new(StatusCode::BAD_REQUEST, "invalid_provider_kind", e.message.unwrap_or_default())
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_provider_kind",
+            e.message.unwrap_or_default(),
+        )
     })?;
     let repo = ProviderConfigRepo::new(state.db_pool.clone());
     let name = sanitize_display_text(&body.name);
@@ -354,7 +380,13 @@ pub async fn create_provider(
             priority,
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Create provider models if specified
     let models = if let Some(model_ids) = body.models {
@@ -423,15 +455,30 @@ pub async fn get_provider(
     let provider = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     // Fetch models
     let registry = ModelRegistry::new(state.db_pool.clone());
-    let db_models = registry
-        .list_models(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let db_models = registry.list_models(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     let models: Vec<ProviderModelResponse> = db_models
         .into_iter()
@@ -442,8 +489,10 @@ pub async fn get_provider(
             context_window: m.capabilities.max_context,
             capabilities: vec![],
             pricing: Some({
-                let input_per_1m = m.pricing.input_cost_per_1k.into_inner() * rust_decimal::Decimal::from(1000);
-                let output_per_1m = m.pricing.output_cost_per_1k.into_inner() * rust_decimal::Decimal::from(1000);
+                let input_per_1m =
+                    m.pricing.input_cost_per_1k.into_inner() * rust_decimal::Decimal::from(1000);
+                let output_per_1m =
+                    m.pricing.output_cost_per_1k.into_inner() * rust_decimal::Decimal::from(1000);
                 json!({
                     "input_per_1m_tokens": input_per_1m.to_string().parse::<f64>().unwrap_or(0.0),
                     "output_per_1m_tokens": output_per_1m.to_string().parse::<f64>().unwrap_or(0.0),
@@ -484,8 +533,20 @@ pub async fn update_provider(
     let existing = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     let api_key_enc = body
         .api_key
@@ -509,12 +570,20 @@ pub async fn update_provider(
             body.status.as_deref(),
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Update models if specified
     if let Some(model_ids) = body.models {
         let registry = ModelRegistry::new(state.db_pool.clone());
-        let _ = registry.delete_models_by_provider(auth.org_id, provider_id).await;
+        let _ = registry
+            .delete_models_by_provider(auth.org_id, provider_id)
+            .await;
         for model_id in model_ids {
             let _ = registry
                 .create_model(auth.org_id, provider_id, &model_id, &model_id)
@@ -571,16 +640,36 @@ pub async fn delete_provider(
     let existing = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     repo.soft_delete(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Also delete associated models
     let registry = ModelRegistry::new(state.db_pool.clone());
-    let _ = registry.delete_models_by_provider(auth.org_id, provider_id).await;
+    let _ = registry
+        .delete_models_by_provider(auth.org_id, provider_id)
+        .await;
 
     audit::record(
         &state,
@@ -612,8 +701,20 @@ pub async fn get_provider_health(
     let _ = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     let health = fetch_provider_health(&state.redis, provider_id)
         .await
@@ -638,8 +739,20 @@ pub async fn trigger_health_check(
     let config = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     let kind = parse_provider_kind(&config.kind).ok_or_else(|| {
         ApiError::new(
@@ -654,8 +767,8 @@ pub async fn trigger_health_check(
         .clone()
         .unwrap_or_else(|| default_base_url(&kind));
 
-    let api_key = decrypt_api_key(&config.api_key_enc, &state.config.master_key)
-        .unwrap_or_default();
+    let api_key =
+        decrypt_api_key(&config.api_key_enc, &state.config.master_key).unwrap_or_default();
 
     let provider_config = FactoryProviderConfig {
         kind: kind.clone(),
@@ -669,22 +782,17 @@ pub async fn trigger_health_check(
     let start = std::time::Instant::now();
     let result = match gateway_providers::factory::create_provider(provider_config) {
         Ok(provider) => {
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(10),
-                provider.health_check(),
-            )
-            .await
+            match tokio::time::timeout(std::time::Duration::from_secs(10), provider.health_check())
+                .await
             {
-                Ok(gateway_providers::traits::HealthStatus::Healthy) => {
-                    ProviderHealthResponse {
-                        provider_id: provider_id.to_string(),
-                        status: "healthy".to_string(),
-                        latency_ms: start.elapsed().as_millis() as u64,
-                        error_rate: 0.0,
-                        last_checked: chrono::Utc::now().to_rfc3339(),
-                        message: None,
-                    }
-                }
+                Ok(gateway_providers::traits::HealthStatus::Healthy) => ProviderHealthResponse {
+                    provider_id: provider_id.to_string(),
+                    status: "healthy".to_string(),
+                    latency_ms: start.elapsed().as_millis() as u64,
+                    error_rate: 0.0,
+                    last_checked: chrono::Utc::now().to_rfc3339(),
+                    message: None,
+                },
                 Ok(gateway_providers::traits::HealthStatus::Degraded(msg)) => {
                     ProviderHealthResponse {
                         provider_id: provider_id.to_string(),
@@ -738,8 +846,20 @@ pub async fn get_health_history(
     let _ = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     let history = fetch_health_history(&state.redis, provider_id, 24).await;
 
@@ -790,27 +910,28 @@ pub async fn test_connection(
     let start = std::time::Instant::now();
     let result = match gateway_providers::factory::create_provider(provider_config) {
         Ok(provider) => {
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(10),
-                provider.health_check(),
-            )
-            .await
+            match tokio::time::timeout(std::time::Duration::from_secs(10), provider.health_check())
+                .await
             {
                 Ok(gateway_providers::traits::HealthStatus::Healthy) => TestConnectionResponse {
                     success: true,
                     latency_ms: start.elapsed().as_millis() as u64,
                     message: None,
                 },
-                Ok(gateway_providers::traits::HealthStatus::Degraded(msg)) => TestConnectionResponse {
-                    success: true,
-                    latency_ms: start.elapsed().as_millis() as u64,
-                    message: Some(msg),
-                },
-                Ok(gateway_providers::traits::HealthStatus::Unhealthy(msg)) => TestConnectionResponse {
-                    success: false,
-                    latency_ms: start.elapsed().as_millis() as u64,
-                    message: Some(msg),
-                },
+                Ok(gateway_providers::traits::HealthStatus::Degraded(msg)) => {
+                    TestConnectionResponse {
+                        success: true,
+                        latency_ms: start.elapsed().as_millis() as u64,
+                        message: Some(msg),
+                    }
+                }
+                Ok(gateway_providers::traits::HealthStatus::Unhealthy(msg)) => {
+                    TestConnectionResponse {
+                        success: false,
+                        latency_ms: start.elapsed().as_millis() as u64,
+                        message: Some(msg),
+                    }
+                }
                 Err(_) => TestConnectionResponse {
                     success: false,
                     latency_ms: start.elapsed().as_millis() as u64,
@@ -837,8 +958,20 @@ pub async fn test_existing_connection(
     let config = repo
         .get_by_id(provider_id, auth.org_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "provider_not_found", "Provider not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "provider_not_found",
+                "Provider not found",
+            )
+        })?;
 
     let kind = parse_provider_kind(&config.kind).ok_or_else(|| {
         ApiError::new(
@@ -853,8 +986,8 @@ pub async fn test_existing_connection(
         .clone()
         .unwrap_or_else(|| default_base_url(&kind));
 
-    let api_key = decrypt_api_key(&config.api_key_enc, &state.config.master_key)
-        .unwrap_or_default();
+    let api_key =
+        decrypt_api_key(&config.api_key_enc, &state.config.master_key).unwrap_or_default();
 
     let provider_config = FactoryProviderConfig {
         kind: kind.clone(),
@@ -868,27 +1001,28 @@ pub async fn test_existing_connection(
     let start = std::time::Instant::now();
     let result = match gateway_providers::factory::create_provider(provider_config) {
         Ok(provider) => {
-            match tokio::time::timeout(
-                std::time::Duration::from_secs(10),
-                provider.health_check(),
-            )
-            .await
+            match tokio::time::timeout(std::time::Duration::from_secs(10), provider.health_check())
+                .await
             {
                 Ok(gateway_providers::traits::HealthStatus::Healthy) => TestConnectionResponse {
                     success: true,
                     latency_ms: start.elapsed().as_millis() as u64,
                     message: None,
                 },
-                Ok(gateway_providers::traits::HealthStatus::Degraded(msg)) => TestConnectionResponse {
-                    success: true,
-                    latency_ms: start.elapsed().as_millis() as u64,
-                    message: Some(msg),
-                },
-                Ok(gateway_providers::traits::HealthStatus::Unhealthy(msg)) => TestConnectionResponse {
-                    success: false,
-                    latency_ms: start.elapsed().as_millis() as u64,
-                    message: Some(msg),
-                },
+                Ok(gateway_providers::traits::HealthStatus::Degraded(msg)) => {
+                    TestConnectionResponse {
+                        success: true,
+                        latency_ms: start.elapsed().as_millis() as u64,
+                        message: Some(msg),
+                    }
+                }
+                Ok(gateway_providers::traits::HealthStatus::Unhealthy(msg)) => {
+                    TestConnectionResponse {
+                        success: false,
+                        latency_ms: start.elapsed().as_millis() as u64,
+                        message: Some(msg),
+                    }
+                }
                 Err(_) => TestConnectionResponse {
                     success: false,
                     latency_ms: start.elapsed().as_millis() as u64,

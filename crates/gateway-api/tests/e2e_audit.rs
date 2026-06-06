@@ -110,7 +110,11 @@ async fn test_audit_log_records_api_key_lifecycle() {
         .send()
         .await
         .expect("Failed to create API key");
-    assert!(create_resp.status().is_success(), "Create API key failed: {:?}", create_resp.text().await);
+    assert!(
+        create_resp.status().is_success(),
+        "Create API key failed: {:?}",
+        create_resp.text().await
+    );
 
     // 2. List audit entries for the default org.
     let list_resp = app
@@ -124,7 +128,11 @@ async fn test_audit_log_records_api_key_lifecycle() {
         .send()
         .await
         .expect("Failed to list audit entries");
-    assert!(list_resp.status().is_success(), "List audit failed: {:?}", list_resp.text().await);
+    assert!(
+        list_resp.status().is_success(),
+        "List audit failed: {:?}",
+        list_resp.text().await
+    );
     let list_body: serde_json::Value = list_resp.json().await.expect("Failed to parse audit list");
     assert_eq!(list_body["object"], "list");
     let data = list_body["data"].as_array().expect("data is array");
@@ -136,7 +144,10 @@ async fn test_audit_log_records_api_key_lifecycle() {
         .expect("Missing api_key.created audit entry");
     assert_eq!(created_entry["entity_type"], "api_key");
     assert_eq!(created_entry["summary"], "API key created");
-    assert!(created_entry["new_values"]["name"].as_str().unwrap().contains("Audit Test Key"));
+    assert!(created_entry["new_values"]["name"]
+        .as_str()
+        .unwrap()
+        .contains("Audit Test Key"));
 
     // 3. Filter by action.
     let filtered_resp = app
@@ -150,7 +161,10 @@ async fn test_audit_log_records_api_key_lifecycle() {
         .send()
         .await
         .expect("Failed to filter audit entries");
-    let filtered_body: serde_json::Value = filtered_resp.json().await.expect("Failed to parse filtered audit");
+    let filtered_body: serde_json::Value = filtered_resp
+        .json()
+        .await
+        .expect("Failed to parse filtered audit");
     let filtered = filtered_body["data"].as_array().unwrap();
     assert!(!filtered.is_empty());
     assert!(filtered.iter().all(|e| e["action"] == "api_key.created"));
@@ -169,7 +183,11 @@ async fn test_audit_log_records_api_key_lifecycle() {
         .send()
         .await
         .expect("Failed to get audit entry");
-    assert!(get_resp.status().is_success(), "Get audit entry failed: {:?}", get_resp.text().await);
+    assert!(
+        get_resp.status().is_success(),
+        "Get audit entry failed: {:?}",
+        get_resp.text().await
+    );
     let get_body: serde_json::Value = get_resp.json().await.expect("Failed to parse audit entry");
     assert_eq!(get_body["object"], "audit_entry");
     assert_eq!(get_body["data"]["id"], entry_id);

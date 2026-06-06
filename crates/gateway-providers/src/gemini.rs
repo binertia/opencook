@@ -470,7 +470,10 @@ mod tests {
         let gemini: GeminiResponse = serde_json::from_str(raw).unwrap();
         let canonical = gemini.into_canonical("gemini", "gemini-1.5-flash");
 
-        assert_eq!(canonical.choices[0].message.content, Some("Hello there!".to_string()));
+        assert_eq!(
+            canonical.choices[0].message.content,
+            Some("Hello there!".to_string())
+        );
         assert_eq!(canonical.choices[0].finish_reason, Some("stop".to_string()));
         assert_eq!(canonical.usage.prompt_tokens, 10);
         assert_eq!(canonical.usage.completion_tokens, 5);

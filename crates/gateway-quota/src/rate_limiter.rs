@@ -127,10 +127,7 @@ impl RateLimiter {
             Ok(0) => {
                 let retry_after = window_secs;
                 debug!(key = %key, limit = limit, "sliding window exceeded");
-                LimitResult::Exceeded {
-                    retry_after,
-                    limit,
-                }
+                LimitResult::Exceeded { retry_after, limit }
             }
             Ok(other) => {
                 warn!(key = %key, result = other, "unexpected Lua script result");
@@ -233,12 +230,7 @@ impl RateLimiter {
 
     /// Convenience: check a tokens-per-minute limit using sliding window.
     /// The `token_count` is used as the weight of the request.
-    pub async fn check_tpm(
-        &self,
-        key: &str,
-        tpm: u64,
-        _token_count: u64,
-    ) -> LimitResult {
+    pub async fn check_tpm(&self, key: &str, tpm: u64, _token_count: u64) -> LimitResult {
         // For token-per-minute, we use sliding window with token count as weight.
         // Each request adds `token_count` entries (or a single entry with count metadata).
         // For simplicity, we treat each request as 1 entry but the limit is in tokens.
@@ -255,19 +247,27 @@ impl RateLimiter {
 
         for layer in layers {
             let result = match layer {
-                LayerCheck::TokenBucket { key, rate, burst, cost } => {
-                    self.check_token_bucket(&key, rate, burst, cost).await
-                }
-                LayerCheck::SlidingWindow { key, limit, window_secs } => {
-                    self.check_sliding_window(&key, limit, window_secs).await
-                }
+                LayerCheck::TokenBucket {
+                    key,
+                    rate,
+                    burst,
+                    cost,
+                } => self.check_token_bucket(&key, rate, burst, cost).await,
+                LayerCheck::SlidingWindow {
+                    key,
+                    limit,
+                    window_secs,
+                } => self.check_sliding_window(&key, limit, window_secs).await,
             };
 
             match &result {
                 LimitResult::Exceeded { .. } => return result,
                 LimitResult::Allowed { remaining, .. } => {
                     // Track the most restrictive (smallest remaining) allowed result
-                    if let Some(LimitResult::Allowed { remaining: best, .. }) = most_restrictive {
+                    if let Some(LimitResult::Allowed {
+                        remaining: best, ..
+                    }) = most_restrictive
+                    {
                         if *remaining < best {
                             most_restrictive = Some(result);
                         }

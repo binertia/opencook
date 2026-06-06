@@ -31,7 +31,11 @@ async fn test_api_key_crud_flow() {
             }),
         )
         .await;
-    assert!(create_resp.status().is_success(), "Create API key failed: {:?}", create_resp.text().await);
+    assert!(
+        create_resp.status().is_success(),
+        "Create API key failed: {:?}",
+        create_resp.text().await
+    );
     let create_body: serde_json::Value = create_resp.json().await.expect("Failed to parse create");
     let key_id = create_body["id"].as_str().unwrap();
     assert_eq!(create_body["name"], "Test Key");

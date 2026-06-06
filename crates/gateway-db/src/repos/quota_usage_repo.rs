@@ -1,8 +1,8 @@
 //! Quota usage tracking repository.
 
-use chrono::{DateTime, Utc};
 use crate::pool::DbBackend;
 use crate::types::DbDecimal;
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 use crate::error::DbError;

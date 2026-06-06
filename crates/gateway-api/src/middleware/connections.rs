@@ -7,11 +7,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use axum::{
-    body::Body,
-    http::Request,
-    response::Response,
-};
+use axum::{body::Body, http::Request, response::Response};
 use tower::{Layer, Service};
 
 /// Tower layer that tracks active HTTP connections.

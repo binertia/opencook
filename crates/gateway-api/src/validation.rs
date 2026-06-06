@@ -47,16 +47,16 @@ pub fn validate_cidr(cidr: &str) -> Result<(), ValidationError> {
     if cidr.parse::<std::net::IpAddr>().is_ok() {
         return Ok(());
     }
-    if cidr.contains('/')
-        && cidr.parse::<std::net::IpAddr>().is_err() {
-            // Try parsing as CIDR (e.g., 192.168.0.0/24)
-            let parts: Vec<&str> = cidr.split('/').collect();
-            if parts.len() == 2
-                && parts[0].parse::<std::net::IpAddr>().is_ok()
-                    && parts[1].parse::<u8>().map(|m| m <= 128).unwrap_or(false) {
-                        return Ok(());
-                    }
+    if cidr.contains('/') && cidr.parse::<std::net::IpAddr>().is_err() {
+        // Try parsing as CIDR (e.g., 192.168.0.0/24)
+        let parts: Vec<&str> = cidr.split('/').collect();
+        if parts.len() == 2
+            && parts[0].parse::<std::net::IpAddr>().is_ok()
+            && parts[1].parse::<u8>().map(|m| m <= 128).unwrap_or(false)
+        {
+            return Ok(());
         }
+    }
     let mut err = ValidationError::new("invalid_cidr");
     err.message = Some(format!("'{}' is not a valid IP or CIDR", cidr).into());
     Err(err)
@@ -80,9 +80,22 @@ pub fn sanitize_display_text(s: &str) -> String {
 pub fn contains_sql_injection(input: &str) -> bool {
     let lower = input.to_lowercase();
     let patterns = [
-        "; drop ", "; delete ", "; insert ", "; update ", "; select ",
-        "' or ", "' and ", "'--", "/*", "*/", "; --", "union select",
-        "exec(", "execute(", "xp_", "sp_",
+        "; drop ",
+        "; delete ",
+        "; insert ",
+        "; update ",
+        "; select ",
+        "' or ",
+        "' and ",
+        "'--",
+        "/*",
+        "*/",
+        "; --",
+        "union select",
+        "exec(",
+        "execute(",
+        "xp_",
+        "sp_",
     ];
     patterns.iter().any(|p| lower.contains(p))
 }
@@ -118,7 +131,10 @@ pub fn validate_url_not_internal(url: &str) -> Result<(), ValidationError> {
     };
 
     // Check if host is an IP address (strip brackets for IPv6)
-    let host_for_ip = host.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(host);
+    let host_for_ip = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
     if let Ok(ip) = host_for_ip.parse::<std::net::IpAddr>() {
         if is_internal_ip(ip) {
             let mut err = ValidationError::new("url_internal_ip");
@@ -235,7 +251,10 @@ mod tests {
 
     #[test]
     fn test_sanitize_display_text_escapes_html() {
-        assert_eq!(sanitize_display_text("<script>alert(1)</script>"), "&lt;script&gt;alert(1)&lt;/script&gt;");
+        assert_eq!(
+            sanitize_display_text("<script>alert(1)</script>"),
+            "&lt;script&gt;alert(1)&lt;/script&gt;"
+        );
     }
 
     #[test]

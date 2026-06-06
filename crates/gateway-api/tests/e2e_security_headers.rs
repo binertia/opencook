@@ -13,9 +13,15 @@ async fn test_security_headers_present_on_all_responses() {
     let headers = response.headers();
     assert_eq!(headers["x-content-type-options"], "nosniff");
     assert_eq!(headers["x-frame-options"], "DENY");
-    assert!(headers["content-security-policy"].to_str().unwrap().contains("default-src"));
+    assert!(headers["content-security-policy"]
+        .to_str()
+        .unwrap()
+        .contains("default-src"));
     assert_eq!(headers["x-xss-protection"], "1; mode=block");
-    assert_eq!(headers["referrer-policy"], "strict-origin-when-cross-origin");
+    assert_eq!(
+        headers["referrer-policy"],
+        "strict-origin-when-cross-origin"
+    );
 }
 
 #[tokio::test]
@@ -30,7 +36,10 @@ async fn test_cors_preflight_succeeds_for_allowed_origin() {
         )
         .header("Origin", "http://localhost:5173")
         .header("Access-Control-Request-Method", "GET")
-        .header("Access-Control-Request-Headers", "Content-Type, Authorization")
+        .header(
+            "Access-Control-Request-Headers",
+            "Content-Type, Authorization",
+        )
         .send()
         .await
         .expect("failed to send preflight");
@@ -79,5 +88,8 @@ async fn test_tls_config_loads_from_pem_files() {
         key_path.to_str().unwrap(),
     );
     let server_config = tls_config.to_server_config();
-    assert!(server_config.is_ok(), "TLS config should load from PEM files");
+    assert!(
+        server_config.is_ok(),
+        "TLS config should load from PEM files"
+    );
 }

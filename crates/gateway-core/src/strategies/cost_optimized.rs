@@ -45,11 +45,9 @@ pub fn estimate_cost(
     estimated_prompt_tokens: u64,
     estimated_completion_tokens: u64,
 ) -> Decimal {
-    let input_cost = Decimal::from(estimated_prompt_tokens)
-        * candidate.input_cost_per_1k
-        / Decimal::from(1000);
-    let output_cost = Decimal::from(estimated_completion_tokens)
-        * candidate.output_cost_per_1k
+    let input_cost =
+        Decimal::from(estimated_prompt_tokens) * candidate.input_cost_per_1k / Decimal::from(1000);
+    let output_cost = Decimal::from(estimated_completion_tokens) * candidate.output_cost_per_1k
         / Decimal::from(1000);
     input_cost + output_cost
 }
@@ -122,8 +120,8 @@ pub fn build_cost_fallback_chain(
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
     use super::*;
+    use uuid::Uuid;
 
     fn make_candidate(
         model_id: &str,
@@ -161,8 +159,20 @@ mod tests {
     #[test]
     fn test_skips_unhealthy_provider() {
         let candidates = vec![
-            make_candidate("cheap-but-dead", "0.10", "0.20", HealthStatus::Unhealthy, 100),
-            make_candidate("expensive-but-ok", "1.00", "3.00", HealthStatus::Healthy, 100),
+            make_candidate(
+                "cheap-but-dead",
+                "0.10",
+                "0.20",
+                HealthStatus::Unhealthy,
+                100,
+            ),
+            make_candidate(
+                "expensive-but-ok",
+                "1.00",
+                "3.00",
+                HealthStatus::Healthy,
+                100,
+            ),
         ];
 
         let selected = select_cheapest(&candidates, 1000, 1000, 10_000);

@@ -19,8 +19,8 @@ const NONCE_SIZE: usize = 12;
 /// Encrypt plaintext with AES-256-GCM.
 /// Returns ciphertext with random nonce prepended: `[nonce (12 bytes) | ciphertext]`.
 pub fn encrypt(plaintext: &str, master_key: &[u8]) -> Result<Vec<u8>, CryptoError> {
-    let cipher = Aes256Gcm::new_from_slice(master_key)
-        .map_err(|_| CryptoError::InvalidKeyLength)?;
+    let cipher =
+        Aes256Gcm::new_from_slice(master_key).map_err(|_| CryptoError::InvalidKeyLength)?;
 
     let mut nonce_bytes = [0u8; NONCE_SIZE];
     aes_gcm::aead::rand_core::RngCore::try_fill_bytes(&mut OsRng, &mut nonce_bytes)
@@ -46,8 +46,8 @@ pub fn decrypt(ciphertext: &[u8], master_key: &[u8]) -> Result<String, CryptoErr
         return Err(CryptoError::InvalidCiphertext);
     }
 
-    let cipher = Aes256Gcm::new_from_slice(master_key)
-        .map_err(|_| CryptoError::InvalidKeyLength)?;
+    let cipher =
+        Aes256Gcm::new_from_slice(master_key).map_err(|_| CryptoError::InvalidKeyLength)?;
 
     let nonce = Nonce::from_slice(&ciphertext[..NONCE_SIZE]);
     let encrypted = &ciphertext[NONCE_SIZE..];
@@ -60,7 +60,10 @@ pub fn decrypt(ciphertext: &[u8], master_key: &[u8]) -> Result<String, CryptoErr
 }
 
 /// Encrypt with the primary key of an `ActiveKeyPair`.
-pub fn encrypt_with_keys(plaintext: &str, keys: &crate::key_rotation::ActiveKeyPair<[u8; 32]>) -> Result<Vec<u8>, CryptoError> {
+pub fn encrypt_with_keys(
+    plaintext: &str,
+    keys: &crate::key_rotation::ActiveKeyPair<[u8; 32]>,
+) -> Result<Vec<u8>, CryptoError> {
     encrypt(plaintext, &keys.primary)
 }
 
@@ -109,10 +112,17 @@ pub fn hmac_sha256_hex(secret: &str, payload: &[u8]) -> Result<String, CryptoErr
 /// Verify an HMAC-SHA256 signature for a webhook payload.
 ///
 /// `expected_signature` should be the lowercase hex-encoded signature.
-pub fn verify_hmac_sha256(secret: &str, payload: &[u8], expected_signature: &str) -> Result<bool, CryptoError> {
+pub fn verify_hmac_sha256(
+    secret: &str,
+    payload: &[u8],
+    expected_signature: &str,
+) -> Result<bool, CryptoError> {
     let computed = hmac_sha256_hex(secret, payload)?;
     use subtle::ConstantTimeEq;
-    Ok(computed.as_bytes().ct_eq(expected_signature.as_bytes()).into())
+    Ok(computed
+        .as_bytes()
+        .ct_eq(expected_signature.as_bytes())
+        .into())
 }
 
 /// Generate a random webhook signing secret (32 bytes, hex-encoded).

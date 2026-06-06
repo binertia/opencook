@@ -21,7 +21,12 @@ async fn test_chat_completion_non_streaming_returns_200() {
         )
         .await;
 
-    assert_eq!(response.status(), 200, "Expected 200, got {}", response.status());
+    assert_eq!(
+        response.status(),
+        200,
+        "Expected 200, got {}",
+        response.status()
+    );
 
     let body: serde_json::Value = response.json().await.expect("failed to parse response");
     assert_eq!(body["object"], "chat.completion");
@@ -54,7 +59,11 @@ async fn test_chat_completion_streaming_returns_sse() {
         .expect("missing content-type header")
         .to_str()
         .unwrap();
-    assert!(content_type.contains("text/event-stream"), "Expected SSE, got {}", content_type);
+    assert!(
+        content_type.contains("text/event-stream"),
+        "Expected SSE, got {}",
+        content_type
+    );
 }
 
 #[tokio::test]

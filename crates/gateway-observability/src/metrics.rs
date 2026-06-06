@@ -16,8 +16,7 @@ pub fn init_metrics() -> metrics_exporter_prometheus::PrometheusHandle {
         .set_buckets_for_metric(
             Matcher::Full("gateway_request_duration_ms".to_owned()),
             &[
-                1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0,
-                1000.0, 2500.0, 5000.0, 10000.0,
+                1.0, 5.0, 10.0, 25.0, 50.0, 100.0, 250.0, 500.0, 1000.0, 2500.0, 5000.0, 10000.0,
             ],
         )
         .expect("Failed to set histogram buckets")
@@ -105,8 +104,10 @@ pub fn record_cache_cost_saved(cost_usd: f64) {
 /// Record token usage for a request.
 pub fn record_tokens(model: &str, prompt_tokens: u64, completion_tokens: u64) {
     let model = sanitize_label(model);
-    metrics::counter!("gateway_tokens_total", "type" => "input", "model" => model.clone()).increment(prompt_tokens);
-    metrics::counter!("gateway_tokens_total", "type" => "output", "model" => model).increment(completion_tokens);
+    metrics::counter!("gateway_tokens_total", "type" => "input", "model" => model.clone())
+        .increment(prompt_tokens);
+    metrics::counter!("gateway_tokens_total", "type" => "output", "model" => model)
+        .increment(completion_tokens);
 }
 
 /// Record cost for a request (in USD).
@@ -115,7 +116,8 @@ pub fn record_cost(model: &str, provider: &str, cost_usd: f64) {
     let model = sanitize_label(model);
     let provider = sanitize_label(provider);
     let micro_dollars = (cost_usd.max(0.0) * 1_000_000.0) as u64;
-    metrics::counter!("gateway_cost_total", "model" => model, "provider" => provider).increment(micro_dollars);
+    metrics::counter!("gateway_cost_total", "model" => model, "provider" => provider)
+        .increment(micro_dollars);
 }
 
 // ── Quota & Rate Limit Metrics ───────────────────────────────────────────────
@@ -124,7 +126,8 @@ pub fn record_cost(model: &str, provider: &str, cost_usd: f64) {
 pub fn record_quota_exceeded(metric: &str, scope: &str) {
     let metric = sanitize_label(metric);
     let scope = sanitize_label(scope);
-    metrics::counter!("gateway_quota_exceeded_total", "metric" => metric, "scope" => scope).increment(1);
+    metrics::counter!("gateway_quota_exceeded_total", "metric" => metric, "scope" => scope)
+        .increment(1);
 }
 
 /// Record a rate-limited request.
@@ -150,7 +153,8 @@ pub fn set_provider_health(provider: &str, org_id: &str, healthy: bool) {
 pub fn record_provider_latency(provider: &str, model: &str, latency_ms: f64) {
     let provider = sanitize_label(provider);
     let model = sanitize_label(model);
-    metrics::histogram!("gateway_provider_latency_ms", "provider" => provider, "model" => model).record(latency_ms);
+    metrics::histogram!("gateway_provider_latency_ms", "provider" => provider, "model" => model)
+        .record(latency_ms);
 }
 
 /// Record routing decision latency (in ms).
@@ -178,7 +182,8 @@ pub fn record_strategy_latency(strategy: &str, variant: &str, latency_ms: f64) {
 pub fn record_strategy_error(strategy: &str, variant: &str) {
     let strategy = sanitize_label(strategy);
     let variant = sanitize_label(variant);
-    metrics::counter!("gateway_strategy_error_total", "strategy" => strategy, "variant" => variant).increment(1);
+    metrics::counter!("gateway_strategy_error_total", "strategy" => strategy, "variant" => variant)
+        .increment(1);
 }
 
 /// Record a request routed by a specific strategy.
@@ -206,7 +211,13 @@ pub fn dec_active_connections() {
 /// Replaces non-alphanumeric characters with underscores.
 fn sanitize_label(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 

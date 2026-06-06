@@ -5,10 +5,7 @@ use axum::{
     http::header::{FORWARDED, USER_AGENT},
 };
 use gateway_auth::AuthContext;
-use gateway_db::{
-    models::AuditAction,
-    repos::audit_repo::AuditRepo,
-};
+use gateway_db::{models::AuditAction, repos::audit_repo::AuditRepo};
 use std::net::SocketAddr;
 use uuid::Uuid;
 

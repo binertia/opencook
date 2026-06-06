@@ -1,7 +1,7 @@
 //! L1 in-process cache backed by `moka`.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use moka::future::Cache;

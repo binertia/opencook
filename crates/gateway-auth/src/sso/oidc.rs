@@ -55,11 +55,7 @@ impl OidcProvider {
     }
 
     /// Exchange authorization code for tokens and fetch user info.
-    pub async fn exchange_code(
-        &self,
-        code: &str,
-        _nonce: &str,
-    ) -> Result<SsoAuthResult, SsoError> {
+    pub async fn exchange_code(&self, code: &str, _nonce: &str) -> Result<SsoAuthResult, SsoError> {
         let client = reqwest::Client::new();
 
         // Token exchange
@@ -78,11 +74,10 @@ impl OidcProvider {
 
         if !token_resp.status().is_success() {
             let status = token_resp.status();
-            let text = token_resp
-                .text()
-                .await
-                .unwrap_or_default();
-            return Err(SsoError::Oidc(format!("token endpoint error {status}: {text}")));
+            let text = token_resp.text().await.unwrap_or_default();
+            return Err(SsoError::Oidc(format!(
+                "token endpoint error {status}: {text}"
+            )));
         }
 
         let token_json: serde_json::Value = token_resp
@@ -105,10 +100,7 @@ impl OidcProvider {
 
         if !userinfo_resp.status().is_success() {
             let status = userinfo_resp.status();
-            let text = userinfo_resp
-                .text()
-                .await
-                .unwrap_or_default();
+            let text = userinfo_resp.text().await.unwrap_or_default();
             return Err(SsoError::Oidc(format!("userinfo error {status}: {text}")));
         }
 

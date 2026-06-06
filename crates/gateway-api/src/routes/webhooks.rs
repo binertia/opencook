@@ -8,10 +8,7 @@ use axum::{
 use gateway_auth::AuthContext;
 use gateway_db::{
     models::AuditAction,
-    repos::{
-        webhook_delivery_repo::WebhookDeliveryRepo,
-        webhook_repo::WebhookRepo,
-    },
+    repos::{webhook_delivery_repo::WebhookDeliveryRepo, webhook_repo::WebhookRepo},
     Webhook,
 };
 use serde::{Deserialize, Serialize};
@@ -171,10 +168,13 @@ pub async fn list_webhooks(
 ) -> Result<Json<WebhookListResponse>, ApiError> {
     let repo = WebhookRepo::new(state.db_pool.clone());
 
-    let webhooks = repo
-        .list_by_org(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let webhooks = repo.list_by_org(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     Ok(Json(WebhookListResponse {
         data: webhooks.iter().map(db_to_item).collect(),
@@ -193,8 +193,14 @@ pub async fn create_webhook(
     let secret = gateway_auth::crypto::generate_webhook_secret();
 
     // Encrypt the secret with the master key
-    let secret_enc = gateway_auth::crypto::encrypt(&secret, &state.config.master_key)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "encryption_error", e.to_string()))?;
+    let secret_enc =
+        gateway_auth::crypto::encrypt(&secret, &state.config.master_key).map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "encryption_error",
+                e.to_string(),
+            )
+        })?;
 
     let name = sanitize_display_text(&body.name);
     let url = body.url.clone();
@@ -211,7 +217,13 @@ pub async fn create_webhook(
             body.timeout_seconds,
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     audit::record(
         &state,
@@ -257,7 +269,13 @@ pub async fn get_webhook(
     let webhook = repo
         .get_by_id(auth.org_id, webhook_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Webhook not found"))?;
 
     Ok(Json(db_to_detail(webhook)))
@@ -278,7 +296,13 @@ pub async fn update_webhook(
     let existing = repo
         .get_by_id(auth.org_id, webhook_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Webhook not found"))?;
 
     let name = body.name.as_deref().map(sanitize_display_text);
@@ -298,7 +322,13 @@ pub async fn update_webhook(
             status.as_deref(),
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     audit::record(
         &state,
@@ -340,13 +370,22 @@ pub async fn delete_webhook(
     let existing = repo
         .get_by_id(auth.org_id, webhook_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Webhook not found"))?;
 
-    repo
-        .delete(auth.org_id, webhook_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    repo.delete(auth.org_id, webhook_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     audit::record(
         &state,
@@ -382,7 +421,13 @@ pub async fn list_webhook_deliveries(
     let deliveries = delivery_repo
         .list_by_webhook(webhook_id, 50)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     Ok(Json(WebhookDeliveryListResponse {
         data: deliveries.iter().map(db_to_delivery_item).collect(),
@@ -405,34 +450,70 @@ pub async fn retry_webhook_delivery(
     let webhook = webhook_repo
         .get_by_id(auth.org_id, webhook_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Webhook not found"))?;
 
     let delivery = delivery_repo
         .get_by_id(delivery_id)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "not_found", "Delivery not found"))?;
 
     // Decrypt secret
     let secret = match &webhook.secret_enc {
-        Some(enc) => state.config.decrypt_master(enc)
-            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "decryption_error", e.to_string()))?,
-        None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "no_secret", "Webhook has no signing secret")),
+        Some(enc) => state.config.decrypt_master(enc).map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "decryption_error",
+                e.to_string(),
+            )
+        })?,
+        None => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "no_secret",
+                "Webhook has no signing secret",
+            ))
+        }
     };
 
     // Build payload
-    let payload_json = serde_json::to_string(&delivery.payload)
-        .unwrap_or_default();
+    let payload_json = serde_json::to_string(&delivery.payload).unwrap_or_default();
 
     let signature = gateway_auth::crypto::hmac_sha256_hex(&secret, payload_json.as_bytes())
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "signature_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "signature_error",
+                e.to_string(),
+            )
+        })?;
 
     // Send request
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(webhook.timeout_seconds as u64))
+        .timeout(std::time::Duration::from_secs(
+            webhook.timeout_seconds as u64,
+        ))
         .build()
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "http_client_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "http_client_error",
+                e.to_string(),
+            )
+        })?;
 
     let mut request = client
         .post(&webhook.url)
@@ -460,8 +541,15 @@ pub async fn retry_webhook_delivery(
     let (status_str, response_status, error_msg) = match response {
         Ok(resp) => {
             let status = resp.status().as_u16() as i32;
-            let body_text = resp.text().await.unwrap_or_else(|_| "<unreadable>".to_string());
-            let _preview = if body_text.len() > 200 { format!("{}...", &body_text[..200]) } else { body_text };
+            let body_text = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "<unreadable>".to_string());
+            let _preview = if body_text.len() > 200 {
+                format!("{}...", &body_text[..200])
+            } else {
+                body_text
+            };
 
             if (200..300).contains(&status) {
                 ("delivered", Some(status), None)
@@ -469,9 +557,7 @@ pub async fn retry_webhook_delivery(
                 ("failed", Some(status), Some(format!("HTTP {}", status)))
             }
         }
-        Err(e) => {
-            ("failed", None, Some(e.to_string()))
-        }
+        Err(e) => ("failed", None, Some(e.to_string())),
     };
 
     // Update delivery record
@@ -487,7 +573,13 @@ pub async fn retry_webhook_delivery(
             error_msg.as_deref(),
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     // Update webhook result tracking
     let _ = webhook_repo
@@ -569,7 +661,10 @@ mod tests {
         assert_eq!(req.max_retries, 3); // default
         assert_eq!(req.retry_interval_seconds, 60); // default
         assert_eq!(req.timeout_seconds, 30); // default
-        assert_eq!(req.custom_headers, serde_json::Value::Object(Default::default()));
+        assert_eq!(
+            req.custom_headers,
+            serde_json::Value::Object(Default::default())
+        );
     }
 
     #[test]

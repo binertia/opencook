@@ -10,7 +10,6 @@ use gateway_db::pool::create_pool;
 use gateway_db::DbBackend;
 use redis::aio::ConnectionManager;
 
-
 /// Shared state available to all request handlers.
 #[derive(Clone)]
 pub struct AppState {
@@ -159,9 +158,9 @@ impl AppConfig {
 
         // Master key: fail-closed in production, dev fallback with warning
         // Supports comma-separated rotation: "new_key,old_key"
-        let master_key_hex = raw.master_key.or_else(|| {
-            std::env::var("GATEWAY_MASTER_KEY").ok()
-        });
+        let master_key_hex = raw
+            .master_key
+            .or_else(|| std::env::var("GATEWAY_MASTER_KEY").ok());
 
         let (master_key, master_key_previous) = match master_key_hex {
             Some(hex) => {
@@ -192,21 +191,25 @@ impl AppConfig {
             }
         };
 
-        let jwt_private_key_pem = raw.jwt_private_key_pem.or_else(|| {
-            std::env::var("GATEWAY_JWT_PRIVATE_KEY").ok()
-        }).unwrap_or_default();
+        let jwt_private_key_pem = raw
+            .jwt_private_key_pem
+            .or_else(|| std::env::var("GATEWAY_JWT_PRIVATE_KEY").ok())
+            .unwrap_or_default();
 
-        let jwt_public_key_pem = raw.jwt_public_key_pem.or_else(|| {
-            std::env::var("GATEWAY_JWT_PUBLIC_KEY").ok()
-        }).unwrap_or_default();
+        let jwt_public_key_pem = raw
+            .jwt_public_key_pem
+            .or_else(|| std::env::var("GATEWAY_JWT_PUBLIC_KEY").ok())
+            .unwrap_or_default();
 
-        let embedding_base_url = raw.embedding_base_url.or_else(|| {
-            std::env::var("EMBEDDING_BASE_URL").ok()
-        }).unwrap_or_else(|| "https://api.openai.com".to_string());
+        let embedding_base_url = raw
+            .embedding_base_url
+            .or_else(|| std::env::var("EMBEDDING_BASE_URL").ok())
+            .unwrap_or_else(|| "https://api.openai.com".to_string());
 
-        let embedding_api_key = raw.embedding_api_key.or_else(|| {
-            std::env::var("EMBEDDING_API_KEY").ok()
-        }).unwrap_or_else(|| std::env::var("OPENAI_API_KEY").unwrap_or_default());
+        let embedding_api_key = raw
+            .embedding_api_key
+            .or_else(|| std::env::var("EMBEDDING_API_KEY").ok())
+            .unwrap_or_else(|| std::env::var("OPENAI_API_KEY").unwrap_or_default());
 
         Self {
             port: if raw.port != 0 {
@@ -217,12 +220,16 @@ impl AppConfig {
                     .and_then(|p| p.parse().ok())
                     .unwrap_or(8080)
             },
-            database_url: raw.database_url.or_else(|| {
-                std::env::var("DATABASE_URL").ok()
-            }).unwrap_or_else(|| "postgres://gateway:gateway_dev_password@localhost:5432/gateway_dev".into()),
-            redis_url: raw.redis_url.or_else(|| {
-                std::env::var("REDIS_URL").ok()
-            }).unwrap_or_else(|| "redis://localhost:6379".into()),
+            database_url: raw
+                .database_url
+                .or_else(|| std::env::var("DATABASE_URL").ok())
+                .unwrap_or_else(|| {
+                    "postgres://gateway:gateway_dev_password@localhost:5432/gateway_dev".into()
+                }),
+            redis_url: raw
+                .redis_url
+                .or_else(|| std::env::var("REDIS_URL").ok())
+                .unwrap_or_else(|| "redis://localhost:6379".into()),
             jwt_private_key_pem,
             jwt_public_key_pem,
             gateway_version: env!("CARGO_PKG_VERSION").to_string(),
@@ -252,7 +259,10 @@ impl AppConfig {
 
 impl AppConfig {
     /// Decrypt ciphertext trying primary master key first, then previous.
-    pub fn decrypt_master(&self, ciphertext: &[u8]) -> Result<String, gateway_auth::crypto::CryptoError> {
+    pub fn decrypt_master(
+        &self,
+        ciphertext: &[u8],
+    ) -> Result<String, gateway_auth::crypto::CryptoError> {
         let pair = gateway_auth::ActiveKeyPair {
             primary: self.master_key,
             secondary: self.master_key_previous,
@@ -325,9 +335,13 @@ impl AppState {
         };
 
         // JWT: RS256 if PEM keys provided, otherwise HS256 with random dev secret
-        let jwt = if !config.jwt_private_key_pem.is_empty() && !config.jwt_public_key_pem.is_empty() {
-            JwtService::from_pem(config.jwt_private_key_pem.as_bytes(), config.jwt_public_key_pem.as_bytes())
-                .map_err(|e| anyhow::anyhow!("Failed to load JWT keys: {e}"))?
+        let jwt = if !config.jwt_private_key_pem.is_empty() && !config.jwt_public_key_pem.is_empty()
+        {
+            JwtService::from_pem(
+                config.jwt_private_key_pem.as_bytes(),
+                config.jwt_public_key_pem.as_bytes(),
+            )
+            .map_err(|e| anyhow::anyhow!("Failed to load JWT keys: {e}"))?
         } else {
             let secret = {
                 use rand::Rng;
@@ -345,7 +359,10 @@ impl AppState {
 
         // Email service (optional)
         let email = config.smtp_host.as_ref().map(|host| {
-            let from = config.smtp_from.clone().unwrap_or_else(|| "noreply@localhost".to_string());
+            let from = config
+                .smtp_from
+                .clone()
+                .unwrap_or_else(|| "noreply@localhost".to_string());
             let email_config = gateway_auth::EmailConfig {
                 host: host.clone(),
                 port: config.smtp_port,

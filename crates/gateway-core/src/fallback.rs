@@ -218,12 +218,8 @@ mod tests {
         let token = CancellationToken::new();
         let providers = vec!["provider-a".to_string(), "provider-b".to_string()];
 
-        let result = execute_fallback_chain(
-            providers,
-            &FallbackConfig::default(),
-            &cb,
-            &token,
-            |p| {
+        let result =
+            execute_fallback_chain(providers, &FallbackConfig::default(), &cb, &token, |p| {
                 let name = p.as_str().to_string();
                 async move {
                     if name == "provider-a" {
@@ -232,9 +228,8 @@ mod tests {
                         Err("should not reach".to_string())
                     }
                 }
-            },
-        )
-        .await;
+            })
+            .await;
 
         assert_eq!(result, Ok(42));
     }
@@ -249,12 +244,8 @@ mod tests {
         let token = CancellationToken::new();
         let providers = vec!["provider-a".to_string(), "provider-b".to_string()];
 
-        let result = execute_fallback_chain(
-            providers,
-            &FallbackConfig::default(),
-            &cb,
-            &token,
-            |p| {
+        let result =
+            execute_fallback_chain(providers, &FallbackConfig::default(), &cb, &token, |p| {
                 let name = p.as_str().to_string();
                 async move {
                     if name == "provider-a" {
@@ -263,9 +254,8 @@ mod tests {
                         Ok(42)
                     }
                 }
-            },
-        )
-        .await;
+            })
+            .await;
 
         assert_eq!(result, Ok(42));
     }
@@ -331,9 +321,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_provider_circuit_key() {
-        assert_eq!(
-            provider_circuit_key("openai", "gpt-4"),
-            "openai:gpt-4"
-        );
+        assert_eq!(provider_circuit_key("openai", "gpt-4"), "openai:gpt-4");
     }
 }

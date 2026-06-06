@@ -44,7 +44,9 @@ pub fn select_lowest_latency(
     viable.sort_by(|a, b| {
         let score_a = routing_score(a.stats.p50_ms, sla_f);
         let score_b = routing_score(b.stats.p50_ms, sla_f);
-        score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+        score_a
+            .partial_cmp(&score_b)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     Some(viable[0].target.clone())
@@ -64,7 +66,9 @@ pub fn build_latency_fallback_chain(
     viable.sort_by(|a, b| {
         let score_a = routing_score(a.stats.p50_ms, sla_f);
         let score_b = routing_score(b.stats.p50_ms, sla_f);
-        score_a.partial_cmp(&score_b).unwrap_or(std::cmp::Ordering::Equal)
+        score_a
+            .partial_cmp(&score_b)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     viable.into_iter().map(|c| c.target.clone()).collect()
@@ -79,8 +83,8 @@ fn routing_score(p50_ms: u64, sla_ms: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
     use super::*;
+    use uuid::Uuid;
 
     fn make_candidate(model_id: &str, p50_ms: u64, sample_count: usize) -> LatencyCandidate {
         LatencyCandidate {
@@ -114,10 +118,7 @@ mod tests {
 
     #[test]
     fn test_insufficient_samples_fallback() {
-        let candidates = vec![
-            make_candidate("A", 100, 5),
-            make_candidate("B", 200, 5),
-        ];
+        let candidates = vec![make_candidate("A", 100, 5), make_candidate("B", 200, 5)];
 
         let selected = select_lowest_latency(&candidates, 10_000);
         assert!(selected.is_none());

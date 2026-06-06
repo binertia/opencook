@@ -20,7 +20,11 @@ impl RoutingRepo {
     }
 
     /// Create a new routing rule.
-    pub async fn create_rule(&self, org_id: Uuid, rule: &RoutingRule) -> Result<RoutingRule, DbError> {
+    pub async fn create_rule(
+        &self,
+        org_id: Uuid,
+        rule: &RoutingRule,
+    ) -> Result<RoutingRule, DbError> {
         let row = match &self.pool {
             DbBackend::Postgres(pg) => {
                 sqlx::query_as::<_, RoutingRule>(

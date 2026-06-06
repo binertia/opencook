@@ -24,9 +24,15 @@ pub struct UsageQuery {
     pub offset: i64,
 }
 
-fn default_period() -> String { "hourly".to_string() }
-fn default_limit() -> i64 { 100 }
-fn default_offset() -> i64 { 0 }
+fn default_period() -> String {
+    "hourly".to_string()
+}
+fn default_limit() -> i64 {
+    100
+}
+fn default_offset() -> i64 {
+    0
+}
 
 #[derive(Serialize)]
 pub struct UsageResponse {

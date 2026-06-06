@@ -283,60 +283,60 @@ pub fn resource_types() -> Vec<ScimResourceType> {
 
 /// Build the Schemas response.
 pub fn schemas() -> Vec<ScimSchema> {
-    vec![
-        ScimSchema {
-            schemas: vec!["urn:ietf:params:scim:schemas:core:2.0:Schema".to_string()],
-            id: "urn:ietf:params:scim:schemas:core:2.0:User".to_string(),
-            name: "User".to_string(),
-            description: "User Account".to_string(),
-            attributes: vec![
-                ScimAttribute {
-                    name: "userName".to_string(),
-                    attr_type: "string".to_string(),
-                    multi_valued: false,
-                    required: true,
-                    case_exact: false,
-                    mutability: "readWrite".to_string(),
-                    returned: "default".to_string(),
-                    uniqueness: "server".to_string(),
-                },
-                ScimAttribute {
-                    name: "name".to_string(),
-                    attr_type: "complex".to_string(),
-                    multi_valued: false,
-                    required: false,
-                    case_exact: false,
-                    mutability: "readWrite".to_string(),
-                    returned: "default".to_string(),
-                    uniqueness: "none".to_string(),
-                },
-                ScimAttribute {
-                    name: "emails".to_string(),
-                    attr_type: "complex".to_string(),
-                    multi_valued: true,
-                    required: false,
-                    case_exact: false,
-                    mutability: "readWrite".to_string(),
-                    returned: "default".to_string(),
-                    uniqueness: "none".to_string(),
-                },
-                ScimAttribute {
-                    name: "active".to_string(),
-                    attr_type: "boolean".to_string(),
-                    multi_valued: false,
-                    required: false,
-                    case_exact: false,
-                    mutability: "readWrite".to_string(),
-                    returned: "default".to_string(),
-                    uniqueness: "none".to_string(),
-                },
-            ],
-            meta: ScimMeta {
-                resource_type: "Schema".to_string(),
-                created: None,
-                last_modified: None,
-                location: Some("/scim/v2/Schemas/urn:ietf:params:scim:schemas:core:2.0:User".to_string()),
+    vec![ScimSchema {
+        schemas: vec!["urn:ietf:params:scim:schemas:core:2.0:Schema".to_string()],
+        id: "urn:ietf:params:scim:schemas:core:2.0:User".to_string(),
+        name: "User".to_string(),
+        description: "User Account".to_string(),
+        attributes: vec![
+            ScimAttribute {
+                name: "userName".to_string(),
+                attr_type: "string".to_string(),
+                multi_valued: false,
+                required: true,
+                case_exact: false,
+                mutability: "readWrite".to_string(),
+                returned: "default".to_string(),
+                uniqueness: "server".to_string(),
             },
+            ScimAttribute {
+                name: "name".to_string(),
+                attr_type: "complex".to_string(),
+                multi_valued: false,
+                required: false,
+                case_exact: false,
+                mutability: "readWrite".to_string(),
+                returned: "default".to_string(),
+                uniqueness: "none".to_string(),
+            },
+            ScimAttribute {
+                name: "emails".to_string(),
+                attr_type: "complex".to_string(),
+                multi_valued: true,
+                required: false,
+                case_exact: false,
+                mutability: "readWrite".to_string(),
+                returned: "default".to_string(),
+                uniqueness: "none".to_string(),
+            },
+            ScimAttribute {
+                name: "active".to_string(),
+                attr_type: "boolean".to_string(),
+                multi_valued: false,
+                required: false,
+                case_exact: false,
+                mutability: "readWrite".to_string(),
+                returned: "default".to_string(),
+                uniqueness: "none".to_string(),
+            },
+        ],
+        meta: ScimMeta {
+            resource_type: "Schema".to_string(),
+            created: None,
+            last_modified: None,
+            location: Some(
+                "/scim/v2/Schemas/urn:ietf:params:scim:schemas:core:2.0:User".to_string(),
+            ),
         },
-    ]
+    }]
 }

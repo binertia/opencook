@@ -6,11 +6,7 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::AuthContext;
-use gateway_db::{
-    models::AuditAction,
-    repos::user_repo::UserRepo,
-    User as DbUser,
-};
+use gateway_db::{models::AuditAction, repos::user_repo::UserRepo, User as DbUser};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -104,7 +100,13 @@ pub async fn list_users(
     let users = repo
         .list_by_org(org_id, query.search.as_deref(), query.status.as_deref())
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     let total = users.len() as i64;
 
@@ -146,7 +148,13 @@ pub async fn create_user(
             "pending",
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     audit::record(
         &state,
@@ -178,38 +186,68 @@ pub async fn update_user(
 ) -> Result<Json<UserDetailResponse>, ApiError> {
     let repo = UserRepo::new(state.db_pool.clone());
 
-    let user_uuid = Uuid::parse_str(&user_id)
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_user_id", "Invalid user ID"))?;
+    let user_uuid = Uuid::parse_str(&user_id).map_err(|_| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_user_id",
+            "Invalid user ID",
+        )
+    })?;
 
     // Verify user exists and belongs to the org
     let user = repo
         .find_by_id(user_uuid)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "user_not_found", "User not found"))?;
 
     if user.org_id != auth.org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "forbidden", "User does not belong to your organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "User does not belong to your organization",
+        ));
     }
 
     let old_role = user.role.clone();
     if let Some(role) = body.role {
         let role = match role.as_str() {
             "admin" | "member" | "viewer" => role.as_str(),
-            _ => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_role", "Invalid role")),
+            _ => {
+                return Err(ApiError::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_role",
+                    "Invalid role",
+                ))
+            }
         };
 
-        repo
-            .update_role(user_uuid, role)
-            .await
-            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        repo.update_role(user_uuid, role).await.map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
     }
 
     // Re-fetch to get updated data
     let updated = repo
         .find_by_id(user_uuid)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "user_not_found", "User not found"))?;
 
     if old_role != updated.role {
@@ -238,24 +276,42 @@ pub async fn delete_user(
 ) -> Result<StatusCode, ApiError> {
     let repo = UserRepo::new(state.db_pool.clone());
 
-    let user_uuid = Uuid::parse_str(&user_id)
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_user_id", "Invalid user ID"))?;
+    let user_uuid = Uuid::parse_str(&user_id).map_err(|_| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_user_id",
+            "Invalid user ID",
+        )
+    })?;
 
     // Verify user exists and belongs to the org
     let user = repo
         .find_by_id(user_uuid)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
         .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "user_not_found", "User not found"))?;
 
     if user.org_id != auth.org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "forbidden", "User does not belong to your organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "User does not belong to your organization",
+        ));
     }
 
-    repo
-        .delete(user_uuid)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    repo.delete(user_uuid).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     audit::record(
         &state,
@@ -284,7 +340,10 @@ fn db_to_user_item(user: &DbUser) -> UserItem {
     UserItem {
         id: user.id.to_string(),
         email: user.email.clone(),
-        name: user.display_name.clone().unwrap_or_else(|| user.email.clone()),
+        name: user
+            .display_name
+            .clone()
+            .unwrap_or_else(|| user.email.clone()),
         role: user.role.clone(),
         status: user.status.clone(),
         last_login_at: user.last_login_at.map(|t| t.to_rfc3339()),
@@ -296,7 +355,10 @@ fn db_to_detail(user: &DbUser) -> UserDetailResponse {
     UserDetailResponse {
         id: user.id.to_string(),
         email: user.email.clone(),
-        name: user.display_name.clone().unwrap_or_else(|| user.email.clone()),
+        name: user
+            .display_name
+            .clone()
+            .unwrap_or_else(|| user.email.clone()),
         role: user.role.clone(),
         status: user.status.clone(),
         last_login_at: user.last_login_at.map(|t| t.to_rfc3339()),

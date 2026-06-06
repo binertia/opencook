@@ -31,7 +31,11 @@ pub struct RequestLogEntry {
 
 impl RequestLogEntry {
     /// Create a new request log entry with minimal required fields.
-    pub fn new(trace_id: impl Into<String>, org_id: impl Into<String>, model_requested: impl Into<String>) -> Self {
+    pub fn new(
+        trace_id: impl Into<String>,
+        org_id: impl Into<String>,
+        model_requested: impl Into<String>,
+    ) -> Self {
         Self {
             trace_id: trace_id.into(),
             org_id: org_id.into(),
@@ -119,7 +123,12 @@ impl RequestLogEntry {
     }
 
     /// Set latency breakdown: gateway, provider, and total milliseconds.
-    pub fn with_latency_breakdown(mut self, gateway_ms: u64, provider_ms: u64, total_ms: u64) -> Self {
+    pub fn with_latency_breakdown(
+        mut self,
+        gateway_ms: u64,
+        provider_ms: u64,
+        total_ms: u64,
+    ) -> Self {
         self.latency_gateway_ms = gateway_ms;
         self.latency_provider_ms = provider_ms;
         self.latency_total_ms = total_ms;

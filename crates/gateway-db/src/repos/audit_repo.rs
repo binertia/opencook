@@ -143,11 +143,7 @@ impl AuditRepo {
     }
 
     /// Get a single audit entry by ID (org-scoped).
-    pub async fn get_by_id(
-        &self,
-        org_id: Uuid,
-        id: Uuid,
-    ) -> Result<Option<AuditEntry>, DbError> {
+    pub async fn get_by_id(&self, org_id: Uuid, id: Uuid) -> Result<Option<AuditEntry>, DbError> {
         let sql_pg = r#"
             SELECT
                 id, org_id, user_id, api_key_id,
@@ -252,7 +248,10 @@ impl AuditRepo {
             arg_idx,
             arg_idx + 1
         );
-        let count_sql = format!("SELECT COUNT(*) as total FROM audit_log WHERE {}", where_clause);
+        let count_sql = format!(
+            "SELECT COUNT(*) as total FROM audit_log WHERE {}",
+            where_clause
+        );
 
         let entries = match &self.pool {
             DbBackend::Postgres(pg) => {

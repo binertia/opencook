@@ -3,12 +3,7 @@
 //! For state-changing requests to `/api/v1/*` routes, the `X-CSRF-Token`
 //! header must match the `csrf_token` cookie set at login.
 
-use axum::{
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
 use tower_cookies::{Cookie, Cookies};
 
 use crate::error::ApiError;
@@ -56,9 +51,7 @@ pub async fn csrf_middleware(
     );
 
     if is_state_changing && path.starts_with("/api/v1/") {
-        let cookie_token = cookies
-            .get(CSRF_COOKIE_NAME)
-            .map(|c| c.value().to_string());
+        let cookie_token = cookies.get(CSRF_COOKIE_NAME).map(|c| c.value().to_string());
 
         let header_token = req
             .headers()

@@ -87,14 +87,16 @@ impl IntoResponse for ApiError {
 
 impl From<gateway_auth::AuthError> for ApiError {
     fn from(err: gateway_auth::AuthError) -> Self {
-        let status = StatusCode::from_u16(err.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status =
+            StatusCode::from_u16(err.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         ApiError::new(status, "auth_error", err.to_string())
     }
 }
 
 impl From<gateway_providers::ProviderError> for ApiError {
     fn from(err: gateway_providers::ProviderError) -> Self {
-        let status = StatusCode::from_u16(err.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+        let status =
+            StatusCode::from_u16(err.http_status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
         ApiError::new(status, "provider_error", err.to_string())
     }
 }

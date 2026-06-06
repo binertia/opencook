@@ -6,10 +6,10 @@ use axum::{
     response::Redirect,
     Extension, Json,
 };
-use gateway_auth::sso::SsoAuthResult;
-use gateway_auth::sso::saml::SamlProvider;
 use gateway_auth::sso::oidc::OidcProvider;
-use gateway_db::{SsoConfigRepo, SsoProviderType as DbSsoProviderType, UserRepo, OrgMemberRepo};
+use gateway_auth::sso::saml::SamlProvider;
+use gateway_auth::sso::SsoAuthResult;
+use gateway_db::{OrgMemberRepo, SsoConfigRepo, SsoProviderType as DbSsoProviderType, UserRepo};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use tracing::info;
@@ -82,7 +82,11 @@ pub async fn list_sso_providers(
 ) -> Result<Json<Vec<SsoProviderResponse>>, ApiError> {
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let configs = repo.list_by_org(org_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     let providers = configs
@@ -134,8 +138,20 @@ pub async fn saml_authorize(
     let config = repo
         .get_by_org_and_type(query.org_id, DbSsoProviderType::Saml)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "sso_not_configured", "SAML not configured for this organization"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "sso_not_configured",
+                "SAML not configured for this organization",
+            )
+        })?;
 
     // Generate a cryptographically random RelayState for CSRF protection
     let mut random_bytes = [0u8; 32];
@@ -150,19 +166,36 @@ pub async fn saml_authorize(
         .arg(query.org_id.to_string())
         .query_async(&mut state.redis.clone())
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
 
     let provider = SamlProvider::new(
         config.entity_id.unwrap_or_default(),
-        format!("{}/api/v1/auth/saml/acs", state.config.allowed_origins.first().unwrap_or(&"http://localhost:8080".to_string())),
+        format!(
+            "{}/api/v1/auth/saml/acs",
+            state
+                .config
+                .allowed_origins
+                .first()
+                .unwrap_or(&"http://localhost:8080".to_string())
+        ),
         config.sso_url.unwrap_or_default(),
         config.certificate,
         config.role_attribute,
     );
 
-    let url = provider
-        .authn_request_url(&relay_state)
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "saml_error", e.to_string()))?;
+    let url = provider.authn_request_url(&relay_state).map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "saml_error",
+            e.to_string(),
+        )
+    })?;
 
     Ok(Redirect::to(&url))
 }
@@ -173,8 +206,13 @@ pub async fn saml_acs(
     State(state): State<AppState>,
     axum::Form(payload): axum::Form<SamlAcsPayload>,
 ) -> Result<Redirect, ApiError> {
-    let relay_state = payload.relay_state.as_deref()
-        .ok_or_else(|| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Missing RelayState"))?;
+    let relay_state = payload.relay_state.as_deref().ok_or_else(|| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_relay_state",
+            "Missing RelayState",
+        )
+    })?;
 
     // Verify RelayState against Redis and atomically delete it (CSRF + replay protection)
     let redis_key = format!("sso:saml:relay:{}", relay_state);
@@ -182,24 +220,60 @@ pub async fn saml_acs(
         .arg(&redis_key)
         .query_async(&mut state.redis.clone())
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
 
     let org_id = match org_id_str {
-        Some(s) => Uuid::parse_str(&s)
-            .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "Invalid RelayState"))?,
-        None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_relay_state", "RelayState expired or invalid")),
+        Some(s) => Uuid::parse_str(&s).map_err(|_| {
+            ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_relay_state",
+                "Invalid RelayState",
+            )
+        })?,
+        None => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_relay_state",
+                "RelayState expired or invalid",
+            ))
+        }
     };
 
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let config = repo
         .get_by_org_and_type(org_id, DbSsoProviderType::Saml)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "sso_not_configured", "SAML not configured for this organization"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "sso_not_configured",
+                "SAML not configured for this organization",
+            )
+        })?;
 
     let provider = SamlProvider::new(
         config.entity_id.unwrap_or_default(),
-        format!("{}/api/v1/auth/saml/acs", state.config.allowed_origins.first().unwrap_or(&"http://localhost:8080".to_string())),
+        format!(
+            "{}/api/v1/auth/saml/acs",
+            state
+                .config
+                .allowed_origins
+                .first()
+                .unwrap_or(&"http://localhost:8080".to_string())
+        ),
         config.sso_url.unwrap_or_default(),
         config.certificate,
         config.role_attribute,
@@ -213,7 +287,10 @@ pub async fn saml_acs(
 
     info!(user_id = %user.id, org_id = %org_id, "SAML login successful");
 
-    let dashboard_url = state.config.allowed_origins.first()
+    let dashboard_url = state
+        .config
+        .allowed_origins
+        .first()
         .cloned()
         .unwrap_or_else(|| "http://localhost:8080".to_string());
     Ok(Redirect::to(&dashboard_url))
@@ -229,12 +306,28 @@ pub async fn oidc_authorize(
     let config = repo
         .get_by_org_and_type(query.org_id, DbSsoProviderType::Oidc)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "sso_not_configured", "OIDC not configured for this organization"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "sso_not_configured",
+                "OIDC not configured for this organization",
+            )
+        })?;
 
     let redirect_uri = format!(
         "{}/api/v1/auth/oidc/callback",
-        state.config.allowed_origins.first().unwrap_or(&"http://localhost:8080".to_string())
+        state
+            .config
+            .allowed_origins
+            .first()
+            .unwrap_or(&"http://localhost:8080".to_string())
     );
 
     let idp_issuer = config.idp_issuer.unwrap_or_default();
@@ -262,7 +355,13 @@ pub async fn oidc_authorize(
         .arg(query.org_id.to_string())
         .query_async(&mut state.redis.clone())
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
 
     let nonce = Uuid::new_v4().to_string();
 
@@ -282,24 +381,57 @@ pub async fn oidc_callback(
         .arg(&redis_key)
         .query_async(&mut state.redis.clone())
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "redis_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "redis_error",
+                e.to_string(),
+            )
+        })?;
 
     let org_id = match org_id_str {
-        Some(s) => Uuid::parse_str(&s)
-            .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "Invalid state parameter"))?,
-        None => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_state", "State parameter expired or invalid")),
+        Some(s) => Uuid::parse_str(&s).map_err(|_| {
+            ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_state",
+                "Invalid state parameter",
+            )
+        })?,
+        None => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_state",
+                "State parameter expired or invalid",
+            ))
+        }
     };
 
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let config = repo
         .get_by_org_and_type(org_id, DbSsoProviderType::Oidc)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "sso_not_configured", "OIDC not configured for this organization"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(
+                StatusCode::NOT_FOUND,
+                "sso_not_configured",
+                "OIDC not configured for this organization",
+            )
+        })?;
 
     let redirect_uri = format!(
         "{}/api/v1/auth/oidc/callback",
-        state.config.allowed_origins.first().unwrap_or(&"http://localhost:8080".to_string())
+        state
+            .config
+            .allowed_origins
+            .first()
+            .unwrap_or(&"http://localhost:8080".to_string())
     );
 
     let idp_issuer = config.idp_issuer.unwrap_or_default();
@@ -323,7 +455,10 @@ pub async fn oidc_callback(
 
     info!(user_id = %user.id, org_id = %org_id, "OIDC login successful");
 
-    let dashboard_url = state.config.allowed_origins.first()
+    let dashboard_url = state
+        .config
+        .allowed_origins
+        .first()
         .cloned()
         .unwrap_or_else(|| "http://localhost:8080".to_string());
     Ok(Redirect::to(&dashboard_url))
@@ -338,11 +473,19 @@ pub async fn get_sso_config(
 ) -> Result<Json<Vec<SsoConfigResponse>>, ApiError> {
     require_permission(&auth, Permission::SettingsRead)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot access SSO config for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot access SSO config for another organization",
+        ));
     }
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
     let configs = repo.list_by_org(org_id).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     Ok(Json(
@@ -375,14 +518,24 @@ pub async fn create_sso_config(
 ) -> Result<Json<SsoConfigResponse>, ApiError> {
     require_permission(&auth, Permission::SettingsWrite)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot configure SSO for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot configure SSO for another organization",
+        ));
     }
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
 
     let provider_type = match body.provider_type.as_str() {
         "saml" => DbSsoProviderType::Saml,
         "oidc" => DbSsoProviderType::Oidc,
-        _ => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_provider_type", "Must be 'saml' or 'oidc'")),
+        _ => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_provider_type",
+                "Must be 'saml' or 'oidc'",
+            ))
+        }
     };
 
     let config = gateway_db::SsoConfig {
@@ -401,7 +554,11 @@ pub async fn create_sso_config(
     };
 
     let saved = repo.upsert(&config).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     Ok(Json(SsoConfigResponse {
@@ -428,18 +585,32 @@ pub async fn delete_sso_config(
 ) -> Result<StatusCode, ApiError> {
     require_permission(&auth, Permission::SettingsWrite)?;
     if auth.org_id != org_id {
-        return Err(ApiError::new(StatusCode::FORBIDDEN, "cross_org_access", "Cannot delete SSO config for another organization"));
+        return Err(ApiError::new(
+            StatusCode::FORBIDDEN,
+            "cross_org_access",
+            "Cannot delete SSO config for another organization",
+        ));
     }
     let repo = SsoConfigRepo::new(state.db_pool.clone().into_pg()?);
 
     let pt = match provider_type.as_str() {
         "saml" => DbSsoProviderType::Saml,
         "oidc" => DbSsoProviderType::Oidc,
-        _ => return Err(ApiError::new(StatusCode::BAD_REQUEST, "invalid_provider_type", "Must be 'saml' or 'oidc'")),
+        _ => {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_provider_type",
+                "Must be 'saml' or 'oidc'",
+            ))
+        }
     };
 
     repo.delete(org_id, pt).await.map_err(|e| {
-        ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
     })?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -463,18 +634,33 @@ async fn provision_user(
             let new_user = user_repo
                 .create_sso_user(org_id, &result.email, result.name.as_deref())
                 .await
-                .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+                .map_err(|e| {
+                    ApiError::new(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "database_error",
+                        e.to_string(),
+                    )
+                })?;
             info!(user_id = %new_user.id, email = %result.email, "Auto-provisioned SSO user");
             new_user
         }
-        Err(e) => return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string())),
+        Err(e) => {
+            return Err(ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            ))
+        }
     };
 
     // Ensure user is linked to org
-    let members = member_repo
-        .list_by_org(org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let members = member_repo.list_by_org(org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     let already_member = members.iter().any(|m| m.0.user_id == user.id);
 
@@ -486,7 +672,13 @@ async fn provision_user(
         member_repo
             .create(user.id, org_id, assigned_role, None)
             .await
-            .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+            .map_err(|e| {
+                ApiError::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "database_error",
+                    e.to_string(),
+                )
+            })?;
 
         info!(user_id = %user.id, org_id = %org_id, role = assigned_role, "Linked SSO user to organization");
     }

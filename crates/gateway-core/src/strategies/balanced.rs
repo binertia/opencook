@@ -8,8 +8,8 @@
 //! because they are "lower is better" dimensions.
 
 use gateway_db::Target;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 
 use super::quality::model_quality_score;
 
@@ -82,9 +82,21 @@ pub fn select_balanced(
         return None;
     }
 
-    let max_cost = scored.iter().map(|(_, c, _)| *c).fold(0.0, f64::max).max(1e-9);
-    let max_latency = scored.iter().map(|(c, _, _)| c.latency_ms).max().unwrap_or(1) as f64;
-    let max_quality = scored.iter().map(|(_, _, q)| *q).fold(0.0, f64::max).max(1e-9);
+    let max_cost = scored
+        .iter()
+        .map(|(_, c, _)| *c)
+        .fold(0.0, f64::max)
+        .max(1e-9);
+    let max_latency = scored
+        .iter()
+        .map(|(c, _, _)| c.latency_ms)
+        .max()
+        .unwrap_or(1) as f64;
+    let max_quality = scored
+        .iter()
+        .map(|(_, _, q)| *q)
+        .fold(0.0, f64::max)
+        .max(1e-9);
 
     scored.sort_by(|(a, cost_a, qual_a), (b, cost_b, qual_b)| {
         let score_a = compute_score(
@@ -105,7 +117,9 @@ pub fn select_balanced(
             max_quality,
             weights,
         );
-        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        score_b
+            .partial_cmp(&score_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     Some(scored[0].0.target.clone())
@@ -135,9 +149,21 @@ pub fn build_balanced_fallback_chain(
         return vec![];
     }
 
-    let max_cost = scored.iter().map(|(_, c, _)| *c).fold(0.0, f64::max).max(1e-9);
-    let max_latency = scored.iter().map(|(c, _, _)| c.latency_ms).max().unwrap_or(1) as f64;
-    let max_quality = scored.iter().map(|(_, _, q)| *q).fold(0.0, f64::max).max(1e-9);
+    let max_cost = scored
+        .iter()
+        .map(|(_, c, _)| *c)
+        .fold(0.0, f64::max)
+        .max(1e-9);
+    let max_latency = scored
+        .iter()
+        .map(|(c, _, _)| c.latency_ms)
+        .max()
+        .unwrap_or(1) as f64;
+    let max_quality = scored
+        .iter()
+        .map(|(_, _, q)| *q)
+        .fold(0.0, f64::max)
+        .max(1e-9);
 
     scored.sort_by(|(a, cost_a, qual_a), (b, cost_b, qual_b)| {
         let score_a = compute_score(
@@ -158,15 +184,19 @@ pub fn build_balanced_fallback_chain(
             max_quality,
             weights,
         );
-        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        score_b
+            .partial_cmp(&score_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    scored.into_iter().map(|(c, _, _)| c.target.clone()).collect()
+    scored
+        .into_iter()
+        .map(|(c, _, _)| c.target.clone())
+        .collect()
 }
 
 fn estimate_cost(candidate: &BalancedCandidate) -> f64 {
-    let input_cost = Decimal::from(candidate.estimated_prompt_tokens)
-        * candidate.input_cost_per_1k
+    let input_cost = Decimal::from(candidate.estimated_prompt_tokens) * candidate.input_cost_per_1k
         / Decimal::from(1000);
     let output_cost = Decimal::from(candidate.estimated_completion_tokens)
         * candidate.output_cost_per_1k
@@ -188,15 +218,13 @@ fn compute_score(
     let norm_latency = 1.0 - (latency / max_latency);
     let norm_quality = quality / max_quality;
 
-    weights.cost * norm_cost
-        + weights.latency * norm_latency
-        + weights.quality * norm_quality
+    weights.cost * norm_cost + weights.latency * norm_latency + weights.quality * norm_quality
 }
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
     use super::*;
+    use uuid::Uuid;
 
     fn make_candidate(
         model_id: &str,

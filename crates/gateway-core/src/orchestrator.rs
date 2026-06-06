@@ -125,8 +125,15 @@ pub async fn orchestrate_chat_completion(
             debug!(remaining = remaining, limit = limit, "Quota allowed");
             None
         }
-        QuotaResult::Warning { threshold, remaining } => {
-            warn!(threshold = threshold, remaining = remaining, "Quota warning");
+        QuotaResult::Warning {
+            threshold,
+            remaining,
+        } => {
+            warn!(
+                threshold = threshold,
+                remaining = remaining,
+                "Quota warning"
+            );
             Some(format!("{:.0}% of quota used", threshold * 100.0))
         }
         QuotaResult::Exceeded { metric, limit } => {
@@ -146,7 +153,10 @@ pub async fn orchestrate_chat_completion(
                     "error",
                     Some(403),
                     Some("quota_exceeded"),
-                    Some(&format!("Quota exceeded for metric '{}'. Limit: {}", metric, limit)),
+                    Some(&format!(
+                        "Quota exceeded for metric '{}'. Limit: {}",
+                        metric, limit
+                    )),
                     start.elapsed().as_millis() as i32,
                     start.elapsed().as_millis() as i32,
                     false,
@@ -157,15 +167,13 @@ pub async fn orchestrate_chat_completion(
     };
 
     // ── 4. Call provider (with cancellation support) ───────────────────
-    let provider_result = match crate::cancellation::with_cancellation(
-        &cancellation,
-        provider_call(request.clone()),
-    )
-    .await
-    {
-        Ok(result) => result,
-        Err(_) => Err("Request cancelled by client disconnect".to_string()),
-    };
+    let provider_result =
+        match crate::cancellation::with_cancellation(&cancellation, provider_call(request.clone()))
+            .await
+        {
+            Ok(result) => result,
+            Err(_) => Err("Request cancelled by client disconnect".to_string()),
+        };
 
     let latency_ms = start.elapsed().as_millis() as u64;
 
@@ -175,19 +183,19 @@ pub async fn orchestrate_chat_completion(
             let actual_total_tokens = response.usage.total_tokens as u64;
             let actual_prompt_tokens = response.usage.prompt_tokens as u64;
             let actual_completion_tokens = response.usage.completion_tokens as u64;
-            let actual_cost =
-                calculate_cost(&response.model, actual_prompt_tokens, actual_completion_tokens);
+            let actual_cost = calculate_cost(
+                &response.model,
+                actual_prompt_tokens,
+                actual_completion_tokens,
+            );
 
-            let input_cost_dec = Decimal::try_from(
-                actual_prompt_tokens as f64 * input_price / 1_000_000.0,
-            )
-            .unwrap_or_default();
-            let output_cost_dec = Decimal::try_from(
-                actual_completion_tokens as f64 * output_price / 1_000_000.0,
-            )
-            .unwrap_or_default();
-            let total_cost_dec =
-                Decimal::try_from(actual_cost).unwrap_or_default();
+            let input_cost_dec =
+                Decimal::try_from(actual_prompt_tokens as f64 * input_price / 1_000_000.0)
+                    .unwrap_or_default();
+            let output_cost_dec =
+                Decimal::try_from(actual_completion_tokens as f64 * output_price / 1_000_000.0)
+                    .unwrap_or_default();
+            let total_cost_dec = Decimal::try_from(actual_cost).unwrap_or_default();
 
             if let Err(e) = request_repo
                 .update_response(

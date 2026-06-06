@@ -84,7 +84,10 @@ fn normalize_request(request: &ChatCompletionRequest) -> Value {
         map.insert("seed".to_string(), Value::Number(v.into()));
     }
     if let Some(v) = &request.stop {
-        map.insert("stop".to_string(), serde_json::to_value(v).unwrap_or_default());
+        map.insert(
+            "stop".to_string(),
+            serde_json::to_value(v).unwrap_or_default(),
+        );
     }
     if let Some(v) = request.temperature {
         map.insert("temperature".to_string(), json_f32(v));
@@ -93,7 +96,10 @@ fn normalize_request(request: &ChatCompletionRequest) -> Value {
         map.insert("top_p".to_string(), json_f32(v));
     }
     if let Some(v) = &request.tools {
-        map.insert("tools".to_string(), serde_json::to_value(v).unwrap_or_default());
+        map.insert(
+            "tools".to_string(),
+            serde_json::to_value(v).unwrap_or_default(),
+        );
     }
     if let Some(v) = &request.tool_choice {
         map.insert(

@@ -84,7 +84,11 @@ impl ProviderConfigRepo {
     }
 
     /// Get a provider config by ID, scoped to org.
-    pub async fn get_by_id(&self, id: Uuid, org_id: Uuid) -> Result<Option<ProviderConfig>, DbError> {
+    pub async fn get_by_id(
+        &self,
+        id: Uuid,
+        org_id: Uuid,
+    ) -> Result<Option<ProviderConfig>, DbError> {
         let sql = r#"
             SELECT id, org_id, name, kind, api_base, api_key_enc,
                    default_headers, config, priority, status,

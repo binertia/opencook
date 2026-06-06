@@ -49,10 +49,7 @@ pub struct QualityCandidate {
 /// 1. Filter out providers exceeding `latency_sla_ms`.
 /// 2. Sort by quality score descending.
 /// 3. On tie: prefer lower latency.
-pub fn select_best_quality(
-    candidates: &[QualityCandidate],
-    latency_sla_ms: u64,
-) -> Option<Target> {
+pub fn select_best_quality(candidates: &[QualityCandidate], latency_sla_ms: u64) -> Option<Target> {
     let mut viable: Vec<_> = candidates
         .iter()
         .filter(|c| c.latency_ms <= latency_sla_ms)
@@ -100,8 +97,8 @@ pub fn build_quality_fallback_chain(
 
 #[cfg(test)]
 mod tests {
-    use uuid::Uuid;
     use super::*;
+    use uuid::Uuid;
 
     fn make_candidate(model_id: &str, latency_ms: u64) -> QualityCandidate {
         QualityCandidate {
@@ -142,10 +139,7 @@ mod tests {
     #[test]
     fn test_tiebreak_by_latency() {
         // Both have same model_id → same quality score
-        let candidates = vec![
-            make_candidate("gpt-4o", 200),
-            make_candidate("gpt-4o", 100),
-        ];
+        let candidates = vec![make_candidate("gpt-4o", 200), make_candidate("gpt-4o", 100)];
 
         let selected = select_best_quality(&candidates, 10_000);
         assert!(selected.is_some());
@@ -176,8 +170,8 @@ mod tests {
 
         let chain = build_quality_fallback_chain(&candidates, 10_000);
         assert_eq!(chain.len(), 3);
-        assert_eq!(chain[0].model_id, "gpt-4o");      // 1.0
-        assert_eq!(chain[1].model_id, "gpt-4o-mini");  // 0.7
+        assert_eq!(chain[0].model_id, "gpt-4o"); // 1.0
+        assert_eq!(chain[1].model_id, "gpt-4o-mini"); // 0.7
         assert_eq!(chain[2].model_id, "gpt-3.5-turbo"); // 0.55
     }
 }

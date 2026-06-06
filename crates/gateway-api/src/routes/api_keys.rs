@@ -6,11 +6,7 @@ use axum::{
     Extension, Json,
 };
 use gateway_auth::{generate_api_key, AuthContext};
-use gateway_db::{
-    models::AuditAction,
-    repos::api_key_repo::ApiKeyRepo,
-    ApiKey as DbApiKey,
-};
+use gateway_db::{models::AuditAction, repos::api_key_repo::ApiKeyRepo, ApiKey as DbApiKey};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -89,10 +85,13 @@ pub async fn list_api_keys(
 ) -> Result<Json<ApiKeysListResponse>, ApiError> {
     let repo = ApiKeyRepo::new(state.db_pool.clone());
 
-    let keys = repo
-        .list_by_org(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let keys = repo.list_by_org(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     Ok(Json(ApiKeysListResponse {
         object: "list".to_string(),
@@ -129,7 +128,13 @@ pub async fn create_api_key(
             expires_at,
         )
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     audit::record(
         &state,
@@ -197,14 +202,27 @@ pub async fn update_api_key(
 ) -> Result<Json<ApiKeyItem>, ApiError> {
     let repo = ApiKeyRepo::new(state.db_pool.clone());
 
-    let key_uuid = Uuid::parse_str(&key_id)
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_key_id", "Invalid API key ID"))?;
+    let key_uuid = Uuid::parse_str(&key_id).map_err(|_| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_key_id",
+            "Invalid API key ID",
+        )
+    })?;
 
     let existing = repo
         .get_by_id(auth.org_id, key_uuid)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found")
+        })?;
 
     // Prevent revoking an already-revoked key.
     if existing.status == "revoked" && body.status.as_deref() == Some("revoked") {
@@ -217,19 +235,33 @@ pub async fn update_api_key(
 
     let name = body.name.as_deref().map(sanitize_display_text);
     let name_ref = name.as_deref();
-    repo
-        .update(auth.org_id, key_uuid, name_ref, body.status.as_deref())
+    repo.update(auth.org_id, key_uuid, name_ref, body.status.as_deref())
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
     let key = repo
         .get_by_id(auth.org_id, key_uuid)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found")
+        })?;
 
     // If status changed to revoked/inactive, invalidate cache immediately.
-    let is_revocation = body.status.as_deref() == Some("revoked") || body.status.as_deref() == Some("inactive");
+    let is_revocation =
+        body.status.as_deref() == Some("revoked") || body.status.as_deref() == Some("inactive");
     if is_revocation {
         invalidate_api_key_cache(&state, &key.key_hash, key.id).await;
     }
@@ -256,7 +288,11 @@ pub async fn update_api_key(
         Some(&key.id.to_string()),
         Some(old_values),
         Some(new_values),
-        if action == AuditAction::ApiKeyRevoked { "API key revoked" } else { "API key updated" },
+        if action == AuditAction::ApiKeyRevoked {
+            "API key revoked"
+        } else {
+            "API key updated"
+        },
     )
     .await;
 
@@ -271,14 +307,27 @@ pub async fn delete_api_key(
 ) -> Result<StatusCode, ApiError> {
     let repo = ApiKeyRepo::new(state.db_pool.clone());
 
-    let key_uuid = Uuid::parse_str(&key_id)
-        .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, "invalid_key_id", "Invalid API key ID"))?;
+    let key_uuid = Uuid::parse_str(&key_id).map_err(|_| {
+        ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_key_id",
+            "Invalid API key ID",
+        )
+    })?;
 
     let existing = repo
         .get_by_id(auth.org_id, key_uuid)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?
-        .ok_or_else(|| ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found"))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?
+        .ok_or_else(|| {
+            ApiError::new(StatusCode::NOT_FOUND, "key_not_found", "API key not found")
+        })?;
 
     // Prevent deleting an already-revoked key.
     if existing.status == "revoked" {
@@ -289,10 +338,13 @@ pub async fn delete_api_key(
         ));
     }
 
-    repo
-        .delete(auth.org_id, key_uuid)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    repo.delete(auth.org_id, key_uuid).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     // Invalidate cache and broadcast revocation.
     invalidate_api_key_cache(&state, &existing.key_hash, existing.id).await;

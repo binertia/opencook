@@ -164,8 +164,7 @@ impl PgvectorSemanticCache {
     ) -> Result<Option<CachedResponse>, Box<dyn std::error::Error + Send + Sync>> {
         let embedding = self.embedding.embed(text).await.map_err(|e| {
             warn!(error = %e, "Embedding generation failed");
-            Box::new(std::io::Error::other(e))
-                as Box<dyn std::error::Error + Send + Sync>
+            Box::new(std::io::Error::other(e)) as Box<dyn std::error::Error + Send + Sync>
         })?;
 
         let result = self.find_similar(org_id, model, &embedding).await?;
@@ -184,8 +183,7 @@ impl PgvectorSemanticCache {
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let embedding = self.embedding.embed(text).await.map_err(|e| {
             warn!(error = %e, "Embedding generation failed during store");
-            Box::new(std::io::Error::other(e))
-                as Box<dyn std::error::Error + Send + Sync>
+            Box::new(std::io::Error::other(e)) as Box<dyn std::error::Error + Send + Sync>
         })?;
 
         self.store_embedding(org_id, model, &embedding, response_hash, response, ttl)
@@ -234,10 +232,7 @@ impl PgvectorSemanticCache {
     }
 
     /// Get statistics for the semantic cache.
-    pub async fn stats(
-        &self,
-        org_id: Uuid,
-    ) -> Result<SemanticCacheStats, sqlx::Error> {
+    pub async fn stats(&self, org_id: Uuid) -> Result<SemanticCacheStats, sqlx::Error> {
         let row: (i64, Option<chrono::DateTime<chrono::Utc>>) = sqlx::query_as(
             r#"
             SELECT

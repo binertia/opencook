@@ -141,11 +141,7 @@ impl CacheMetaRepo {
     }
 
     /// Increment hit count and update last_hit_at for a cache entry.
-    pub async fn record_hit(
-        &self,
-        org_id: Uuid,
-        cache_key_hash: &str,
-    ) -> Result<(), DbError> {
+    pub async fn record_hit(&self, org_id: Uuid, cache_key_hash: &str) -> Result<(), DbError> {
         match &self.pool {
             DbBackend::Postgres(pg) => {
                 sqlx::query(
@@ -229,11 +225,7 @@ impl CacheMetaRepo {
     }
 
     /// Get hit rate for an org over a time period.
-    pub async fn get_hit_rate(
-        &self,
-        org_id: Uuid,
-        start: DateTime<Utc>,
-    ) -> Result<f64, DbError> {
+    pub async fn get_hit_rate(&self, org_id: Uuid, start: DateTime<Utc>) -> Result<f64, DbError> {
         let (total_hits, total_entries) = match &self.pool {
             DbBackend::Postgres(pg) => {
                 let row = sqlx::query(

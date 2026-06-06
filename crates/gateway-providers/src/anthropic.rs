@@ -274,7 +274,9 @@ impl AnthropicRequest {
                     });
                 }
                 MessageRole::Tool => {
-                    warn!("Anthropic adapter: tool messages not fully supported, converting to user");
+                    warn!(
+                        "Anthropic adapter: tool messages not fully supported, converting to user"
+                    );
                     messages.push(AnthropicMessage {
                         role: "user".to_string(),
                         content: msg.content.unwrap_or_default(),
@@ -424,7 +426,10 @@ mod tests {
         let canonical = anthropic.into_canonical("anthropic");
 
         assert_eq!(canonical.id, "msg_01ABC");
-        assert_eq!(canonical.choices[0].message.content, Some("Hello there!".to_string()));
+        assert_eq!(
+            canonical.choices[0].message.content,
+            Some("Hello there!".to_string())
+        );
         assert_eq!(canonical.choices[0].finish_reason, Some("stop".to_string()));
         assert_eq!(canonical.usage.prompt_tokens, 10);
         assert_eq!(canonical.usage.completion_tokens, 5);

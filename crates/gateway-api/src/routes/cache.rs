@@ -5,7 +5,10 @@ use axum::{
     http::StatusCode,
     Extension, Json,
 };
-use gateway_auth::{AuthContext, rbac::{check_permission, Permission, Role}};
+use gateway_auth::{
+    rbac::{check_permission, Permission, Role},
+    AuthContext,
+};
 use gateway_cache::analytics::CacheAnalytics;
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +25,10 @@ fn require_permission(auth: &AuthContext, permission: Permission) -> Result<(), 
         return Err(Box::new(ApiError::new(
             StatusCode::FORBIDDEN,
             "insufficient_permissions",
-            format!("Role '{:?}' does not have permission '{:?}'", role, permission),
+            format!(
+                "Role '{:?}' does not have permission '{:?}'",
+                role, permission
+            ),
         )));
     }
     Ok(())
@@ -90,12 +96,21 @@ pub async fn get_cache_stats(
     let top_models = analytics
         .get_top_cached_models(auth.org_id, 10)
         .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+        .map_err(|e| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "database_error",
+                e.to_string(),
+            )
+        })?;
 
-    let entry_count = analytics
-        .get_entry_count(auth.org_id)
-        .await
-        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, "database_error", e.to_string()))?;
+    let entry_count = analytics.get_entry_count(auth.org_id).await.map_err(|e| {
+        ApiError::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "database_error",
+            e.to_string(),
+        )
+    })?;
 
     Ok(Json(CacheStatsResponse {
         org_id: auth.org_id.to_string(),

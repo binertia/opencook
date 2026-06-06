@@ -28,15 +28,27 @@ pub struct LoggingStream<S> {
 }
 
 impl<S> LoggingStream<S> {
-    fn finish(&mut self, status: &str, status_code: Option<i32>, error_code: Option<&str>, error_message: Option<&str>) {
+    fn finish(
+        &mut self,
+        status: &str,
+        status_code: Option<i32>,
+        error_code: Option<&str>,
+        error_message: Option<&str>,
+    ) {
         if self.completed {
             return;
         }
         self.completed = true;
 
-        let Some(pool) = self.db_pool.take() else { return };
-        let Some(req_id) = self.request_id.take() else { return };
-        let Some(org_id) = self.org_id.take() else { return };
+        let Some(pool) = self.db_pool.take() else {
+            return;
+        };
+        let Some(req_id) = self.request_id.take() else {
+            return;
+        };
+        let Some(org_id) = self.org_id.take() else {
+            return;
+        };
         let latency_ms = self.start.elapsed().as_millis() as i32;
         let model = self.model.clone();
         let prompt_tokens = self.estimated_prompt_tokens as i32;
@@ -126,7 +138,12 @@ where
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // Check cancellation first
         if self.cancel_token.is_cancelled() {
-            self.finish("cancelled", Some(499), Some("client_disconnect"), Some("Request cancelled by client disconnect"));
+            self.finish(
+                "cancelled",
+                Some(499),
+                Some("client_disconnect"),
+                Some("Request cancelled by client disconnect"),
+            );
             return Poll::Ready(None);
         }
 
@@ -148,7 +165,12 @@ impl<S> Drop for LoggingStream<S> {
     fn drop(&mut self) {
         if !self.completed {
             self.cancel_token.cancel();
-            self.finish("error", Some(499), Some("client_disconnect"), Some("Client disconnected before stream completed"));
+            self.finish(
+                "error",
+                Some(499),
+                Some("client_disconnect"),
+                Some("Client disconnected before stream completed"),
+            );
         }
     }
 }

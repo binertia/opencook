@@ -16,8 +16,6 @@ pub async fn metrics_handler(State(_state): State<AppState>) -> Response {
             let body = handle.render();
             ([("content-type", "text/plain; charset=utf-8")], body).into_response()
         }
-        None => {
-            (StatusCode::SERVICE_UNAVAILABLE, "Metrics not initialized").into_response()
-        }
+        None => (StatusCode::SERVICE_UNAVAILABLE, "Metrics not initialized").into_response(),
     }
 }

@@ -51,23 +51,21 @@ fn test_selects_lowest_latency_provider() {
 
 #[test]
 fn test_insufficient_samples_returns_none() {
-    let candidates = vec![
-        LatencyCandidate {
-            target: Target {
-                provider_config_id: Uuid::new_v4(),
-                model_id: "A".to_string(),
-                provider_kind: None,
-                weight: None,
-            },
-            stats: LatencyStats {
-                sample_count: 3,
-                p50_ms: 100,
-                p90_ms: 200,
-                p99_ms: 300,
-                ema_ms: 100,
-            },
+    let candidates = vec![LatencyCandidate {
+        target: Target {
+            provider_config_id: Uuid::new_v4(),
+            model_id: "A".to_string(),
+            provider_kind: None,
+            weight: None,
         },
-    ];
+        stats: LatencyStats {
+            sample_count: 3,
+            p50_ms: 100,
+            p90_ms: 200,
+            p99_ms: 300,
+            ema_ms: 100,
+        },
+    }];
 
     let selected = select_lowest_latency(&candidates, 10_000);
     assert!(selected.is_none());
@@ -75,7 +73,8 @@ fn test_insufficient_samples_returns_none() {
 
 #[test]
 fn test_sla_penalty_changes_selection() {
-    let _candidates = [LatencyCandidate {
+    let _candidates = [
+        LatencyCandidate {
             target: Target {
                 provider_config_id: Uuid::new_v4(),
                 model_id: "within-sla".to_string(),
@@ -104,7 +103,8 @@ fn test_sla_penalty_changes_selection() {
                 p99_ms: 500,
                 ema_ms: 310,
             },
-        }];
+        },
+    ];
 
     // SLA = 350
     // within-sla: p50=300, score=300

@@ -48,7 +48,10 @@ fn rule_matches(request: &ChatCompletionRequest, rule: &RoutingRule) -> bool {
     // Check conditions JSONB
     if let Some(conditions) = rule.conditions.as_object() {
         // require_streaming
-        if let Some(req_stream) = conditions.get("require_streaming").and_then(|v| v.as_bool()) {
+        if let Some(req_stream) = conditions
+            .get("require_streaming")
+            .and_then(|v| v.as_bool())
+        {
             let is_streaming = request.stream == Some(true);
             if req_stream && !is_streaming {
                 return false;
@@ -64,7 +67,10 @@ fn rule_matches(request: &ChatCompletionRequest, rule: &RoutingRule) -> bool {
         }
 
         // min_context_length
-        if let Some(min_ctx) = conditions.get("min_context_length").and_then(|v| v.as_i64()) {
+        if let Some(min_ctx) = conditions
+            .get("min_context_length")
+            .and_then(|v| v.as_i64())
+        {
             let total_chars: usize = request
                 .messages
                 .iter()
