@@ -306,7 +306,7 @@ npm run build
 
 | Feature | Description |
 |---------|-------------|
-| **11 LLM Providers** | OpenAI, Anthropic, Gemini, Ollama, Qwen, Kimi, Tencent, Groq, Mistral, Cohere, Azure |
+| **11 LLM Providers** | OpenAI, Anthropic, Ollama, Qwen, Kimi, Mistral, Cohere |
 | **OpenAI-Compatible API** | Drop-in `/v1/chat/completions` and `/v1/models` — works with existing SDKs |
 | **Dual-Mode Architecture** | SOLO (SQLite, zero config) ↔ TEAM (PostgreSQL, full auth) |
 | **Semantic Caching** | Embedding-based cache cuts costs 20–40% on repeated queries |
@@ -326,17 +326,12 @@ npm run build
 
 | Provider | Kind | Models | Streaming | Embeddings |
 |----------|------|--------|-----------|------------|
-| OpenAI | `openai` | gpt-4o, gpt-4o-mini, gpt-4-turbo | ✅ | ✅ |
-| Anthropic | `anthropic` | claude-3-5-sonnet, claude-3-opus | ✅ | ❌ |
-| Gemini | `gemini` | gemini-1.5-flash, gemini-1.5-pro | ✅ | ✅ |
-| Ollama | `ollama` | llama3.2, mistral, codellama | ✅ | ✅ |
-| Qwen | `qwen` | qwen-max, qwen-plus, qwen-turbo | ✅ | ❌ |
-| Kimi | `kimi` | moonshot-v1-8k, moonshot-v1-32k | ✅ | ❌ |
-| Tencent | `tencent` | hunyuan-lite, hunyuan-standard, hunyuan-pro | ✅ | ❌ |
-| Groq | `groq` | llama-3.1-70b, mixtral-8x7b | ✅ | ❌ |
-| Mistral | `mistral` | mistral-large, mistral-medium | ✅ | ❌ |
+| OpenAI-(compatible) | `openai` | GPT-5.3, OpenGPT 5.5, o1-Pro | ✅ | ✅ |
+| Anthropic | `anthropic` | Claude Sonnet 4.6, Claude Opus 4.8 | ✅ | ❌ |
+| ollama | `ollama` | llama3.2, mistral, codellama | ✅ | ✅ |
+| Qwen | `qwen` | qwen-3.7 | ✅ | ❌ |
+| Mistral | `mistral` | Mistral Large 3, Codestral v2 | ✅ | ❌ |
 | Cohere | `cohere` | command-r, command-r-plus | ✅ | ❌ |
-| Azure OpenAI | `azure` | gpt-4o, gpt-4-turbo | ✅ | ✅ |
 
 ---
 
