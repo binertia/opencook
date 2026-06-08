@@ -1,9 +1,15 @@
 -- Enable required PostgreSQL extensions
 
--- Add migration script here
-
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "vector";
+
+-- pgvector may not be available in all distributions; semantic caching will be unavailable if missing
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS "vector";
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pgvector extension not available, semantic caching disabled';
+END;
+$$;
 
 -- pg_uuidv7 may not be available in all distributions; if missing, we fall back to gen_random_uuid()
 DO $$

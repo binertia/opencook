@@ -38,11 +38,11 @@ DECLARE
     part_name TEXT;
 BEGIN
     part_name := 'responses_y' || to_char(this_month, 'YYYY') || 'm' || to_char(this_month, 'MM');
-    EXECUTE format('CREATE TABLE IF NOT EXISTS IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
+    EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
         part_name, this_month, next_month);
 
     part_name := 'responses_y' || to_char(next_month, 'YYYY') || 'm' || to_char(next_month, 'MM');
-    EXECUTE format('CREATE TABLE IF NOT EXISTS IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
+    EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF responses FOR VALUES FROM (%L) TO (%L)',
         part_name, next_month, next2_month);
 END;
 $$;

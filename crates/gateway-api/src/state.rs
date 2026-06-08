@@ -8,6 +8,7 @@ use gateway_core::circuit_breaker::{BreakerConfig, CircuitBreaker};
 use gateway_core::profiles::RoutingProfile;
 use gateway_db::pool::create_pool;
 use gateway_db::DbBackend;
+use gateway_db::MigrationRunner;
 use redis::aio::ConnectionManager;
 
 /// Shared state available to all request handlers.
@@ -304,6 +305,7 @@ impl AppState {
         let config = AppConfig::load();
         tracing::info!(profile = %config.profile, "Loaded gateway configuration");
         let db_pool = create_pool(&config.database_url).await?;
+        db_pool.run_migrations().await?;
         let redis = Self::connect_redis(&config.redis_url).await?;
         let cache = TwoTierCache::new(redis.clone());
         let circuit_breaker = CircuitBreaker::new(BreakerConfig::default());
