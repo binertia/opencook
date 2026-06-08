@@ -468,5 +468,5 @@ MIT OR Apache-2.0
 ---
 
 <p align="center">
-  Built with 🦀 in Bangkok · <a href="https://github.com/ai-gateway/ai-gateway/issues">Report an issue</a>
+  Built with 🦀· <a href="https://github.com/ai-gateway/ai-gateway/issues">Report an issue</a>
 </p>
