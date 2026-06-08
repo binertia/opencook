@@ -432,12 +432,12 @@ npm run dev
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                         Clients                              │
+│                         Clients                             │
 │  OpenAI SDK  │  curl  │  LangChain  │  OpenCode  │  Web UI  │
 └──────────────────────────┬──────────────────────────────────┘
                            │  OpenAI-compatible API
 ┌──────────────────────────▼──────────────────────────────────┐
-│                      Axum Router                             │
+│                      Axum Router                            │
 │  CORS → Body Limit → Trace → Rate Limit → Auth → Handler    │
 └──────────────────────────┬──────────────────────────────────┘
                            │
