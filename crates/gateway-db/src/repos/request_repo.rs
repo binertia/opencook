@@ -375,7 +375,7 @@ impl RequestRepo {
                     SELECT
                         COALESCE(COUNT(*), 0) as total_requests,
                         COALESCE(SUM(total_cost), 0)::double precision as total_cost,
-                        COALESCE(AVG(latency_total_ms), 0) as avg_latency_ms,
+                        COALESCE(AVG(latency_total_ms), 0)::double precision as avg_latency_ms,
                         COALESCE(SUM(CASE WHEN cache_hit = true THEN 1 ELSE 0 END), 0) as cache_hits,
                         COALESCE(SUM(CASE WHEN cache_hit = false THEN 1 ELSE 0 END), 0) as cache_misses
                     FROM requests

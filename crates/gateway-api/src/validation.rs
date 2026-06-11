@@ -212,10 +212,21 @@ pub fn validate_custom_headers(headers: &serde_json::Value) -> Result<(), Valida
     };
 
     let forbidden = [
-        "host", "content-length", "transfer-encoding", "connection",
-        "content-encoding", "upgrade", "expect", "te", "trailer",
-        "keep-alive", "proxy-connection", "proxy-authenticate",
-        "proxy-authorization", "www-authenticate", "authorization",
+        "host",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "content-encoding",
+        "upgrade",
+        "expect",
+        "te",
+        "trailer",
+        "keep-alive",
+        "proxy-connection",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "www-authenticate",
+        "authorization",
     ];
 
     for (key, value) in obj {
@@ -225,7 +236,10 @@ pub fn validate_custom_headers(headers: &serde_json::Value) -> Result<(), Valida
             err.message = Some(format!("Header '{}' is not allowed", key).into());
             return Err(err);
         }
-        if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        if !key
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
             let mut err = ValidationError::new("invalid_header_name");
             err.message = Some(format!("Header name '{}' contains invalid characters", key).into());
             return Err(err);

@@ -148,16 +148,14 @@ docker compose -f docker-compose.dev.yml logs -f backend
 
 #### Step 3: Create your first admin user
 
-The database starts empty. Create an organization and admin user via the registration endpoint:
+The database starts empty. Seed the first admin user with the provided script:
 
 ```bash
-curl -X POST http://localhost:8080/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@example.com",
-    "password": "SecurePass123!",
-    "organization_name": "My Team"
-  }'
+# With psql installed locally
+./scripts/seed-admin.sh admin@example.com AdminPass123! "My Team"
+
+# Or via Docker (if running docker-compose.dev.yml)
+docker compose -f docker-compose.dev.yml exec backend ./scripts/seed-admin.sh
 ```
 
 Log in at `http://localhost:5173` (or `http://localhost:8080/admin` if you built the static dashboard).

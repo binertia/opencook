@@ -32,7 +32,11 @@ const IP_BURST: u64 = 200;
 /// When `trusted_proxy_count` is 0, ignores `X-Forwarded-For` entirely.
 fn extract_client_ip(req: &Request, trusted_proxy_count: usize) -> String {
     if trusted_proxy_count > 0 {
-        if let Some(xff) = req.headers().get("x-forwarded-for").and_then(|h| h.to_str().ok()) {
+        if let Some(xff) = req
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|h| h.to_str().ok())
+        {
             let parts: Vec<&str> = xff.split(',').map(|s| s.trim()).collect();
             if parts.len() > trusted_proxy_count {
                 return parts[parts.len() - trusted_proxy_count - 1].to_string();

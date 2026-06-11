@@ -781,8 +781,7 @@ pub async fn trigger_health_check(
         .clone()
         .unwrap_or_else(|| default_base_url(&kind));
 
-    let api_key =
-        decrypt_api_key(&config.api_key_enc, &state.config.master_key)?;
+    let api_key = decrypt_api_key(&config.api_key_enc, &state.config.master_key)?;
 
     let provider_config = FactoryProviderConfig {
         kind: kind.clone(),
@@ -1001,8 +1000,7 @@ pub async fn test_existing_connection(
         .clone()
         .unwrap_or_else(|| default_base_url(&kind));
 
-    let api_key =
-        decrypt_api_key(&config.api_key_enc, &state.config.master_key)?;
+    let api_key = decrypt_api_key(&config.api_key_enc, &state.config.master_key)?;
 
     let provider_config = FactoryProviderConfig {
         kind: kind.clone(),

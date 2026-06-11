@@ -72,7 +72,9 @@ where
             );
             headers.insert(
                 "permissions-policy",
-                HeaderValue::from_static("camera=(), microphone=(), geolocation=(), interest-cohort=()"),
+                HeaderValue::from_static(
+                    "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+                ),
             );
 
             if is_https {

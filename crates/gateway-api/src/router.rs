@@ -96,7 +96,12 @@ pub fn build_router(state: AppState) -> Router {
                 Method::DELETE,
                 Method::OPTIONS,
             ])
-            .allow_headers(Any)
+            .allow_headers([
+                axum::http::header::ACCEPT,
+                axum::http::header::CONTENT_TYPE,
+                axum::http::header::AUTHORIZATION,
+                axum::http::header::HeaderName::from_static("x-csrf-token"),
+            ])
             .allow_credentials(true)
             .max_age(std::time::Duration::from_secs(86400))
     };

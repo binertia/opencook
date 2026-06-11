@@ -307,7 +307,16 @@ pub async fn saml_acs(
 
     info!(user_id = %user.id, org_id = %org_id, "SAML login successful");
 
-    issue_sso_session_and_redirect(&state, &cookies, Some(&headers), user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
+    issue_sso_session_and_redirect(
+        &state,
+        &cookies,
+        Some(&headers),
+        user,
+        org_id,
+        &result.email,
+        &result.role.unwrap_or_else(|| "member".to_string()),
+    )
+    .await
 }
 
 // ── OIDC Authorization ───────────────────────────────────────────────
@@ -477,7 +486,16 @@ pub async fn oidc_callback(
 
     info!(user_id = %user.id, org_id = %org_id, "OIDC login successful");
 
-    issue_sso_session_and_redirect(&state, &cookies, Some(&headers), user, org_id, &result.email, &result.role.unwrap_or_else(|| "member".to_string())).await
+    issue_sso_session_and_redirect(
+        &state,
+        &cookies,
+        Some(&headers),
+        user,
+        org_id,
+        &result.email,
+        &result.role.unwrap_or_else(|| "member".to_string()),
+    )
+    .await
 }
 
 // ── Admin: SSO Config CRUD ───────────────────────────────────────────
@@ -773,11 +791,8 @@ fn decrypt_sso_secret(secret_enc: &str, master_key: &[u8; 32]) -> Option<String>
         return Some(String::new());
     }
     let bytes = hex::decode(secret_enc).ok()?;
-    gateway_auth::crypto::decrypt_with_keys(
-        &bytes,
-        &gateway_auth::ActiveKeyPair::new(*master_key),
-    )
-    .ok()
+    gateway_auth::crypto::decrypt_with_keys(&bytes, &gateway_auth::ActiveKeyPair::new(*master_key))
+        .ok()
 }
 
 // Helper to convert DbBackend to PgPool

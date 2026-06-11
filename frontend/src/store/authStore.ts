@@ -73,8 +73,10 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'gateway-auth',
       partialize: (state) => ({
-        // Only persist non-sensitive UI state; tokens stay in memory
         user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        expiresAt: state.expiresAt,
         isAuthenticated: state.isAuthenticated,
       }),
     }

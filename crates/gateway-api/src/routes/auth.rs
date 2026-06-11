@@ -467,7 +467,10 @@ pub async fn logout(
 ) -> Result<impl IntoResponse, ApiError> {
     // Blocklist the access token from the Authorization header
     if let Some(auth_header) = headers.get("authorization").and_then(|h| h.to_str().ok()) {
-        if let Some(token) = auth_header.strip_prefix("Bearer ").or_else(|| auth_header.strip_prefix("bearer ")) {
+        if let Some(token) = auth_header
+            .strip_prefix("Bearer ")
+            .or_else(|| auth_header.strip_prefix("bearer "))
+        {
             let _ = blocklist_access_token(&state, token).await;
         }
     }

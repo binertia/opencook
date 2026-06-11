@@ -162,14 +162,21 @@ impl UserRepo {
                 );
                 let mut param_idx = 2u32;
                 if search.is_some() {
-                    query.push_str(&format!(" AND (email ILIKE ${} OR display_name ILIKE ${})", param_idx, param_idx));
+                    query.push_str(&format!(
+                        " AND (email ILIKE ${} OR display_name ILIKE ${})",
+                        param_idx, param_idx
+                    ));
                     param_idx += 1;
                 }
                 if status.is_some() && status != Some("all") {
                     query.push_str(&format!(" AND status = ${}", param_idx));
                     param_idx += 1;
                 }
-                query.push_str(&format!(" ORDER BY created_at DESC LIMIT ${} OFFSET ${}", param_idx, param_idx + 1));
+                query.push_str(&format!(
+                    " ORDER BY created_at DESC LIMIT ${} OFFSET ${}",
+                    param_idx,
+                    param_idx + 1
+                ));
 
                 let mut q = sqlx::query_as::<_, User>(&query).bind(org_id);
                 if let Some(s) = search {

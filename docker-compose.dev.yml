@@ -45,6 +45,7 @@ services:
     environment:
       DATABASE_URL: postgres://gateway:gateway_dev_password@postgres:5432/gateway_dev
       REDIS_URL: redis://redis:6379
+      GATEWAY_ALLOWED_ORIGINS: http://localhost:5173
       RUST_LOG: debug
       RUST_BACKTRACE: 1
     volumes:

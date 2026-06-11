@@ -121,7 +121,17 @@ impl ProviderConfigRepo {
 
     /// List all provider configs for an organization.
     pub async fn list_by_org(&self, org_id: Uuid) -> Result<Vec<ProviderConfig>, DbError> {
-        let sql = r#"
+        let sql_pg = r#"
+            SELECT id, org_id, name, kind::text, api_base, api_key_enc,
+                   default_headers, config, priority, status,
+                   last_error_at, last_error_msg,
+                   created_at, updated_at, deleted_at
+            FROM provider_configs
+            WHERE org_id = $1
+              AND deleted_at IS NULL
+            ORDER BY priority DESC, created_at
+            "#;
+        let sql_sqlite = r#"
             SELECT id, org_id, name, kind, api_base, api_key_enc,
                    default_headers, config, priority, status,
                    last_error_at, last_error_msg,
@@ -133,14 +143,14 @@ impl ProviderConfigRepo {
             "#;
         match &self.pool {
             DbBackend::Postgres(pg) => {
-                let rows = sqlx::query_as::<_, ProviderConfig>(sql)
+                let rows = sqlx::query_as::<_, ProviderConfig>(sql_pg)
                     .bind(org_id)
                     .fetch_all(pg)
                     .await?;
                 Ok(rows)
             }
             DbBackend::Sqlite(sqlite) => {
-                let rows = sqlx::query_as::<_, ProviderConfig>(sql)
+                let rows = sqlx::query_as::<_, ProviderConfig>(sql_sqlite)
                     .bind(org_id)
                     .fetch_all(sqlite)
                     .await?;
@@ -151,7 +161,18 @@ impl ProviderConfigRepo {
 
     /// List all active provider configs for an organization.
     pub async fn list_active_by_org(&self, org_id: Uuid) -> Result<Vec<ProviderConfig>, DbError> {
-        let sql = r#"
+        let sql_pg = r#"
+            SELECT id, org_id, name, kind::text, api_base, api_key_enc,
+                   default_headers, config, priority, status,
+                   last_error_at, last_error_msg,
+                   created_at, updated_at, deleted_at
+            FROM provider_configs
+            WHERE org_id = $1
+              AND status = 'active'
+              AND deleted_at IS NULL
+            ORDER BY priority DESC, created_at
+            "#;
+        let sql_sqlite = r#"
             SELECT id, org_id, name, kind, api_base, api_key_enc,
                    default_headers, config, priority, status,
                    last_error_at, last_error_msg,
@@ -164,14 +185,14 @@ impl ProviderConfigRepo {
             "#;
         match &self.pool {
             DbBackend::Postgres(pg) => {
-                let rows = sqlx::query_as::<_, ProviderConfig>(sql)
+                let rows = sqlx::query_as::<_, ProviderConfig>(sql_pg)
                     .bind(org_id)
                     .fetch_all(pg)
                     .await?;
                 Ok(rows)
             }
             DbBackend::Sqlite(sqlite) => {
-                let rows = sqlx::query_as::<_, ProviderConfig>(sql)
+                let rows = sqlx::query_as::<_, ProviderConfig>(sql_sqlite)
                     .bind(org_id)
                     .fetch_all(sqlite)
                     .await?;
@@ -182,7 +203,17 @@ impl ProviderConfigRepo {
 
     /// List all active provider configs across all organizations.
     pub async fn list_all_active(&self) -> Result<Vec<ProviderConfig>, DbError> {
-        let sql = r#"
+        let sql_pg = r#"
+            SELECT id, org_id, name, kind::text, api_base, api_key_enc,
+                   default_headers, config, priority, status,
+                   last_error_at, last_error_msg,
+                   created_at, updated_at, deleted_at
+            FROM provider_configs
+            WHERE status = 'active'
+              AND deleted_at IS NULL
+            ORDER BY org_id, priority DESC, created_at
+            "#;
+        let sql_sqlite = r#"
             SELECT id, org_id, name, kind, api_base, api_key_enc,
                    default_headers, config, priority, status,
                    last_error_at, last_error_msg,
@@ -194,13 +225,13 @@ impl ProviderConfigRepo {
             "#;
         match &self.pool {
             DbBackend::Postgres(pg) => {
-                let rows = sqlx::query_as::<_, ProviderConfig>(sql)
+                let rows = sqlx::query_as::<_, ProviderConfig>(sql_pg)
                     .fetch_all(pg)
                     .await?;
                 Ok(rows)
             }
             DbBackend::Sqlite(sqlite) => {
-                let rows = sqlx::query_as::<_, ProviderConfig>(sql)
+                let rows = sqlx::query_as::<_, ProviderConfig>(sql_sqlite)
                     .fetch_all(sqlite)
                     .await?;
                 Ok(rows)

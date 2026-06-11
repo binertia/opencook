@@ -132,7 +132,10 @@ pub async fn list_users(
 
     let start = query.start_index.saturating_sub(1) as i64;
     let count = query.count.min(1000) as i64;
-    let (users, total) = match user_repo.list_by_org(auth.org_id, None, Some("all"), count, start).await {
+    let (users, total) = match user_repo
+        .list_by_org(auth.org_id, None, Some("all"), count, start)
+        .await
+    {
         Ok(u) => u,
         Err(e) => return scim_db_error(e),
     };
