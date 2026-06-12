@@ -17,10 +17,45 @@ use crate::types::{ChatCompletionRequest, ChatCompletionResponse};
 pub fn model_pricing(model: &str) -> (f64, f64) {
     // (input_cost_per_1m, output_cost_per_1m)
     match model {
-        "gpt-4o" | "gpt-4o-2024-05-13" => (5.00, 15.00),
+        // OpenAI
+        "gpt-5.5" | "gpt-5.5-mini" => (5.00, 15.00),
+        "gpt-5" | "gpt-5-mini" => (3.00, 10.00),
+        "gpt-4.5-preview" => (30.00, 60.00),
+        "gpt-4o" | "gpt-4o-2024-11-20" | "gpt-4o-2024-05-13" => (5.00, 15.00),
         "gpt-4o-mini" | "gpt-4o-mini-2024-07-18" => (0.15, 0.60),
+        "o1" | "o1-mini" => (15.00, 60.00),
+        "o3" => (10.00, 40.00),
+        "o3-mini" => (1.10, 4.40),
+        "o4-mini" => (1.10, 4.40),
         "gpt-4-turbo" => (10.00, 30.00),
+        "gpt-4" => (10.00, 30.00),
         "gpt-3.5-turbo" => (0.50, 1.50),
+        // Anthropic
+        "claude-4.8-sonnet" | "claude-4.8-opus" => (5.00, 25.00),
+        "claude-4.5-sonnet" => (5.00, 25.00),
+        "claude-4-opus" => (15.00, 75.00),
+        "claude-4-sonnet" => (3.00, 15.00),
+        "claude-3-7-sonnet" | "claude-3-7-sonnet-20250219" => (3.00, 15.00),
+        "claude-3-5-sonnet" | "claude-3-5-sonnet-20241022" => (3.00, 15.00),
+        "claude-3-5-haiku" | "claude-3-5-haiku-20241022" => (0.80, 4.00),
+        "claude-3-opus" | "claude-3-opus-20240229" => (15.00, 75.00),
+        "claude-3-sonnet" | "claude-3-sonnet-20240229" => (3.00, 15.00),
+        "claude-3-haiku" | "claude-3-haiku-20240307" => (0.25, 1.25),
+        // Google
+        "gemini-2.5-flash" | "gemini-2.5-flash-preview" => (0.15, 0.60),
+        "gemini-2.5-pro" | "gemini-2.5-pro-preview" => (1.25, 5.00),
+        "gemini-2.0-flash" | "gemini-2.0-flash-lite" | "gemini-2.0-flash-thinking-exp" => {
+            (0.10, 0.40)
+        }
+        "gemini-1.5-flash" | "gemini-1.5-flash-8b" => (0.075, 0.30),
+        "gemini-1.5-pro" => (1.25, 5.00),
+        // Ollama / local models are free from the gateway's perspective
+        m if m.starts_with("llama") => (0.00, 0.00),
+        m if m.starts_with("qwen") => (0.00, 0.00),
+        m if m.starts_with("mistral") => (0.00, 0.00),
+        m if m.starts_with("phi") => (0.00, 0.00),
+        m if m.starts_with("gemma") => (0.00, 0.00),
+        m if m.starts_with("deepseek") => (0.00, 0.00),
         _ => (1.00, 3.00), // default fallback
     }
 }
@@ -70,6 +105,7 @@ pub async fn orchestrate_chat_completion(
     request: ChatCompletionRequest,
     cancellation: CancellationToken,
     provider_call: ProviderCall,
+    provider_id: String,
 ) -> Result<ChatCompletionResponse, OrchestratorError> {
     let start = std::time::Instant::now();
     let request_repo = RequestRepo::new(db_pool.clone());
@@ -115,7 +151,7 @@ pub async fn orchestrate_chat_completion(
         org_id: auth.org_id,
         api_key_id: auth.key_id,
         model: request.model.clone(),
-        provider: "openai".to_string(), // TODO: routing
+        provider: provider_id.clone(),
         estimated_tokens: estimated_total_tokens,
         estimated_cost,
     };
@@ -273,8 +309,16 @@ pub async fn orchestrate_chat_completion(
             });
 
             // ── 7. Enrich response ──────────────────────────────────────
+            // Preserve the actual provider reported by the provider adapter (e.g. after fallback),
+            // otherwise use the resolved primary provider id.
+            let provider_used = response
+                .gateway
+                .as_ref()
+                .map(|g| g.provider.clone())
+                .filter(|p| !p.is_empty())
+                .unwrap_or_else(|| provider_id.clone());
             response.gateway = Some(crate::types::GatewayMetadata {
-                provider: "openai".to_string(), // TODO: derive from actual provider
+                provider: provider_used,
                 latency_ms,
                 cache_hit: Some(false),
                 quota_warning,

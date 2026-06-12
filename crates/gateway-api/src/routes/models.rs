@@ -226,6 +226,37 @@ pub async fn update_pricing(
 
 fn static_fallback_models() -> Vec<ModelInfo> {
     vec![
+        // OpenAI
+        ModelInfo {
+            id: "gpt-5.5".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "gpt-5.5-mini".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "gpt-5".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
         ModelInfo {
             id: "gpt-4o".to_string(),
             object: "model".to_string(),
@@ -243,7 +274,78 @@ fn static_fallback_models() -> Vec<ModelInfo> {
             owned_by: "openai".to_string(),
             gateway: Some(ModelGatewayMeta {
                 provider_id: "openai".to_string(),
-                capabilities: vec!["chat".to_string()],
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "gpt-4.5-preview".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "o1".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["chat".to_string(), "reasoning".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "o3-mini".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["chat".to_string(), "reasoning".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "text-embedding-3-small".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "openai".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "openai".to_string(),
+                capabilities: vec!["embeddings".to_string()],
+            }),
+        },
+        // Anthropic
+        ModelInfo {
+            id: "claude-4.8-sonnet".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "anthropic".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "anthropic".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "claude-4.5-sonnet".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "anthropic".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "anthropic".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "claude-3-7-sonnet-20250219".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "anthropic".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "anthropic".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
             }),
         },
         ModelInfo {
@@ -257,7 +359,28 @@ fn static_fallback_models() -> Vec<ModelInfo> {
             }),
         },
         ModelInfo {
-            id: "gemini-1.5-flash".to_string(),
+            id: "claude-3-5-haiku-20241022".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "anthropic".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "anthropic".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "claude-3-opus-20240229".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "anthropic".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "anthropic".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        // Google
+        ModelInfo {
+            id: "gemini-2.5-flash".to_string(),
             object: "model".to_string(),
             created: 1715000000,
             owned_by: "google".to_string(),
@@ -267,6 +390,37 @@ fn static_fallback_models() -> Vec<ModelInfo> {
             }),
         },
         ModelInfo {
+            id: "gemini-2.5-pro".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "google".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "gemini".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "gemini-2.0-flash".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "google".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "gemini".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "gemini-1.5-flash".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "google".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "gemini".to_string(),
+                capabilities: vec!["chat".to_string(), "vision".to_string()],
+            }),
+        },
+        // Local / Ollama
+        ModelInfo {
             id: "llama3.2".to_string(),
             object: "model".to_string(),
             created: 1715000000,
@@ -274,6 +428,36 @@ fn static_fallback_models() -> Vec<ModelInfo> {
             gateway: Some(ModelGatewayMeta {
                 provider_id: "ollama".to_string(),
                 capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "llama3.3".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "ollama".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "ollama".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "qwen2.5".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "ollama".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "ollama".to_string(),
+                capabilities: vec!["chat".to_string()],
+            }),
+        },
+        ModelInfo {
+            id: "deepseek-r1".to_string(),
+            object: "model".to_string(),
+            created: 1715000000,
+            owned_by: "ollama".to_string(),
+            gateway: Some(ModelGatewayMeta {
+                provider_id: "ollama".to_string(),
+                capabilities: vec!["chat".to_string(), "reasoning".to_string()],
             }),
         },
         // Chinese providers

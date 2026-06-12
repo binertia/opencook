@@ -52,10 +52,22 @@ impl Provider for AnthropicProvider {
 
     fn supported_models(&self) -> Vec<String> {
         vec![
+            "claude-4.8-sonnet".into(),
+            "claude-4.8-opus".into(),
+            "claude-4.5-sonnet".into(),
+            "claude-4-opus".into(),
+            "claude-4-sonnet".into(),
+            "claude-3-7-sonnet".into(),
+            "claude-3-7-sonnet-20250219".into(),
+            "claude-3-5-sonnet".into(),
             "claude-3-5-sonnet-20241022".into(),
+            "claude-3-5-haiku".into(),
             "claude-3-5-haiku-20241022".into(),
+            "claude-3-opus".into(),
             "claude-3-opus-20240229".into(),
+            "claude-3-sonnet".into(),
             "claude-3-sonnet-20240229".into(),
+            "claude-3-haiku".into(),
             "claude-3-haiku-20240307".into(),
         ]
     }

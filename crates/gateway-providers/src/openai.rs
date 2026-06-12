@@ -49,11 +49,25 @@ impl Provider for OpenAiProvider {
 
     fn supported_models(&self) -> Vec<String> {
         vec![
+            "gpt-5.5".into(),
+            "gpt-5.5-mini".into(),
+            "gpt-5".into(),
+            "gpt-5-mini".into(),
+            "gpt-4.5-preview".into(),
             "gpt-4o".into(),
+            "gpt-4o-2024-11-20".into(),
             "gpt-4o-mini".into(),
+            "o1".into(),
+            "o1-mini".into(),
+            "o3-mini".into(),
+            "o3".into(),
+            "o4-mini".into(),
+            "chatgpt-4o-latest".into(),
             "gpt-4-turbo".into(),
             "gpt-4".into(),
             "gpt-3.5-turbo".into(),
+            "text-embedding-3-small".into(),
+            "text-embedding-3-large".into(),
         ]
     }
 

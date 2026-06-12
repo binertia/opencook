@@ -56,7 +56,7 @@ Test it:
 ```bash
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"Hello!"}]}'
+  -d '{"model":"gpt-5.5","messages":[{"role":"user","content":"Hello!"}]}'
 ```
 
 ---
@@ -158,6 +158,13 @@ The database starts empty. Seed the first admin user with the provided script:
 docker compose -f docker-compose.dev.yml exec backend ./scripts/seed-admin.sh
 ```
 
+To use a **custom password**, generate its Argon2id hash first:
+
+```bash
+ADMIN_PASSWORD_HASH=$(cargo run -p gateway-auth --example hash_password -- "YourStr0ng!Pass")
+ADMIN_PASSWORD_HASH="$ADMIN_PASSWORD_HASH" ./scripts/seed-admin.sh admin@example.com "YourStr0ng!Pass" "My Team"
+```
+
 Log in at `http://localhost:5173` (or `http://localhost:8080/admin` if you built the static dashboard).
 
 #### Step 4: Create an API key
@@ -205,6 +212,59 @@ master_key = "0000000000000000000000000000000000000000000000000000000000000000"
 
 ---
 
+### Auto-Routing
+
+OpenCook routes each request to the provider that hosts the requested model. You don't need a routing rule for every model.
+
+**Example: local `llama-server` + Anthropic**
+
+1. Register `llama-server` (OpenAI-compatible):
+   ```bash
+   curl -X POST http://localhost:8080/api/v1/providers \
+     -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "local-llama-server",
+       "kind": "openai",
+       "base_url": "http://localhost:8080",
+       "models": ["llama-3.1-8b"]
+     }'
+   ```
+
+2. Register Anthropic:
+   ```bash
+   curl -X POST http://localhost:8080/api/v1/providers \
+     -H "Authorization: Bearer $ADMIN_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "name": "anthropic-cloud",
+       "kind": "anthropic",
+       "api_key": "sk-ant-api03-...",
+       "models": ["claude-4.8-sonnet"]
+     }'
+   ```
+
+3. Send requests — routing is automatic:
+   ```bash
+   # → llama-server
+   curl -X POST http://localhost:8080/v1/chat/completions \
+     -H "Authorization: Bearer $API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"llama-3.1-8b","messages":[{"role":"user","content":"Hi"}]}'
+
+   # → Anthropic
+   curl -X POST http://localhost:8080/v1/chat/completions \
+     -H "Authorization: Bearer $API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"claude-4.8-sonnet","messages":[{"role":"user","content":"Hi"}]}'
+   ```
+
+If you want explicit control, create routing rules under **Routing** in the dashboard or via `POST /api/v1/routing/rules`.
+
+> The admin API calls above require a dashboard session/JWT token. The easiest way to set up providers is via the dashboard after logging in as the seeded admin.
+
+---
+
 ### Make API Requests
 
 Once a provider is configured, OpenCook is a drop-in replacement for the OpenAI API.
@@ -216,7 +276,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk_gw_your_api_key_here" \
   -d '{
-    "model": "gpt-4o",
+    "model": "gpt-5.5",
     "messages": [
       {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "Explain quantum computing in one sentence."}
@@ -248,7 +308,7 @@ curl -N http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer sk_gw_your_api_key_here" \
   -d '{
-    "model": "gpt-4o-mini",
+    "model": "claude-4.8-sonnet",
     "messages": [{"role": "user", "content": "Count to 5"}],
     "stream": true
   }'
@@ -265,7 +325,7 @@ client = OpenAI(
 )
 
 response = client.chat.completions.create(
-    model="gpt-4o",
+    model="gpt-5.5",
     messages=[{"role": "user", "content": "Hello!"}],
 )
 print(response.choices[0].message.content)
@@ -304,13 +364,14 @@ npm run build
 
 | Feature | Description |
 |---------|-------------|
-| **11 LLM Providers** | OpenAI, Anthropic, Ollama, Qwen, Kimi, Mistral, Cohere |
+| **12 LLM Providers** | OpenAI, Anthropic, Gemini, Ollama, Qwen, Kimi, Mistral, Cohere, Groq, Tencent, Azure, custom |
 | **OpenAI-Compatible API** | Drop-in `/v1/chat/completions` and `/v1/models` — works with existing SDKs |
 | **Dual-Mode Architecture** | SOLO (SQLite, zero config) ↔ TEAM (PostgreSQL, full auth) |
+| **Model-Aware Auto-Routing** | Routes by requested model to the right provider; rules optional |
 | **Semantic Caching** | Embedding-based cache cuts costs 20–40% on repeated queries |
 | **L1 + L2 Caching** | In-process (moka) + Redis with configurable TTLs |
-| **Intelligent Routing** | Privacy-first, frugal, speed, quality, balanced, offline profiles |
-| **Circuit Breaker** | Auto-failover when a provider goes down |
+| **Intelligent Routing Profiles** | Privacy-first, frugal, speed, quality, balanced, offline |
+| **Circuit Breaker + Fallback** | Auto-failover when a provider goes down |
 | **Hard Budget Caps** | Per-org, per-key, per-model quotas that block when exceeded |
 | **6-Layer Rate Limiting** | Global, org, API key, token, provider, IP |
 | **Request Logging** | Full audit trail with cost attribution and PII redaction |
@@ -322,14 +383,22 @@ npm run build
 
 ## Supported Providers
 
-| Provider | Kind | Models | Streaming | Embeddings |
-|----------|------|--------|-----------|------------|
-| OpenAI-(compatible) | `openai` | GPT-5.3, OpenGPT 5.5, o1-Pro | ✅ | ✅ |
-| Anthropic | `anthropic` | Claude Sonnet 4.6, Claude Opus 4.8 | ✅ | ❌ |
-| ollama | `ollama` | llama3.2, mistral, codellama | ✅ | ✅ |
-| Qwen | `qwen` | qwen-3.7 | ✅ | ❌ |
-| Mistral | `mistral` | Mistral Large 3, Codestral v2 | ✅ | ❌ |
-| Cohere | `cohere` | command-r, command-r-plus | ✅ | ❌ |
+| Provider | Kind | Example Models | Streaming | Embeddings |
+|----------|------|----------------|-----------|------------|
+| OpenAI (compatible) | `openai` | `gpt-5.5`, `gpt-5`, `gpt-4o`, `o3-mini`, `o3` | ✅ | ✅ |
+| Anthropic | `anthropic` | `claude-4.8-sonnet`, `claude-4.5-sonnet`, `claude-3-7-sonnet` | ✅ | ❌ |
+| Google Gemini | `gemini` | `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash` | ✅ | ❌ |
+| Ollama / local | `ollama` | `llama3.2`, `llama3.3`, `qwen2.5`, `deepseek-r1` | ✅ | ✅ |
+| Qwen | `qwen` | `qwen-max`, `qwen-plus` | ✅ | ❌ |
+| Kimi (Moonshot) | `kimi` | `moonshot-v1-8k` | ✅ | ❌ |
+| Tencent Hunyuan | `tencent` | `hunyuan-lite` | ✅ | ❌ |
+| Groq | `groq` | `llama-3.1-70b-versatile` | ✅ | ❌ |
+| Mistral | `mistral` | `mistral-large-latest` | ✅ | ❌ |
+| Cohere | `cohere` | `command-r` | ✅ | ❌ |
+| Azure OpenAI | `azure` | `gpt-4o` | ✅ | ❌ |
+| Custom OpenAI-compatible | `custom` | any | ✅ | ❌ |
+
+Any model ID you register is passed straight through to the provider, so new frontier models work without waiting for a code update.
 
 ---
 

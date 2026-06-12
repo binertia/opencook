@@ -14,8 +14,8 @@ use gateway_core::retry::{retry, RetryConfig};
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
 use gateway_db::repos::{
-    cache_meta_repo::CacheMetaRepo, provider_config_repo::ProviderConfigRepo,
-    routing_repo::RoutingRepo,
+    cache_meta_repo::CacheMetaRepo, model_registry::ModelRegistry,
+    provider_config_repo::ProviderConfigRepo, routing_repo::RoutingRepo,
 };
 use gateway_db::RequestRepo;
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
@@ -207,39 +207,86 @@ async fn resolve_routing(
     Some((primary, fallbacks))
 }
 
+/// Build a runtime ProviderConfig from a DB provider config row.
+fn db_config_to_provider_config(
+    state: &AppState,
+    db_config: &gateway_db::ProviderConfig,
+    default_model: &str,
+) -> Option<ProviderConfig> {
+    let kind = parse_provider_kind(&db_config.kind)?;
+    let base_url = db_config
+        .api_base
+        .clone()
+        .unwrap_or_else(|| default_base_url(&kind));
+    let api_key = if db_config.api_key_enc.is_empty() {
+        String::new()
+    } else {
+        state
+            .config
+            .decrypt_master(&db_config.api_key_enc)
+            .unwrap_or_default()
+    };
+    Some(ProviderConfig {
+        kind,
+        provider_id: db_config.id.to_string(),
+        base_url,
+        api_key,
+        default_model: default_model.to_string(),
+        timeout_ms: 30000,
+    })
+}
+
+/// Resolve a provider by looking up which configured provider hosts the requested model.
+/// Returns the highest-priority active provider that has the model, or None if no match.
+async fn resolve_provider_by_model(
+    state: &AppState,
+    auth: &AuthContext,
+    request: &ChatCompletionRequest,
+) -> Option<ProviderConfig> {
+    let registry = ModelRegistry::new(state.db_pool.clone());
+    let matches = match registry.find_providers_for_model(auth.org_id, &request.model).await {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!(error = %e, model = %request.model, "Failed to find providers for model");
+            return None;
+        }
+    };
+
+    if matches.is_empty() {
+        return None;
+    }
+
+    // find_providers_for_model already orders by priority DESC, so take the first.
+    let matched = &matches[0];
+    tracing::debug!(
+        model = %request.model,
+        provider_id = %matched.provider_config.id,
+        provider_name = %matched.provider_config.name,
+        "Resolved model to provider via registry"
+    );
+    db_config_to_provider_config(state, &matched.provider_config, &request.model)
+}
+
 /// Default provider config when no routing rules match.
-/// Tries to find an active provider in the DB first, then falls back to env vars.
+/// Tries to resolve by model registry first, then falls back to the highest-priority active provider,
+/// and finally to environment variables.
 async fn default_provider_config(
     state: &AppState,
     auth: &AuthContext,
     request: &ChatCompletionRequest,
 ) -> ProviderConfig {
-    // Try to find an active provider in the DB for this org
+    // 1. Try to find a provider that explicitly hosts the requested model.
+    if let Some(config) = resolve_provider_by_model(state, auth, request).await {
+        return config;
+    }
+
+    // 2. No model match: fall back to the highest-priority active provider.
     let repo = ProviderConfigRepo::new(state.db_pool.clone());
     match repo.list_active_by_org(auth.org_id).await {
         Ok(configs) => {
             for config in configs {
-                if let Some(kind) = parse_provider_kind(&config.kind) {
-                    let base_url = config
-                        .api_base
-                        .clone()
-                        .unwrap_or_else(|| default_base_url(&kind));
-                    let api_key = if config.api_key_enc.is_empty() {
-                        String::new()
-                    } else {
-                        state
-                            .config
-                            .decrypt_master(&config.api_key_enc)
-                            .unwrap_or_default()
-                    };
-                    return ProviderConfig {
-                        kind,
-                        provider_id: config.id.to_string(),
-                        base_url,
-                        api_key,
-                        default_model: request.model.clone(),
-                        timeout_ms: 30000,
-                    };
+                if let Some(pc) = db_config_to_provider_config(state, &config, &request.model) {
+                    return pc;
                 }
             }
         }
@@ -248,7 +295,7 @@ async fn default_provider_config(
         }
     }
 
-    // Fallback to env vars
+    // 3. Fallback to env vars
     ProviderConfig {
         kind: ProviderKind::OpenAi,
         provider_id: "openai".to_string(),
@@ -591,6 +638,7 @@ async fn non_stream_chat_completions(
         request.clone(),
         cancel_token,
         provider_call,
+        primary_config.provider_id.clone(),
     )
     .await;
     let duration_ms = start.elapsed().as_millis() as f64;

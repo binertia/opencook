@@ -62,8 +62,13 @@ impl Provider for GeminiProvider {
 
     fn supported_models(&self) -> Vec<String> {
         vec![
+            "gemini-2.5-flash".into(),
+            "gemini-2.5-flash-preview".into(),
+            "gemini-2.5-pro".into(),
+            "gemini-2.5-pro-preview".into(),
             "gemini-2.0-flash".into(),
             "gemini-2.0-flash-lite".into(),
+            "gemini-2.0-flash-thinking-exp".into(),
             "gemini-1.5-flash".into(),
             "gemini-1.5-pro".into(),
             "gemini-1.5-flash-8b".into(),

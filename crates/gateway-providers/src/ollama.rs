@@ -51,10 +51,18 @@ impl Provider for OllamaProvider {
         vec![
             "llama3.2".into(),
             "llama3.1".into(),
+            "llama3.3".into(),
             "mistral".into(),
+            "mistral-small".into(),
+            "mistral-large".into(),
             "qwen2.5".into(),
+            "qwen2.5-coder".into(),
             "phi4".into(),
+            "phi4-mini".into(),
             "gemma2".into(),
+            "gemma3".into(),
+            "deepseek-r1".into(),
+            "nomic-embed-text".into(),
         ]
     }
 

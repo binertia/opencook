@@ -12,7 +12,7 @@ use gateway_auth::AuthContext;
 use gateway_core::orchestrator::{orchestrate_chat_completion, OrchestratorError};
 use gateway_core::types::ChatCompletionRequest;
 use gateway_core::LoggingStream;
-use gateway_db::repos::routing_repo::RoutingRepo;
+use gateway_db::repos::{model_registry::ModelRegistry, routing_repo::RoutingRepo};
 use gateway_db::RequestRepo;
 use gateway_providers::factory::{create_provider, ProviderConfig, ProviderKind};
 use tokio_stream::wrappers::ReceiverStream;
@@ -152,7 +152,44 @@ async fn resolve_routing(
     Some((primary, fallbacks))
 }
 
-fn default_provider_config(request: &ChatCompletionRequest) -> ProviderConfig {
+/// Resolve a provider by looking up which configured provider hosts the requested model.
+async fn resolve_provider_by_model(
+    state: &AppState,
+    request: &ChatCompletionRequest,
+) -> Option<ProviderConfig> {
+    let registry = ModelRegistry::new(state.db_pool.clone());
+    let matches = match registry
+        .find_providers_for_model(default_auth().org_id, &request.model)
+        .await
+    {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!(error = %e, model = %request.model, "Failed to find providers for model");
+            return None;
+        }
+    };
+
+    let matched = matches.first()?;
+    let kind_str = matched.provider_config.kind.clone();
+    let target = gateway_db::Target {
+        provider_config_id: matched.provider_config.id,
+        model_id: request.model.clone(),
+        provider_kind: Some(kind_str),
+        weight: None,
+    };
+    build_provider_config(&target)
+}
+
+async fn default_provider_config(
+    state: &AppState,
+    request: &ChatCompletionRequest,
+) -> ProviderConfig {
+    // 1. Try model-aware routing against the default org's registry.
+    if let Some(config) = resolve_provider_by_model(state, request).await {
+        return config;
+    }
+
+    // 2. Fall back to env-based OpenAI.
     ProviderConfig {
         kind: ProviderKind::OpenAi,
         provider_id: "openai".to_string(),
@@ -190,9 +227,12 @@ async fn non_stream_chat_completions(
     request_id: String,
     request: ChatCompletionRequest,
 ) -> Result<Response, ApiError> {
-    let (primary_config, fallback_configs) = resolve_routing(&state, &request)
-        .await
-        .unwrap_or_else(|| (default_provider_config(&request), vec![]));
+    let (primary_config, fallback_configs) =
+        if let Some(result) = resolve_routing(&state, &request).await {
+            result
+        } else {
+            (default_provider_config(&state, &request).await, vec![])
+        };
 
     let cancel_token = CancellationToken::new();
 
@@ -316,6 +356,7 @@ async fn non_stream_chat_completions(
         request.clone(),
         cancel_token,
         provider_call,
+        primary_config.provider_id.clone(),
     )
     .await;
     let duration_ms = start.elapsed().as_millis() as f64;
@@ -411,9 +452,12 @@ async fn stream_chat_completions(
         .await
         .map_err(|e| ApiError::new("database_error", e.to_string()))?;
 
-    let (provider_config, _fallback_configs) = resolve_routing(&state, &request)
-        .await
-        .unwrap_or_else(|| (default_provider_config(&request), vec![]));
+    let (provider_config, _fallback_configs) =
+        if let Some(result) = resolve_routing(&state, &request).await {
+            result
+        } else {
+            (default_provider_config(&state, &request).await, vec![])
+        };
 
     let provider_key = provider_config.provider_id.clone();
     if let Err(e) = state.circuit_breaker.check(&provider_key) {

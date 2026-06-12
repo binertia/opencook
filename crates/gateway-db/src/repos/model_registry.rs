@@ -6,7 +6,7 @@ use tracing::debug;
 use uuid::Uuid;
 
 use crate::error::DbError;
-use crate::models::{Capabilities, ModelEntry, PricingInfo, ProviderModel};
+use crate::models::{Capabilities, ModelEntry, PricingInfo, ProviderConfig, ProviderModel};
 
 /// Repository for the model registry.
 #[derive(Clone)]
@@ -111,6 +111,113 @@ impl ModelRegistry {
             }
             None => Ok(None),
         }
+    }
+
+    /// Find all active providers that host a given model (or alias), ordered by provider priority descending.
+    pub async fn find_providers_for_model(
+        &self,
+        org_id: Uuid,
+        model_id: &str,
+    ) -> Result<Vec<crate::models::ModelProviderMatch>, DbError> {
+        // Fetch matching provider_models first.
+        let sql = r#"
+            SELECT
+                pm.id, pm.org_id, pm.provider_config_id,
+                pm.model_id, pm.model_name, pm.aliases,
+                pm.input_cost_per_1k, pm.output_cost_per_1k,
+                pm.context_window, pm.max_tokens,
+                pm.supports_streaming, pm.supports_tools, pm.supports_vision,
+                pm.status, pm.config,
+                pm.created_at, pm.updated_at, pm.deleted_at
+            FROM provider_models pm
+            WHERE pm.org_id = $1
+              AND pm.status = 'active'
+              AND pm.deleted_at IS NULL
+              AND (pm.model_id = $2 OR pm.aliases @> ARRAY[$2])
+            ORDER BY pm.created_at ASC
+            "#;
+        let rows = match &self.pool {
+            DbBackend::Postgres(pg) => {
+                sqlx::query_as::<_, ProviderModel>(sql)
+                    .bind(org_id)
+                    .bind(model_id)
+                    .fetch_all(pg)
+                    .await?
+            }
+            DbBackend::Sqlite(sqlite) => {
+                let pattern = format!("%\"{}\"%", model_id);
+                let sql_sqlite = r#"
+                    SELECT
+                        pm.id, pm.org_id, pm.provider_config_id,
+                        pm.model_id, pm.model_name, pm.aliases,
+                        pm.input_cost_per_1k, pm.output_cost_per_1k,
+                        pm.context_window, pm.max_tokens,
+                        pm.supports_streaming, pm.supports_tools, pm.supports_vision,
+                        pm.status, pm.config,
+                        pm.created_at, pm.updated_at, pm.deleted_at
+                    FROM provider_models pm
+                    WHERE pm.org_id = $1
+                      AND pm.status = 'active'
+                      AND pm.deleted_at IS NULL
+                      AND (pm.model_id = $2 OR pm.aliases LIKE $3)
+                    ORDER BY pm.created_at ASC
+                    "#;
+                sqlx::query_as::<_, ProviderModel>(sql_sqlite)
+                    .bind(org_id)
+                    .bind(model_id)
+                    .bind(&pattern)
+                    .fetch_all(sqlite)
+                    .await?
+            }
+        };
+
+        // Fetch the associated active provider_configs and combine.
+        let mut matches = Vec::with_capacity(rows.len());
+        for pm in rows {
+            let provider_sql = r#"
+                SELECT id, org_id, name, kind, api_base, api_key_enc,
+                       default_headers, config, priority, status,
+                       last_error_at, last_error_msg, created_at, updated_at, deleted_at
+                FROM provider_configs
+                WHERE id = $1
+                  AND org_id = $2
+                  AND status = 'active'
+                  AND deleted_at IS NULL
+                "#;
+            let config: Option<ProviderConfig> = match &self.pool {
+                DbBackend::Postgres(pg) => {
+                    sqlx::query_as::<_, ProviderConfig>(provider_sql)
+                        .bind(pm.provider_config_id)
+                        .bind(org_id)
+                        .fetch_optional(pg)
+                        .await?
+                }
+                DbBackend::Sqlite(sqlite) => {
+                    sqlx::query_as::<_, ProviderConfig>(provider_sql)
+                        .bind(pm.provider_config_id)
+                        .bind(org_id)
+                        .fetch_optional(sqlite)
+                        .await?
+                }
+            };
+            if let Some(provider_config) = config {
+                matches.push(crate::models::ModelProviderMatch {
+                    provider_config,
+                    provider_model: pm,
+                });
+            }
+        }
+
+        // Sort by provider priority descending, then creation time ascending.
+        matches.sort_by(|a, b| {
+            b.provider_config
+                .priority
+                .cmp(&a.provider_config.priority)
+                .then_with(|| a.provider_config.created_at.cmp(&b.provider_config.created_at))
+        });
+
+        debug!(org_id = %org_id, model_id = %model_id, count = matches.len(), "Found providers for model");
+        Ok(matches)
     }
 
     /// Resolve an alias to a model_id.
@@ -430,5 +537,52 @@ mod tests {
             entry.pricing.input_cost_per_1k.into_inner(),
             rust_decimal::Decimal::new(5, 3)
         );
+    }
+
+    #[tokio::test]
+    async fn test_find_providers_for_model_resolves_by_model_and_alias() {
+        use crate::pool::create_pool;
+        use crate::repos::organization_repo::OrganizationRepo;
+        use crate::repos::provider_config_repo::ProviderConfigRepo;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("test.db");
+        let pool = create_pool(&db_path.to_string_lossy())
+            .await
+            .expect("sqlite pool creation failed");
+
+        let org_repo = OrganizationRepo::new(pool.clone());
+        let provider_repo = ProviderConfigRepo::new(pool.clone());
+        let registry = ModelRegistry::new(pool.clone());
+
+        let org = org_repo.create("Test Org", "test-org", None, "free").await.unwrap();
+
+        // Create two providers: a local Ollama (priority 10) and cloud OpenAI (priority 5).
+        let ollama = provider_repo
+            .create(org.id, "local-ollama", "ollama", Some("http://localhost:11434"), &[], serde_json::json!({}), serde_json::json!({}), 10)
+            .await
+            .unwrap();
+        let openai = provider_repo
+            .create(org.id, "cloud-openai", "openai", None, b"enc", serde_json::json!({}), serde_json::json!({}), 5)
+            .await
+            .unwrap();
+
+        // Register models on each provider.
+        registry.create_model(org.id, ollama.id, "llama3.2", "Llama 3.2").await.unwrap();
+        registry.create_model(org.id, openai.id, "gpt-4o", "GPT-4o").await.unwrap();
+
+        // Model-aware lookup should return the matching provider.
+        let ollama_matches = registry.find_providers_for_model(org.id, "llama3.2").await.unwrap();
+        assert_eq!(ollama_matches.len(), 1);
+        assert_eq!(ollama_matches[0].provider_config.id, ollama.id);
+        assert_eq!(ollama_matches[0].provider_model.model_id, "llama3.2");
+
+        let openai_matches = registry.find_providers_for_model(org.id, "gpt-4o").await.unwrap();
+        assert_eq!(openai_matches.len(), 1);
+        assert_eq!(openai_matches[0].provider_config.id, openai.id);
+
+        // Unknown model returns empty.
+        let unknown = registry.find_providers_for_model(org.id, "unknown-model").await.unwrap();
+        assert!(unknown.is_empty());
     }
 }

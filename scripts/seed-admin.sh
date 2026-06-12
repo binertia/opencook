@@ -2,6 +2,10 @@
 # Seed the first admin user into the gateway database.
 # Usage: ./scripts/seed-admin.sh [EMAIL] [PASSWORD] [ORG_NAME]
 #
+# If you provide a custom PASSWORD, you must also set ADMIN_PASSWORD_HASH to its
+# Argon2id hash. Generate the hash with:
+#   ADMIN_PASSWORD_HASH=$(cargo run -p gateway-auth --example hash_password -- "YourP@ssw0rd!")
+#
 # Requires: psql (PostgreSQL client) or docker compose
 
 set -euo pipefail
@@ -12,7 +16,17 @@ ORG_NAME="${3:-Default Org}"
 
 # Pre-computed Argon2id hash for "AdminPass123!" (m=65536,t=3,p=4)
 # Generated with: cargo run -p gateway-auth --example hash_password
+DEFAULT_PASSWORD="AdminPass123!"
 DEFAULT_HASH='$argon2id$v=19$m=65536,t=3,p=4$noEqSB8UJ7ffQP8qih7p/Q$xTYwSc1Ay/MhQ3x+B3xX/Z/g91JzMdFhBpBf+5zlIrM'
+
+# Custom passwords require a pre-computed hash.
+if [[ "$PASSWORD" != "$DEFAULT_PASSWORD" && -z "${ADMIN_PASSWORD_HASH:-}" ]]; then
+  echo "Error: custom passwords require ADMIN_PASSWORD_HASH to be set." >&2
+  echo "Generate it with:" >&2
+  echo "  ADMIN_PASSWORD_HASH=\$(cargo run -p gateway-auth --example hash_password -- \"$PASSWORD\")" >&2
+  echo "Then re-run this script with the same ADMIN_PASSWORD_HASH value." >&2
+  exit 1
+fi
 
 # Allow overriding the hash via env var
 PASSWORD_HASH="${ADMIN_PASSWORD_HASH:-$DEFAULT_HASH}"

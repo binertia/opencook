@@ -150,6 +150,13 @@ pub struct ProviderConfig {
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
+/// A provider/model pair returned when resolving a model to its hosting provider(s).
+#[derive(Debug, Clone)]
+pub struct ModelProviderMatch {
+    pub provider_config: ProviderConfig,
+    pub provider_model: ProviderModel,
+}
+
 /// Model registry entry (joined view).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelEntry {

@@ -85,6 +85,8 @@ async fn test_state(shutdown: ShutdownState) -> AppState {
         smtp_user: None,
         smtp_password: None,
         smtp_from: None,
+        trust_x_forwarded_proto: false,
+        trusted_proxy_count: 0,
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
@@ -177,6 +179,8 @@ async fn spawn_test_server() -> (SocketAddr, ShutdownState) {
         smtp_user: None,
         smtp_password: None,
         smtp_from: None,
+        trust_x_forwarded_proto: false,
+        trusted_proxy_count: 0,
     };
 
     let jwt = Arc::new(gateway_auth::JwtService::from_secret(&[0u8; 32]));
